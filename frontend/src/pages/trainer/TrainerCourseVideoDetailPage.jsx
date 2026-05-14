@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import DashboardSectionPage from "../admin/DashboardSectionPage";
+import CommunityVideoPlayer from "../../components/CommunityVideoPlayer.jsx";
+import CourseAdaptiveVideo from "../../components/CourseAdaptiveVideo.jsx";
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -376,11 +378,27 @@ export default function TrainerCourseVideoDetailPage() {
             <div className="lms-card p-0 overflow-hidden admin-video-main-card">
               <div className="bg-black admin-video-player-wrap">
                 {video && resolvePlayableUrl(video) ? (
-                  <video
-                    src={resolvePlayableUrl(video)}
-                    controls
-                    style={{ width: "100%", maxHeight: "70vh" }}
-                  />
+                  (() => {
+                    const playUrl = resolvePlayableUrl(video);
+                    if (/\.m3u8(\?|$)/i.test(playUrl)) {
+                      return (
+                        <CourseAdaptiveVideo
+                          src={playUrl}
+                          controls
+                          style={{ width: "100%", maxHeight: "70vh" }}
+                        />
+                      );
+                    }
+                    return (
+                      <CommunityVideoPlayer
+                        src={playUrl}
+                        title={video.title || "Video"}
+                        variants={video.video_variants || []}
+                        autoQualityLabel="Original"
+                        className="w-100"
+                      />
+                    );
+                  })()
                 ) : (
                   <div className="text-white text-center py-5">
                     Video preview unavailable.

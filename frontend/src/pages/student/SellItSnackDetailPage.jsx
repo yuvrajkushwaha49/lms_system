@@ -4,6 +4,7 @@ import CommunityVideoPlayer from "../../components/CommunityVideoPlayer";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
 import CommentReportReasonModal from "../../components/CommentReportReasonModal";
 import { REPORT_REASONS } from "../../constants/reportReasons";
+import { resolvePublicMediaUrl } from "../../utils/mediaUrl";
 
 const formatDate = (value) => {
   if (!value) return "-";
@@ -941,7 +942,12 @@ export default function SellItSnackDetailPage({
                   <p className="text-muted small mb-0">No other snacks available yet.</p>
                 ) : (
                   <ul className="list-unstyled mb-0 sell-snack-suggested-list">
-                    {suggestedSnacks.map((item) => (
+                    {suggestedSnacks.map((item) => {
+                      const sugThumb = resolvePublicMediaUrl(
+                        item.thumbnail_url || "",
+                        apiBaseUrl,
+                      );
+                      return (
                       <li key={item.id} className="mb-3">
                         <Link
                           to={`${detailBasePath}/${item.id}`}
@@ -952,8 +958,8 @@ export default function SellItSnackDetailPage({
                             style={{
                               width: 112,
                               height: 63,
-                              background: item.thumbnail_url
-                                ? `url(${item.thumbnail_url}) center/cover no-repeat`
+                              background: sugThumb
+                                ? `url(${sugThumb}) center/cover no-repeat`
                                 : "linear-gradient(135deg,#4169ff,#f7efe1)",
                             }}
                           />
@@ -966,7 +972,8 @@ export default function SellItSnackDetailPage({
                           </div>
                         </Link>
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 )}
                 {suggestionsLoading && (

@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from "react";
+import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
 import CommentReportReasonModal from "../../components/CommentReportReasonModal";
+import CommunityVideoPlayer from "../../components/CommunityVideoPlayer.jsx";
+import CourseAdaptiveVideo from "../../components/CourseAdaptiveVideo.jsx";
 import { REPORT_REASONS } from "../../constants/reportReasons";
+import { resolvePublicMediaUrl } from "../../utils/mediaUrl";
 
 const toDurationLabel = (seconds) => {
   const totalSeconds = Number(seconds);
@@ -36,6 +39,13 @@ const resolveCommentAuthorName = (comment) =>
 export default function StudentCourseDetailPage() {
   const { courseId } = useParams();
   const navigate = useNavigate();
+  const { search } = useLocation();
+  const omSearchParams = useMemo(() => new URLSearchParams(search), [search]);
+  const fromOwningManhattan = omSearchParams.get("from") === "owning-manhattan";
+  const omCinemaMode = fromOwningManhattan && omSearchParams.get("view") === "player";
+  const coursesListPath = fromOwningManhattan
+    ? "/dashboard/student-owning-manhattan"
+    : "/dashboard/student-course";
   const [course, setCourse] = useState(null);
   const [videos, setVideos] = useState([]);
   const [activeVideoId, setActiveVideoId] = useState(null);
@@ -56,12 +66,15 @@ export default function StudentCourseDetailPage() {
   const [courseCommentReportTarget, setCourseCommentReportTarget] = useState(null);
   const [courseCommentReportReason, setCourseCommentReportReason] = useState("");
   const [courseCommentNotice, setCourseCommentNotice] = useState("");
+  const [courseCommentReplyParentId, setCourseCommentReplyParentId] = useState(null);
+  const [courseCommentReplyDraft, setCourseCommentReplyDraft] = useState("");
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(true);
   const [openSections, setOpenSections] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const progressSyncRef = useRef({});
   const resumeSeekRef = useRef(null);
+  const omCinemaBootstrappedRef = useRef(false);
 
   const apiBaseUrl = useMemo(
     () =>
@@ -84,6 +97,30 @@ export default function StudentCourseDetailPage() {
   const canModerateCourseCommentsUi = ["ceo", "admin", "instructor", "trainer"].includes(
     String(sessionUser?.role_name || "").toLowerCase(),
   );
+
+  const refreshCourseVideoEngagement = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !courseId) return;
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/courses/${courseId}/videos/engagement`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const payload = await response.json();
+      if (!response.ok || payload.status !== "success") return;
+      const data = payload.data || {};
+      if (data.likes && typeof data.likes === "object") setVideoLikesMap(data.likes);
+      if (data.comments && typeof data.comments === "object") setVideoCommentsMap(data.comments);
+      if (data.progress && typeof data.progress === "object") setCompletedVideoMap(data.progress);
+      if (data.views && typeof data.views === "object") setVideoViewsMap(data.views);
+      if (data.progressMeta && typeof data.progressMeta === "object") {
+        setVideoProgressMetaMap(data.progressMeta);
+      }
+      setLastWatchedVideo(data.lastWatched || null);
+    } catch {
+      /* ignore */
+    }
+  }, [apiBaseUrl, courseId]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -215,7 +252,66 @@ export default function StudentCourseDetailPage() {
   }, [apiBaseUrl, courseId, navigate]);
 
   useEffect(() => {
+    omCinemaBootstrappedRef.current = false;
+  }, [courseId]);
+
+  useEffect(() => {
+    if (!omCinemaMode || isLoading || videos.length === 0 || error) return undefined;
+    if (omCinemaBootstrappedRef.current) return undefined;
+    const timer = window.setTimeout(() => {
+      if (omCinemaBootstrappedRef.current) return;
+      const lastVideoId = Number(lastWatchedVideo?.video_id);
+      const lastWatchTime = Number(lastWatchedVideo?.watch_time_seconds || 0);
+      const hasLastVideo = videos.some((v) => String(v.id) === String(lastVideoId));
+      let targetId;
+      let seek = 0;
+      if (hasLastVideo) {
+        targetId = lastVideoId;
+        seek = lastWatchTime;
+      } else {
+        const nextIncomplete = videos.find((v) => !completedVideoMap[String(v.id)]);
+        const fallback = nextIncomplete || videos[0];
+        targetId = fallback.id;
+        seek = Number(videoProgressMetaMap[String(fallback.id)]?.watch_time_seconds || 0);
+      }
+      const selected = videos.find((v) => String(v.id) === String(targetId));
+      if (!selected) {
+        omCinemaBootstrappedRef.current = true;
+        return;
+      }
+      const playableUrl =
+        selected.video_url || selected.video_data_url || selected.session_video_url || "";
+      const isVid = String(selected?.content_type || "video").toLowerCase() === "video";
+      if (!isVid) {
+        if (playableUrl) {
+          window.open(playableUrl, "_blank", "noopener,noreferrer");
+        }
+        omCinemaBootstrappedRef.current = true;
+        navigate(coursesListPath);
+        return;
+      }
+      omCinemaBootstrappedRef.current = true;
+      setActiveVideoId(String(targetId));
+      setIsPlayerOpen(true);
+      resumeSeekRef.current = Math.max(0, seek);
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [
+    omCinemaMode,
+    isLoading,
+    videos,
+    error,
+    lastWatchedVideo,
+    videoProgressMetaMap,
+    completedVideoMap,
+    navigate,
+    coursesListPath,
+  ]);
+
+  useEffect(() => {
     setCourseCommentMenuOpenId(null);
+    setCourseCommentReplyParentId(null);
+    setCourseCommentReplyDraft("");
   }, [activeVideoId]);
 
   useEffect(() => {
@@ -314,8 +410,8 @@ export default function StudentCourseDetailPage() {
     }
   };
 
-  const addComment = async (videoId) => {
-    const trimmed = commentDraft.trim();
+  const addComment = async (videoId, parentCommentId = null) => {
+    const trimmed = (parentCommentId ? courseCommentReplyDraft : commentDraft).trim();
     if (!videoId || !trimmed) return;
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -328,34 +424,23 @@ export default function StudentCourseDetailPage() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ comment_text: trimmed }),
+          body: JSON.stringify({
+            comment_text: trimmed,
+            ...(parentCommentId ? { parent_comment_id: parentCommentId } : {}),
+          }),
         },
       );
       const payload = await response.json();
       if (!response.ok || payload.status !== "success") {
         throw new Error(payload.message || "Unable to add comment.");
       }
-      const insertedComment = {
-        id: payload?.data?.id,
-        user_id:
-          payload?.data?.user_id != null
-            ? Number(payload.data.user_id)
-            : currentUserIdForComments || null,
-        text: payload?.data?.comment_text || trimmed,
-        user_name:
-          payload?.data?.user_name ||
-          JSON.parse(localStorage.getItem("user") || "{}")?.name ||
-          "Unknown User",
-        createdAt: payload?.data?.created_at || new Date().toISOString(),
-        likesCount: 0,
-        dislikesCount: 0,
-        myReaction: null,
-      };
-      setVideoCommentsMap((prev) => {
-        const key = String(videoId);
-        return { ...prev, [key]: [insertedComment, ...(prev[key] || [])] };
-      });
-      setCommentDraft("");
+      await refreshCourseVideoEngagement();
+      if (parentCommentId) {
+        setCourseCommentReplyDraft("");
+        setCourseCommentReplyParentId(null);
+      } else {
+        setCommentDraft("");
+      }
     } catch (commentError) {
       setError(commentError.message);
     }
@@ -382,23 +467,7 @@ export default function StudentCourseDetailPage() {
       if (!response.ok || payload.status !== "success") {
         throw new Error(payload.message || "Unable to react on comment.");
       }
-      const nextLikes = Number(payload?.data?.likes_count || 0);
-      const nextDislikes = Number(payload?.data?.dislikes_count || 0);
-      const nextMyReaction = payload?.data?.my_reaction || null;
-      setVideoCommentsMap((prev) => {
-        const key = String(videoId);
-        const updatedComments = (prev[key] || []).map((comment) =>
-          String(comment.id) === String(commentId)
-            ? {
-                ...comment,
-                likesCount: nextLikes,
-                dislikesCount: nextDislikes,
-                myReaction: nextMyReaction,
-              }
-            : comment,
-        );
-        return { ...prev, [key]: updatedComments };
-      });
+      await refreshCourseVideoEngagement();
     } catch (reactionError) {
       setError(reactionError.message);
     }
@@ -431,17 +500,7 @@ export default function StudentCourseDetailPage() {
       if (!response.ok || payload.status !== "success") {
         throw new Error(payload.message || "Unable to save comment.");
       }
-      const text =
-        typeof payload?.data?.comment_text === "string"
-          ? payload.data.comment_text
-          : trimmed;
-      const key = String(videoId);
-      setVideoCommentsMap((prev) => ({
-        ...prev,
-        [key]: (prev[key] || []).map((comment) =>
-          String(comment.id) === String(commentId) ? { ...comment, text } : comment,
-        ),
-      }));
+      await refreshCourseVideoEngagement();
       setCourseCommentEditingKey(null);
       setCourseCommentEditDraft("");
       setCourseCommentMenuOpenId(null);
@@ -470,11 +529,7 @@ export default function StudentCourseDetailPage() {
       if (!response.ok || payload.status !== "success") {
         throw new Error(payload.message || "Unable to delete comment.");
       }
-      const key = String(videoId);
-      setVideoCommentsMap((prev) => ({
-        ...prev,
-        [key]: (prev[key] || []).filter((c) => String(c.id) !== String(commentId)),
-      }));
+      await refreshCourseVideoEngagement();
       setCourseCommentEditingKey(null);
       setCourseCommentEditDraft("");
       setCourseCommentMenuOpenId(null);
@@ -483,6 +538,221 @@ export default function StudentCourseDetailPage() {
     } finally {
       setCourseCommentBusyId(null);
     }
+  };
+
+  const renderCourseVideoCommentNode = (comment, videoId, depth = 0) => {
+    const editKey = `${videoId}:${comment.id}`;
+    const isEditing = courseCommentEditingKey === editKey;
+    const busy = courseCommentBusyId === String(comment.id);
+    const canModify = canModifyCourseVideoCommentItem(comment);
+    const showReplyTarget = depth === 0;
+    const replyOpen = showReplyTarget && courseCommentReplyParentId === comment.id;
+
+    return (
+      <Fragment key={String(comment.id)}>
+        <div
+          className="d-flex align-items-start gap-2 mb-3 student-comment-item"
+          style={depth > 0 ? { marginLeft: Math.min(depth * 16, 48) } : undefined}
+        >
+          <div
+            className="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center"
+            style={{
+              width: 30,
+              height: 30,
+              fontSize: 12,
+              flexShrink: 0,
+            }}
+          >
+            {resolveCommentAuthorName(comment).charAt(0).toUpperCase()}
+          </div>
+          <div className="border rounded-3 px-3 py-2 bg-light w-100">
+            <p className="mb-1 fw-semibold small">{resolveCommentAuthorName(comment)}</p>
+            {isEditing ? (
+              <div className="mb-2">
+                <textarea
+                  className="form-control form-control-sm"
+                  rows={2}
+                  value={courseCommentEditDraft}
+                  onChange={(event) => setCourseCommentEditDraft(event.target.value)}
+                />
+                <div className="d-flex gap-2 mt-2">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    disabled={busy}
+                    onClick={() => saveCourseCommentEdit(videoId, comment.id)}
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    disabled={busy}
+                    onClick={() => {
+                      setCourseCommentEditingKey(null);
+                      setCourseCommentEditDraft("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="mb-1">{comment.text}</p>
+            )}
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <p className="mb-0 text-muted small">
+                {new Date(comment.createdAt).toLocaleString()}
+              </p>
+              <div className="d-flex align-items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  className={`btn btn-sm rounded-pill ${
+                    comment.myReaction === "like" ? "btn-dark" : "btn-outline-secondary"
+                  }`}
+                  onClick={() => reactToComment(videoId, comment.id, "like")}
+                >
+                  👍 {Number(comment.likesCount || 0)}
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm rounded-pill ${
+                    comment.myReaction === "dislike" ? "btn-dark" : "btn-outline-secondary"
+                  }`}
+                  onClick={() => reactToComment(videoId, comment.id, "dislike")}
+                >
+                  👎 {Number(comment.dislikesCount || 0)}
+                </button>
+                {!isEditing ? (
+                  <div className="comment-actions-menu-wrap ms-auto">
+                    <button
+                      type="button"
+                      className="comment-actions-toggle"
+                      aria-label="Comment actions"
+                      aria-expanded={courseCommentMenuOpenId === String(comment.id)}
+                      aria-haspopup="menu"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setCourseCommentMenuOpenId((cur) =>
+                          cur === String(comment.id) ? null : String(comment.id),
+                        );
+                      }}
+                    >
+                      ⋮
+                    </button>
+                    {courseCommentMenuOpenId === String(comment.id) ? (
+                      <div
+                        className="comment-actions-menu"
+                        role="menu"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {showReplyTarget ? (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCourseCommentReplyParentId((cur) =>
+                                cur === comment.id ? null : comment.id,
+                              );
+                              setCourseCommentMenuOpenId(null);
+                            }}
+                          >
+                            Reply
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          role="menuitem"
+                          disabled={busy}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCourseCommentReportTarget({
+                              videoId,
+                              commentId: comment.id,
+                            });
+                            setCourseCommentReportReason("");
+                            setCourseCommentMenuOpenId(null);
+                          }}
+                        >
+                          Report
+                        </button>
+                        {canModify ? (
+                          <>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              disabled={busy}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCourseCommentEditingKey(editKey);
+                                setCourseCommentEditDraft(comment.text || "");
+                                setCourseCommentMenuOpenId(null);
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="text-danger"
+                              disabled={busy}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCourseCommentMenuOpenId(null);
+                                deleteCourseCommentRequest(videoId, comment.id);
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            {replyOpen ? (
+              <div className="d-flex flex-column gap-2 mt-3 pt-2 border-top">
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  placeholder="Write a reply..."
+                  value={courseCommentReplyDraft}
+                  onChange={(event) => setCourseCommentReplyDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") addComment(videoId, comment.id);
+                  }}
+                />
+                <div className="d-flex gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => addComment(videoId, comment.id)}
+                  >
+                    Reply
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() => {
+                      setCourseCommentReplyParentId(null);
+                      setCourseCommentReplyDraft("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+        {(comment.replies || []).map((reply) =>
+          renderCourseVideoCommentNode(reply, videoId, depth + 1),
+        )}
+      </Fragment>
+    );
   };
 
   const submitCourseVideoCommentReport = async () => {
@@ -647,6 +917,16 @@ export default function StudentCourseDetailPage() {
     ? Number(videoViewsMap[String(activeVideo.id)] || 0)
     : 0;
 
+  const activeVideoProcessing = useMemo(
+    () =>
+      activeVideo
+        ? (activeVideo.video_variants || []).some(
+            (v) => v.status === "pending" || v.status === "processing",
+          )
+        : false,
+    [activeVideo],
+  );
+
   const sectionGroups = useMemo(
     () =>
       Object.values(
@@ -660,6 +940,16 @@ export default function StudentCourseDetailPage() {
         }, {}),
       ).filter((section) => section.lessons.length > 0),
     [videos],
+  );
+
+  const omCinemaSuggestedVideos = useMemo(
+    () =>
+      videos.filter(
+        (v) =>
+          String(v.id) !== String(activeVideoId) &&
+          String(v?.content_type || "video").toLowerCase() === "video",
+      ),
+    [videos, activeVideoId],
   );
 
   const user = JSON.parse(localStorage.getItem("user")) || {};
@@ -705,6 +995,9 @@ export default function StudentCourseDetailPage() {
           "completed",
           Number(selected?.duration_seconds || 0),
         );
+      }
+      if (omCinemaMode) {
+        navigate(coursesListPath);
       }
       return;
     }
@@ -755,6 +1048,296 @@ export default function StudentCourseDetailPage() {
     });
   };
 
+  const renderOmCinemaEngagementPanel = () => {
+    if (!activeVideo) return null;
+    return (
+      <div className="px-4 py-3 border-top student-interaction-panel">
+        <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+          <div className="d-flex align-items-center gap-2">
+            <div
+              className="rounded-circle bg-dark text-white d-inline-flex align-items-center justify-content-center fw-semibold"
+              style={{ width: 38, height: 38 }}
+            >
+              {(course?.title || "O").charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="mb-0 fw-semibold">{course?.title || "Owning Manhattan"}</p>
+              <p className="mb-0 text-muted small">Owning Manhattan</p>
+            </div>
+          </div>
+        </div>
+        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+          <div className="d-flex align-items-center gap-2">
+            <button
+              type="button"
+              className={`btn btn-sm rounded-pill ${activeVideoLikes.liked ? "btn-dark" : "btn-outline-secondary"}`}
+              onClick={() => toggleVideoLike(activeVideo.id)}
+            >
+              👍 {activeVideoLikes.count}
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm rounded-pill ${mediaBookmarkedMap[String(activeVideo.id)] ? "btn-dark" : "btn-outline-secondary"}`}
+              onClick={() => toggleMediaBookmark(activeVideo.id)}
+            >
+              {mediaBookmarkedMap[String(activeVideo.id)] ? "★ Saved" : "☆ Save"}
+            </button>
+            <button type="button" className="btn btn-sm rounded-pill btn-outline-secondary" disabled>
+              👎
+            </button>
+          </div>
+          <span className="text-muted small fw-semibold">
+            {activeVideoComments.length} Comments
+          </span>
+        </div>
+        <div className="d-flex gap-2 mb-3 student-comment-input-row">
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Add a comment..."
+            value={commentDraft}
+            onChange={(event) => setCommentDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") addComment(activeVideo.id);
+            }}
+          />
+          <button type="button" className="btn btn-primary" onClick={() => addComment(activeVideo.id)}>
+            Comment
+          </button>
+        </div>
+        <div className="student-comments-list sell-snack-comments-scroll">
+          {activeVideoComments.length === 0 ? (
+            <p className="text-muted small mb-0">No comments yet.</p>
+          ) : (
+            activeVideoComments.map((c) => renderCourseVideoCommentNode(c, activeVideo.id, 0))
+          )}
+        </div>
+        {activeVideoProcessing ? (
+          <div className="alert alert-info py-2 mb-0 mt-2">
+            HD qualities are processing. Original video is available now.
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
+  if (omCinemaMode) {
+    const snackStyleCardShadow = { boxShadow: "0 10px 28px rgba(15,23,42,0.08)" };
+    const snackStyleHeaderBg = { background: "linear-gradient(180deg,#f8fbff,#ffffff)" };
+    const renderOmCinemaPlayer = () => {
+      if (!activeVideo) return null;
+      const playable = resolvePlayableUrl(activeVideo);
+      if (!playable) {
+        return (
+          <div className="text-center py-5 text-muted">Video source unavailable for this lesson.</div>
+        );
+      }
+      const isHls = /\.m3u8(\?|$)/i.test(playable);
+      if (isHls) {
+        return (
+          <CourseAdaptiveVideo
+            key={activeVideo.id}
+            src={playable}
+            controls
+            autoPlay
+            onTimeUpdate={(event) => handleVideoProgress(event, activeVideo.id)}
+            onLoadedMetadata={(event) => {
+              const player = event?.currentTarget;
+              const duration = Number(event?.currentTarget?.duration || 0);
+              const resumeSeconds = Number(resumeSeekRef.current || 0);
+              if (resumeSeconds > 0 && duration > 0) {
+                player.currentTime = Math.min(resumeSeconds, Math.max(0, duration - 1));
+              }
+              resumeSeekRef.current = null;
+              if (duration > 0) {
+                saveVideoProgress(activeVideo.id, player.currentTime || 0, "in_progress", duration);
+              }
+            }}
+            onEnded={() => {
+              markVideoCompleted(activeVideo.id);
+              saveVideoProgress(
+                activeVideo.id,
+                Number.MAX_SAFE_INTEGER,
+                "completed",
+                Number(activeVideo?.duration_seconds || 0),
+              );
+              if (autoPlayEnabled) playNextVideo(activeVideo.id);
+            }}
+            style={{ width: "100%", maxHeight: "min(70vh, 720px)" }}
+          />
+        );
+      }
+      return (
+        <>
+          <CommunityVideoPlayer
+            key={activeVideo.id}
+            src={playable}
+            title={activeVideo.title || "Lesson"}
+            variants={activeVideo.video_variants || []}
+            autoQualityLabel="Original"
+            autoPlay
+            onVideoTimeUpdate={(event) => handleVideoProgress(event, activeVideo.id)}
+            onVideoLoadedMetadata={(event) => {
+              const player = event?.currentTarget;
+              const duration = Number(event?.currentTarget?.duration || 0);
+              const resumeSeconds = Number(resumeSeekRef.current || 0);
+              if (resumeSeconds > 0 && duration > 0) {
+                player.currentTime = Math.min(resumeSeconds, Math.max(0, duration - 1));
+              }
+              resumeSeekRef.current = null;
+              if (duration > 0) {
+                saveVideoProgress(activeVideo.id, player.currentTime || 0, "in_progress", duration);
+              }
+            }}
+            onVideoEnded={() => {
+              markVideoCompleted(activeVideo.id);
+              saveVideoProgress(
+                activeVideo.id,
+                Number.MAX_SAFE_INTEGER,
+                "completed",
+                Number(activeVideo?.duration_seconds || 0),
+              );
+              if (autoPlayEnabled) playNextVideo(activeVideo.id);
+            }}
+            className="w-100"
+          />
+          {activeVideoProcessing ? (
+            <span className="student-community-video-processing">Processing HD</span>
+          ) : null}
+        </>
+      );
+    };
+
+    return (
+      <StudentDashboardSectionPage
+        title="Owning Manhattan"
+        bookmarkMediaFiles={mediaBookmarkItems}
+        onRemoveBookmarkMedia={removeMediaBookmark}
+      >
+        <div className="container-fluid px-0 sell-snack-detail-page" style={{ maxWidth: 1200 }}>
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <Link to={coursesListPath} className="btn btn-outline-secondary btn-sm">
+              Back to Owning Manhattan
+            </Link>
+          </div>
+
+          {isLoading ? (
+            <div className="lms-card p-4 mb-3 text-muted border-0" style={snackStyleCardShadow}>
+              Loading…
+            </div>
+          ) : error ? (
+            <>
+              <div className="alert alert-danger mb-3">{error}</div>
+              <Link to={coursesListPath} className="btn btn-outline-secondary btn-sm">
+                Back to Owning Manhattan
+              </Link>
+            </>
+          ) : videos.length === 0 ? (
+            <>
+              <div className="lms-card p-4 mb-3 text-muted border-0" style={snackStyleCardShadow}>
+                No video for this entry yet.
+              </div>
+              <Link to={coursesListPath} className="btn btn-outline-secondary btn-sm">
+                Back to Owning Manhattan
+              </Link>
+            </>
+          ) : !isPlayerOpen || !activeVideo ? (
+            <div className="lms-card p-4 mb-3 text-muted border-0" style={snackStyleCardShadow}>
+              Preparing player…
+            </div>
+          ) : (
+            <div className="row g-3 align-items-start">
+              <div className="col-xl-8">
+                <div className="lms-card p-0 overflow-hidden border-0" style={snackStyleCardShadow}>
+                  <div
+                    className="d-flex justify-content-between align-items-center p-3 border-bottom gap-3 flex-wrap"
+                    style={snackStyleHeaderBg}
+                  >
+                    <div className="min-w-0">
+                      <h2
+                        className="h5 fw-bold mb-0 text-truncate"
+                        title={activeVideo.title || course?.title || ""}
+                      >
+                        {activeVideo.title || course?.title || "Owning Manhattan"}
+                      </h2>
+                      <p className="mb-0 text-muted small mt-1">Watch Video</p>
+                    </div>
+                  </div>
+                  <div className="position-relative bg-dark">{renderOmCinemaPlayer()}</div>
+                  {renderOmCinemaEngagementPanel()}
+                </div>
+              </div>
+              <div className="col-xl-4">
+                <div className="lms-card p-4 sell-snack-suggested-sidebar">
+                  <h2 className="h6 fw-bold mb-3 text-uppercase text-muted small">Next suggested video</h2>
+                  <div className="sell-snack-suggested-scroll">
+                    {omCinemaSuggestedVideos.length === 0 ? (
+                      <p className="text-muted small mb-0">No other videos in this episode.</p>
+                    ) : (
+                      <ul className="list-unstyled mb-0 sell-snack-suggested-list">
+                        {omCinemaSuggestedVideos.map((item) => {
+                          const likeEntry = videoLikesMap[String(item.id)] || { count: 0 };
+                          const viewCount = Number(videoViewsMap[String(item.id)] || 0);
+                          const thumb = resolvePublicMediaUrl(
+                            item.thumbnail_url || item.thumbnail_data_url || "",
+                            apiBaseUrl,
+                          );
+                          return (
+                            <li key={String(item.id)} className="mb-3">
+                              <button
+                                type="button"
+                                className="text-decoration-none text-reset d-flex gap-3 sell-snack-suggested-row w-100 text-start border-0 bg-transparent p-0"
+                                onClick={() => openVideoWithResume(item.id, 0)}
+                              >
+                                <div
+                                  className="sell-snack-suggested-thumb flex-shrink-0 rounded overflow-hidden bg-secondary"
+                                  style={{
+                                    width: 112,
+                                    height: 63,
+                                    background: thumb
+                                      ? `url(${thumb}) center/cover no-repeat`
+                                      : "linear-gradient(135deg,#4169ff,#f7efe1)",
+                                  }}
+                                />
+                                <div className="min-w-0">
+                                  <p className="fw-semibold mb-1 small sell-snack-suggested-title">
+                                    {item.title || "Video"}
+                                  </p>
+                                  <p className="mb-0 small text-muted text-truncate">
+                                    {item.short_description || item.description || "—"}
+                                  </p>
+                                  <p className="mb-0 small text-muted mt-1">
+                                    👍 {Number(likeEntry.count || 0)} · 👁 {viewCount}
+                                  </p>
+                                </div>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        <CommentReportReasonModal
+          open={Boolean(courseCommentReportTarget)}
+          title="Report comment"
+          onClose={() => {
+            setCourseCommentReportTarget(null);
+            setCourseCommentReportReason("");
+          }}
+          selectedReason={courseCommentReportReason}
+          onSelectReason={setCourseCommentReportReason}
+          onSubmit={submitCourseVideoCommentReport}
+          reasons={REPORT_REASONS}
+        />
+      </StudentDashboardSectionPage>
+    );
+  }
+
   return (
     <StudentDashboardSectionPage
       title="Course Learning"
@@ -769,10 +1352,10 @@ export default function StudentCourseDetailPage() {
           <div className="d-flex justify-content-between align-items-center gap-3 flex-wrap">
             <h1 className="h3 mb-0 fw-bold">{course?.title || "Course"}</h1>
             <Link
-              to="/dashboard/student-course"
+              to={coursesListPath}
               className="btn btn-outline-secondary btn-sm"
             >
-              Back to Courses
+              {fromOwningManhattan ? "Back to Owning Manhattan" : "Back to Courses"}
             </Link>
           </div>
         </div>
@@ -891,79 +1474,147 @@ export default function StudentCourseDetailPage() {
             {isPlayerOpen && activeVideo ? (
               <div className="row g-3 align-items-start">
                 <div className="col-12 col-xl-8">
-                  <div className="lms-card p-0 overflow-hidden student-video-shell">
-                    <div className="px-4 pt-3 d-flex justify-content-between align-items-center">
-                      <div>
-                        <p className="small text-muted mb-1">
+                  <div
+                    className="lms-card p-0 overflow-hidden border-0 student-video-shell"
+                    style={{ boxShadow: "0 10px 28px rgba(15,23,42,0.08)" }}
+                  >
+                    <div
+                      className="d-flex justify-content-between align-items-center p-3 border-bottom gap-3 flex-wrap"
+                      style={{ background: "linear-gradient(180deg,#f8fbff,#ffffff)" }}
+                    >
+                      <div className="min-w-0">
+                        <h2 className="h5 fw-bold mb-0 text-truncate" title={activeVideo.title || ""}>
+                          {activeVideo.title || "Untitled lesson"}
+                        </h2>
+                        <p className="mb-0 text-muted small mt-1">
                           Lesson{" "}
                           {videos.findIndex(
-                            (video) =>
-                              String(video.id) === String(activeVideo.id),
+                            (video) => String(video.id) === String(activeVideo.id),
                           ) + 1}{" "}
-                          of {videos.length}
+                          of {videos.length} · Watch Video
                         </p>
-                        <h4 className="h4 fw-bold mb-1">
-                          {activeVideo.title || "Untitled lesson"}
-                        </h4>
-                        <p className="small text-muted mb-2">
-                          {formatCountLabel(activeVideoViews)} views • Published{" "}
+                        <p className="small text-muted mb-0 mt-1">
+                          {formatCountLabel(activeVideoViews)} views · Published{" "}
                           {formatPublishedDate(activeVideo?.created_at)}
                         </p>
                       </div>
                       <button
                         type="button"
-                        className="btn btn-outline-secondary btn-sm"
+                        className="btn btn-outline-secondary btn-sm flex-shrink-0"
                         onClick={() => setIsPlayerOpen(false)}
                       >
                         Back to content
                       </button>
                     </div>
-                    <div className="bg-black student-video-frame">
+                    <div className="bg-black student-video-frame position-relative">
                       {resolvePlayableUrl(activeVideo) ? (
-                        <video
-                          key={activeVideo.id}
-                          src={resolvePlayableUrl(activeVideo)}
-                          controls
-                          autoPlay
-                          onTimeUpdate={(event) =>
-                            handleVideoProgress(event, activeVideo.id)
+                        (() => {
+                          const playable = resolvePlayableUrl(activeVideo);
+                          const isHls = /\.m3u8(\?|$)/i.test(playable);
+                          if (isHls) {
+                            return (
+                              <CourseAdaptiveVideo
+                                key={activeVideo.id}
+                                src={playable}
+                                controls
+                                autoPlay
+                                onTimeUpdate={(event) =>
+                                  handleVideoProgress(event, activeVideo.id)
+                                }
+                                onLoadedMetadata={(event) => {
+                                  const player = event?.currentTarget;
+                                  const duration = Number(
+                                    event?.currentTarget?.duration || 0,
+                                  );
+                                  const resumeSeconds = Number(
+                                    resumeSeekRef.current || 0,
+                                  );
+                                  if (resumeSeconds > 0 && duration > 0) {
+                                    player.currentTime = Math.min(
+                                      resumeSeconds,
+                                      Math.max(0, duration - 1),
+                                    );
+                                  }
+                                  resumeSeekRef.current = null;
+                                  if (duration > 0) {
+                                    saveVideoProgress(
+                                      activeVideo.id,
+                                      player.currentTime || 0,
+                                      "in_progress",
+                                      duration,
+                                    );
+                                  }
+                                }}
+                                onEnded={() => {
+                                  markVideoCompleted(activeVideo.id);
+                                  saveVideoProgress(
+                                    activeVideo.id,
+                                    Number.MAX_SAFE_INTEGER,
+                                    "completed",
+                                    Number(activeVideo?.duration_seconds || 0),
+                                  );
+                                  if (autoPlayEnabled) playNextVideo(activeVideo.id);
+                                }}
+                                style={{ width: "100%", maxHeight: "min(70vh, 720px)" }}
+                              />
+                            );
                           }
-                          onLoadedMetadata={(event) => {
-                            const player = event?.currentTarget;
-                            const duration = Number(
-                              event?.currentTarget?.duration || 0,
-                            );
-                            const resumeSeconds = Number(
-                              resumeSeekRef.current || 0,
-                            );
-                            if (resumeSeconds > 0 && duration > 0) {
-                              player.currentTime = Math.min(
-                                resumeSeconds,
-                                Math.max(0, duration - 1),
-                              );
-                            }
-                            resumeSeekRef.current = null;
-                            if (duration > 0) {
-                              saveVideoProgress(
-                                activeVideo.id,
-                                player.currentTime || 0,
-                                "in_progress",
-                                duration,
-                              );
-                            }
-                          }}
-                          onEnded={() => {
-                            markVideoCompleted(activeVideo.id);
-                            saveVideoProgress(
-                              activeVideo.id,
-                              Number.MAX_SAFE_INTEGER,
-                              "completed",
-                              Number(activeVideo?.duration_seconds || 0),
-                            );
-                            if (autoPlayEnabled) playNextVideo(activeVideo.id);
-                          }}
-                          style={{ width: "100%", maxHeight: "70vh" }}
-                        />
+                          return (
+                            <>
+                              <CommunityVideoPlayer
+                                key={activeVideo.id}
+                                src={playable}
+                                title={activeVideo.title || "Lesson"}
+                                variants={activeVideo.video_variants || []}
+                                autoQualityLabel="Original"
+                                autoPlay
+                                onVideoTimeUpdate={(event) =>
+                                  handleVideoProgress(event, activeVideo.id)
+                                }
+                                onVideoLoadedMetadata={(event) => {
+                                  const player = event?.currentTarget;
+                                  const duration = Number(
+                                    event?.currentTarget?.duration || 0,
+                                  );
+                                  const resumeSeconds = Number(
+                                    resumeSeekRef.current || 0,
+                                  );
+                                  if (resumeSeconds > 0 && duration > 0) {
+                                    player.currentTime = Math.min(
+                                      resumeSeconds,
+                                      Math.max(0, duration - 1),
+                                    );
+                                  }
+                                  resumeSeekRef.current = null;
+                                  if (duration > 0) {
+                                    saveVideoProgress(
+                                      activeVideo.id,
+                                      player.currentTime || 0,
+                                      "in_progress",
+                                      duration,
+                                    );
+                                  }
+                                }}
+                                onVideoEnded={() => {
+                                  markVideoCompleted(activeVideo.id);
+                                  saveVideoProgress(
+                                    activeVideo.id,
+                                    Number.MAX_SAFE_INTEGER,
+                                    "completed",
+                                    Number(activeVideo?.duration_seconds || 0),
+                                  );
+                                  if (autoPlayEnabled) playNextVideo(activeVideo.id);
+                                }}
+                                className="w-100"
+                              />
+                              {activeVideoProcessing ? (
+                                <span className="student-community-video-processing">
+                                  Processing HD
+                                </span>
+                              ) : null}
+                            </>
+                          );
+                        })()
                       ) : (
                         <div className="text-white text-center py-5 px-4">
                           Video source unavailable for this lesson.
@@ -1045,202 +1696,9 @@ export default function StudentCourseDetailPage() {
                             No comments yet.
                           </p>
                         ) : (
-                          activeVideoComments.map((comment) => {
-                            const editKey = `${activeVideo.id}:${comment.id}`;
-                            const isEditing = courseCommentEditingKey === editKey;
-                            const busy = courseCommentBusyId === String(comment.id);
-                            const canModify = canModifyCourseVideoCommentItem(comment);
-                            return (
-                              <div
-                                key={String(comment.id)}
-                                className="d-flex align-items-start gap-2 mb-3 student-comment-item"
-                              >
-                                <div
-                                  className="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center"
-                                  style={{
-                                    width: 30,
-                                    height: 30,
-                                    fontSize: 12,
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  {resolveCommentAuthorName(comment).charAt(0).toUpperCase()}
-                                </div>
-                                <div className="border rounded-3 px-3 py-2 bg-light w-100">
-                                  <p className="mb-1 fw-semibold small">
-                                    {resolveCommentAuthorName(comment)}
-                                  </p>
-                                  {isEditing ? (
-                                    <div className="mb-2">
-                                      <textarea
-                                        className="form-control form-control-sm"
-                                        rows={2}
-                                        value={courseCommentEditDraft}
-                                        onChange={(event) =>
-                                          setCourseCommentEditDraft(event.target.value)
-                                        }
-                                      />
-                                      <div className="d-flex gap-2 mt-2">
-                                        <button
-                                          type="button"
-                                          className="btn btn-sm btn-primary"
-                                          disabled={busy}
-                                          onClick={() =>
-                                            saveCourseCommentEdit(activeVideo.id, comment.id)
-                                          }
-                                        >
-                                          Save
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className="btn btn-sm btn-outline-secondary"
-                                          disabled={busy}
-                                          onClick={() => {
-                                            setCourseCommentEditingKey(null);
-                                            setCourseCommentEditDraft("");
-                                          }}
-                                        >
-                                          Cancel
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <p className="mb-1">{comment.text}</p>
-                                  )}
-                                  <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                    <p className="mb-0 text-muted small">
-                                      {new Date(comment.createdAt).toLocaleString()}
-                                    </p>
-                                    <div className="d-flex align-items-center gap-2 flex-wrap">
-                                      <button
-                                        type="button"
-                                        className={`btn btn-sm rounded-pill ${
-                                          comment.myReaction === "like"
-                                            ? "btn-dark"
-                                            : "btn-outline-secondary"
-                                        }`}
-                                        onClick={() =>
-                                          reactToComment(
-                                            activeVideo.id,
-                                            comment.id,
-                                            "like",
-                                          )
-                                        }
-                                      >
-                                        👍 {Number(comment.likesCount || 0)}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className={`btn btn-sm rounded-pill ${
-                                          comment.myReaction === "dislike"
-                                            ? "btn-dark"
-                                            : "btn-outline-secondary"
-                                        }`}
-                                        onClick={() =>
-                                          reactToComment(
-                                            activeVideo.id,
-                                            comment.id,
-                                            "dislike",
-                                          )
-                                        }
-                                      >
-                                        👎 {Number(comment.dislikesCount || 0)}
-                                      </button>
-                                      {!isEditing ? (
-                                        <div className="comment-actions-menu-wrap ms-auto">
-                                          <button
-                                            type="button"
-                                            className="comment-actions-toggle"
-                                            aria-label="Comment actions"
-                                            aria-expanded={
-                                              courseCommentMenuOpenId === String(comment.id)
-                                            }
-                                            aria-haspopup="menu"
-                                            onClick={(event) => {
-                                              event.stopPropagation();
-                                              setCourseCommentMenuOpenId((cur) =>
-                                                cur === String(comment.id)
-                                                  ? null
-                                                  : String(comment.id),
-                                              );
-                                            }}
-                                          >
-                                            ⋮
-                                          </button>
-                                          {courseCommentMenuOpenId === String(comment.id) ? (
-                                            <div
-                                              className="comment-actions-menu"
-                                              role="menu"
-                                              onClick={(e) => e.stopPropagation()}
-                                            >
-                                              <button
-                                                type="button"
-                                                role="menuitem"
-                                                disabled
-                                                className="text-muted"
-                                                title="Replies are not available on course videos"
-                                              >
-                                                Reply
-                                              </button>
-                                              <button
-                                                type="button"
-                                                role="menuitem"
-                                                disabled={busy}
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  setCourseCommentReportTarget({
-                                                    videoId: activeVideo.id,
-                                                    commentId: comment.id,
-                                                  });
-                                                  setCourseCommentReportReason("");
-                                                  setCourseCommentMenuOpenId(null);
-                                                }}
-                                              >
-                                                Report
-                                              </button>
-                                              {canModify ? (
-                                                <>
-                                                  <button
-                                                    type="button"
-                                                    role="menuitem"
-                                                    disabled={busy}
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      setCourseCommentEditingKey(editKey);
-                                                      setCourseCommentEditDraft(comment.text || "");
-                                                      setCourseCommentMenuOpenId(null);
-                                                    }}
-                                                  >
-                                                    Edit
-                                                  </button>
-                                                  <button
-                                                    type="button"
-                                                    role="menuitem"
-                                                    className="text-danger"
-                                                    disabled={busy}
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      setCourseCommentMenuOpenId(null);
-                                                      deleteCourseCommentRequest(
-                                                        activeVideo.id,
-                                                        comment.id,
-                                                      );
-                                                    }}
-                                                  >
-                                                    Delete
-                                                  </button>
-                                                </>
-                                              ) : null}
-                                            </div>
-                                          ) : null}
-                                        </div>
-                                      ) : null}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })
+                          activeVideoComments.map((c) =>
+                            renderCourseVideoCommentNode(c, activeVideo.id, 0),
+                          )
                         )}
                       </div>
                     </div>
@@ -1333,10 +1791,12 @@ export default function StudentCourseDetailPage() {
                                         lesson.thumbnail_url ||
                                         lesson.thumbnail_data_url ? (
                                           <img
-                                            src={
+                                            src={resolvePublicMediaUrl(
                                               lesson.thumbnail_url ||
-                                              lesson.thumbnail_data_url
-                                            }
+                                                lesson.thumbnail_data_url ||
+                                                "",
+                                              apiBaseUrl,
+                                            )}
                                             alt={
                                               lesson.title || "Video thumbnail"
                                             }

@@ -3,11 +3,13 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   FiBookOpen,
   FiBriefcase,
+  FiCalendar,
   FiChevronDown,
   FiChevronRight,
   FiFileText,
   FiFolder,
   FiGrid,
+  FiHeart,
   FiHelpCircle,
   FiLayers,
   FiLogOut,
@@ -25,6 +27,7 @@ const navItems = [
   { label: 'Members Management', short: 'MB', path: '/dashboard/members-management', icon: FiUserCheck },
   { label: 'Trainer Management', short: 'TR', path: '/dashboard/trainer-management', icon: FiBriefcase },
   { label: 'Course Management', short: 'CR', path: '/dashboard/course-management', icon: FiBookOpen },
+  { label: 'Monthly Challenges', short: 'MC', path: '/dashboard/monthly-challenges-management', icon: FiCalendar },
   { label: 'Sell It Snacks', short: 'SS', path: '/dashboard/sell-it-snacks-management', icon: FiShoppingBag },
   { label: 'Workshop Management', short: 'WS', path: '/dashboard/workshop-management', icon: FiGrid },
   { label: 'Feed Management', short: 'FD', path: '/dashboard/feed-management', icon: FiLayers },
@@ -41,6 +44,14 @@ const feedManagementLinks = [
   { label: 'Wall of Wins', path: '/dashboard/feed-management/wall-of-wins' },
 ];
 
+const welcomeAdminLinks = [
+  { label: 'Start Here', path: '/dashboard/welcome-admin/start-here' },
+  { label: 'Meet + Greet', path: '/dashboard/welcome-admin/meet-greet' },
+  { label: 'Ask Ryan Anything', path: '/dashboard/welcome-admin/ask-ryan' },
+  { label: 'Owning Manhattan', path: '/dashboard/course-management?type=owning-manhattan' },
+  { label: 'Community Input', path: '/dashboard/feed-management/recent' },
+];
+
 function SidebarLinkLabel({ icon: Icon, label, short, collapsed }) {
   return (
     <>
@@ -53,22 +64,62 @@ function SidebarLinkLabel({ icon: Icon, label, short, collapsed }) {
 }
 
 export default function DashboardSectionPage({ title, children }) {
-  const { pathname, search } = useLocation();
+  const { pathname, search, state } = useLocation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(() =>
     typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) === '1' : false,
   );
   const [courseMenuOpen, setCourseMenuOpen] = useState(false);
   const [feedMenuOpen, setFeedMenuOpen] = useState(false);
+  const [welcomeMenuOpen, setWelcomeMenuOpen] = useState(false);
   const activeCourseTypeParam = new URLSearchParams(search).get('type') || '';
-  const isCourseRouteActive = pathname.startsWith('/dashboard/course-management');
+  const omAdminReturnPath =
+    typeof state === 'object' && state != null && state.omAdminReturnPath != null
+      ? String(state.omAdminReturnPath)
+      : '';
+  const isOwningManhattanAdminVideoRoute =
+    /^\/dashboard\/course-management\/[^/]+\/videos\/[^/]+$/.test(pathname) &&
+    (omAdminReturnPath.includes('type=owning-manhattan') ||
+      omAdminReturnPath.startsWith('/dashboard/owning-manhattan/'));
+  const isOwningManhattanCourseCatalog =
+    pathname.startsWith('/dashboard/course-management') && activeCourseTypeParam === 'owning-manhattan';
+  const isOwningManhattanDetailAdmin = pathname.startsWith('/dashboard/owning-manhattan/');
+  const isOwningManhattanCourseAdmin =
+    isOwningManhattanCourseCatalog ||
+    isOwningManhattanDetailAdmin ||
+    isOwningManhattanAdminVideoRoute;
+  const isWelcomeAdminRouteActive =
+    pathname.startsWith('/dashboard/welcome-video-management') ||
+    pathname.startsWith('/dashboard/welcome-admin') ||
+    isOwningManhattanCourseAdmin;
+
+  const welcomeLinkIsActive = (toPath) => {
+    const [path, queryPart] = toPath.split('?');
+    if (pathname !== path) return false;
+    if (!queryPart) return true;
+    const needed = new URLSearchParams(queryPart);
+    const current = new URLSearchParams(search);
+    for (const [key, value] of needed) {
+      if (current.get(key) !== value) return false;
+    }
+    return true;
+  };
+  const isCourseRouteActive =
+    pathname.startsWith('/dashboard/course-management') &&
+    activeCourseTypeParam !== 'owning-manhattan' &&
+    !isOwningManhattanAdminVideoRoute;
   const isFeedRouteActive = pathname.startsWith('/dashboard/feed-management');
   const showCourseMenu = courseMenuOpen || isCourseRouteActive;
   const showFeedMenu = feedMenuOpen || isFeedRouteActive;
+  const showWelcomeMenu = welcomeMenuOpen || isWelcomeAdminRouteActive;
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0');
   }, [collapsed]);
+
+  useEffect(() => {
+    if (isWelcomeAdminRouteActive) setWelcomeMenuOpen(true);
+  }, [isWelcomeAdminRouteActive]);
 
   const linkIsActive = (path) => {
     if (path === '/dashboard/user-management') {
@@ -111,6 +162,69 @@ export default function DashboardSectionPage({ title, children }) {
         {!collapsed && <div className="lms-sidebar-section-label">Navigation</div>}
 
         <nav className="lms-sidebar-nav">
+          {collapsed ? (
+            <NavLink
+              to="/dashboard/welcome-admin/start-here"
+              title="Welcome"
+              className={() => `lms-nav-link lms-nav-link-collapsed ${isWelcomeAdminRouteActive ? 'active' : ''}`}
+            >
+              <span className="lms-nav-icon-wrap" aria-hidden="true">
+                <FiHeart className="lms-nav-icon" />
+              </span>
+              <span className="lms-nav-short">W</span>
+            </NavLink>
+          ) : (
+            <div className="lms-nav-group">
+              <button
+                type="button"
+                className={`lms-nav-link lms-nav-link-button ${isWelcomeAdminRouteActive ? 'active' : ''}`}
+                onClick={() => setWelcomeMenuOpen((prev) => !prev)}
+                aria-expanded={showWelcomeMenu}
+              >
+                <span className="lms-nav-link-main">
+                  <span className="lms-nav-icon-wrap" aria-hidden="true">
+                    <FiHeart className="lms-nav-icon" />
+                  </span>
+                  <span>Welcome!</span>
+                </span>
+                <span className="lms-nav-chevron" aria-hidden="true">
+                  {showWelcomeMenu ? <FiChevronDown /> : <FiChevronRight />}
+                </span>
+              </button>
+              {showWelcomeMenu && (
+                <div className="lms-nav-submenu">
+                  {welcomeAdminLinks.map((link) => {
+                    const omWelcomeActive =
+                      link.path.includes('type=owning-manhattan') && isOwningManhattanCourseAdmin;
+                    const welcomeActive = welcomeLinkIsActive(link.path) || omWelcomeActive;
+                    const isCommunityInput = link.label === 'Community Input';
+                    if (isCommunityInput) {
+                      return (
+                        <span
+                          key={link.path}
+                          className="lms-nav-sublink lms-nav-sublink-disabled"
+                          title="Coming soon"
+                          aria-disabled="true"
+                        >
+                          {link.label}
+                          <span className="lms-nav-soon-badge">Coming soon</span>
+                        </span>
+                      );
+                    }
+                    return (
+                      <Link
+                        key={link.path}
+                        to={link.path}
+                        className={`lms-nav-sublink ${welcomeActive ? 'active' : ''}`}
+                      >
+                        {link.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           {navItems.map((item) => {
             if (item.path === '/dashboard/course-management') {
               if (collapsed) {

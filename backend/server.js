@@ -37,7 +37,10 @@ const snacksRoutes = require('./routes/snacks.routes');
 const wallOfWinsRoutes = require('./routes/wallOfWins.routes');
 const faqsRoutes = require('./routes/faqs.routes');
 const messagesRoutes = require('./routes/messages.routes');
-
+const welcomeVideoRoutes = require('./routes/welcomeVideo.routes');
+const startHereStepsRoutes = require('./routes/startHereSteps.routes');
+const askRyanRoutes = require('./routes/askRyan.routes');
+const monthlyChallengeMonthsRoutes = require('./routes/monthlyChallengeMonths.routes');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -51,6 +54,10 @@ app.use('/api/snacks', snacksRoutes);
 app.use('/api/wall-of-wins', wallOfWinsRoutes);
 app.use('/api/faqs', faqsRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api/welcome-video', welcomeVideoRoutes);
+app.use('/api/start-here-steps', startHereStepsRoutes);
+app.use('/api/ask-ryan', askRyanRoutes);
+app.use('/api/monthly-challenge-months', monthlyChallengeMonthsRoutes);
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {

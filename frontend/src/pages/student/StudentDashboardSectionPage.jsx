@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import logo from "../../assets/logo.png";
 import {
   FiAward,
   FiBell,
   FiBookmark,
   FiBriefcase,
+  FiCalendar,
   FiChevronDown,
   FiChevronRight,
   FiCompass,
@@ -22,6 +23,16 @@ import {
   FiUser,
   FiVideo,
 } from "react-icons/fi";
+import {
+  buildMonthsMetaFromCourses,
+  displayTitleForMonthKey,
+  formatMonthlyChallengeLine,
+  labelsArrayToMap,
+  STUDENT_MONTHLY_CHALLENGES_PATH,
+} from "../../utils/studentMonthlyChallengeMeta";
+
+const MONTHLY_CHALLENGE_ROW_EMOJIS = ["📱", "💼", "🎯", "📊", "✨", "📲"];
+
 const STORAGE_KEY = "student_dashboard_sidebar_collapsed";
 
 const feedNavItem = { label: "Feed", short: "FD", path: "/dashboard/student-community", icon: FiCompass };
@@ -41,8 +52,15 @@ const studentNavItems = [
   },
 ];
 
-const starterNavItems = [
+const welcomeNavItems = [
   { label: "Start Here", icon: "🆕", short: "SH", path: "/dashboard/student-start-here" },
+  { label: "Meet + Greet", icon: "👋", short: "MG", path: "/dashboard/student-meet-greet" },
+  { label: "Ask Ryan Anything", icon: "s.", short: "AR", path: "/dashboard/student-ask-ryan" },
+  { label: "Owning Manhattan", icon: "🏙", short: "OM", path: "/dashboard/student-owning-manhattan" },
+  { label: "Community Input", icon: "✏️", short: "CI", path: "/dashboard/student-community" },
+];
+
+const starterNavItems = [
   { label: "Live Workshops", icon: "🎬", short: "LW", path: "/dashboard/student-live-workshops" },
   { label: "Sell It Snacks", icon: "🍿", short: "SS", path: "/dashboard/student-sell-it-snacks" },
   { label: "Wall of Wins", icon: "🏆", short: "WW", path: "/dashboard/student-wall-of-wins" },
@@ -52,12 +70,8 @@ const starterNavItems = [
 const topHeaderLinks = [
   { key: "home", label: "Home", path: "/dashboard/student-dashboard" },
   { key: "courses", label: "Courses", path: "/dashboard/student-course" },
+  { key: "owning-manhattan", label: "Owning Manhattan", path: "/dashboard/student-owning-manhattan" },
   { key: "events", label: "Events", path: "/dashboard/student-workshops" },
-  {
-    key: "leaderboard",
-    label: "Leaderboard",
-    path: "/dashboard/student-community",
-  },
 ];
 
 export default function StudentDashboardSectionPage({
@@ -82,20 +96,90 @@ export default function StudentDashboardSectionPage({
   const [showMessagePanel, setShowMessagePanel] = useState(false);
   const [activeMessageTab, setActiveMessageTab] = useState("inbox");
   const [starterMenuOpen, setStarterMenuOpen] = useState(false);
+  const [welcomeMenuOpen, setWelcomeMenuOpen] = useState(false);
+  const [monthlyChallengesMenuOpen, setMonthlyChallengesMenuOpen] = useState(false);
+  const [monthlySidebar, setMonthlySidebar] = useState({
+    loading: false,
+    meta: [],
+    labels: {},
+  });
+
+  const apiBaseUrl = useMemo(
+    () => (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(/\/$/, ""),
+    [],
+  );
+
+  const isMonthlyChallengesRoute = pathname.startsWith(STUDENT_MONTHLY_CHALLENGES_PATH);
+
+  useEffect(() => {
+    if (!monthlyChallengesMenuOpen && !isMonthlyChallengesRoute) return undefined;
+    const token = localStorage.getItem("token");
+    if (!token) return undefined;
+    let cancelled = false;
+    (async () => {
+      setMonthlySidebar((s) => ({ ...s, loading: true }));
+      try {
+        const [coursesRes, labelsRes] = await Promise.all([
+          fetch(`${apiBaseUrl}/api/courses`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${apiBaseUrl}/api/monthly-challenge-months`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+        const coursesPayload = await coursesRes.json();
+        const courses =
+          coursesRes.ok && coursesPayload.status === "success" && Array.isArray(coursesPayload.data)
+            ? coursesPayload.data
+            : [];
+        const meta = buildMonthsMetaFromCourses(courses);
+        let labels = {};
+        if (labelsRes.ok) {
+          const labelsPayload = await labelsRes.json();
+          if (labelsPayload.status === "success" && Array.isArray(labelsPayload.data)) {
+            labels = labelsArrayToMap(labelsPayload.data);
+          }
+        }
+        if (!cancelled) setMonthlySidebar({ loading: false, meta, labels });
+      } catch {
+        if (!cancelled) setMonthlySidebar({ loading: false, meta: [], labels: {} });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [monthlyChallengesMenuOpen, isMonthlyChallengesRoute, apiBaseUrl]);
+
+  useEffect(() => {
+    if (!monthlyChallengesMenuOpen && !isMonthlyChallengesRoute) {
+      setMonthlySidebar({ loading: false, meta: [], labels: {} });
+    }
+  }, [monthlyChallengesMenuOpen, isMonthlyChallengesRoute]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
   }, [collapsed]);
 
   const isStartHereCourseDetail = pathname.startsWith("/dashboard/student-course/") && new URLSearchParams(search).get("from") === "start-here";
+  const isOwningManhattanCourseDetail =
+    pathname.startsWith("/dashboard/student-course/") && new URLSearchParams(search).get("from") === "owning-manhattan";
   const linkIsActive = (path) => {
     if (path === "/dashboard/student-start-here" && isStartHereCourseDetail) return true;
     if (path === "/dashboard/student-course" && isStartHereCourseDetail) return false;
+    if (path === "/dashboard/student-owning-manhattan" && isOwningManhattanCourseDetail) return true;
+    if (path === "/dashboard/student-course" && isOwningManhattanCourseDetail) return false;
     return pathname === path || pathname.startsWith(`${path}/`);
   };
+  const showMonthlyChallengesMenu = monthlyChallengesMenuOpen;
+  const isMonthlyChallengesNavActive = linkIsActive(STUDENT_MONTHLY_CHALLENGES_PATH);
   const isStarterRouteActive = starterNavItems.some((item) => linkIsActive(item.path));
+  const isWelcomeRouteActive = welcomeNavItems.some((item) => linkIsActive(item.path));
   const showStarterMenu = starterMenuOpen;
-  const activeTopHeaderKey = pathname.startsWith("/dashboard/student-course")
+  const showWelcomeMenu = welcomeMenuOpen;
+  const activeTopHeaderKey = pathname.startsWith("/dashboard/student-owning-manhattan") || isOwningManhattanCourseDetail
+    ? "owning-manhattan"
+    : pathname.startsWith("/dashboard/student-course") ||
+        pathname.startsWith(STUDENT_MONTHLY_CHALLENGES_PATH)
     ? "courses"
     : pathname.startsWith("/dashboard/student-workshops")
       ? "events"
@@ -114,6 +198,18 @@ export default function StudentDashboardSectionPage({
       setStarterMenuOpen(true);
     }
   }, [isStarterRouteActive]);
+
+  useEffect(() => {
+    if (isWelcomeRouteActive) {
+      setWelcomeMenuOpen(true);
+    }
+  }, [isWelcomeRouteActive]);
+
+  useEffect(() => {
+    if (isMonthlyChallengesRoute) {
+      setMonthlyChallengesMenuOpen(true);
+    }
+  }, [isMonthlyChallengesRoute]);
 
   const SidebarLinkLabel = ({ icon: Icon, label, short, collapsed: isCollapsed }) => (
     <>
@@ -208,6 +304,72 @@ export default function StudentDashboardSectionPage({
           {collapsed ? (
             <NavLink
               to="/dashboard/student-start-here"
+              title="Welcome"
+              className={`lms-nav-link lms-nav-link-collapsed ${isWelcomeRouteActive ? "active" : ""}`}
+            >
+              <span className="lms-nav-icon-wrap" aria-hidden="true">
+                <FiHome className="lms-nav-icon" />
+              </span>
+              <span className="lms-nav-short">W</span>
+            </NavLink>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="student-starter-panel-head"
+                onClick={() => setWelcomeMenuOpen((prev) => !prev)}
+                aria-expanded={showWelcomeMenu}
+              >
+                <span className="student-starter-panel-title">Welcome!</span>
+                <span className="student-starter-panel-more" aria-hidden="true">
+                  {showWelcomeMenu ? <FiChevronDown /> : <FiChevronRight />}
+                </span>
+              </button>
+              {showWelcomeMenu && (
+                <div className="student-starter-panel-list">
+                  {welcomeNavItems.map((item) => {
+                    const isCommunityInput = item.label === "Community Input";
+                    if (isCommunityInput) {
+                      return (
+                        <button
+                          key={`welcome-panel-${item.path}`}
+                          type="button"
+                          className="student-starter-panel-link student-starter-panel-link-disabled"
+                          title="Coming soon"
+                          disabled
+                        >
+                          <span className="student-starter-panel-icon" aria-hidden="true">
+                            {item.icon}
+                          </span>
+                          <span className="student-starter-panel-label">{item.label}</span>
+                          <span className="student-starter-soon-badge">Coming soon</span>
+                        </button>
+                      );
+                    }
+                    return (
+                      <NavLink
+                        key={`welcome-panel-${item.path}`}
+                        to={item.path}
+                        className={`student-starter-panel-link ${linkIsActive(item.path) ? "active" : ""}`}
+                      >
+                        <span className="student-starter-panel-icon" aria-hidden="true">
+                          {item.icon}
+                        </span>
+                        <span className="student-starter-panel-label">{item.label}</span>
+                        {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className={`student-starter-panel ${collapsed ? "collapsed" : ""}`}>
+          {collapsed ? (
+            <NavLink
+              to="/dashboard/student-start-here"
               title="Sell It Starter"
               className={`lms-nav-link lms-nav-link-collapsed ${isStarterRouteActive ? "active" : ""}`}
             >
@@ -242,7 +404,6 @@ export default function StudentDashboardSectionPage({
                           {item.icon}
                         </span>
                         <span className="student-starter-panel-label">{item.label}</span>
-                        {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
                         {item.label === "Sell It Snacks" && <span className="student-starter-panel-count">1</span>}
                       </NavLink>
                     );
@@ -250,6 +411,76 @@ export default function StudentDashboardSectionPage({
                 </div>
               )}
             </>
+          )}
+        </div>
+
+        <div className={`student-starter-nav student-starter-nav-top ${collapsed ? "collapsed" : ""}`}>
+          <button
+            type="button"
+            className={`lms-nav-link lms-nav-link-button student-starter-title ${isWelcomeRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
+            onClick={() => setWelcomeMenuOpen((prev) => !prev)}
+            title={collapsed ? "Welcome" : undefined}
+            aria-expanded={showWelcomeMenu}
+          >
+            {collapsed ? (
+              <>
+                <span className="lms-nav-icon-wrap" aria-hidden="true">
+                  <FiHome className="lms-nav-icon" />
+                </span>
+                <span className="lms-nav-short">W</span>
+              </>
+            ) : (
+              <>
+                <span className="lms-nav-link-main">
+                  <span className="lms-nav-icon-wrap" aria-hidden="true">
+                    <FiHome className="lms-nav-icon" />
+                  </span>
+                  <span>Welcome!</span>
+                </span>
+                <span>{showWelcomeMenu ? "▾" : "▸"}</span>
+              </>
+            )}
+          </button>
+          {showWelcomeMenu && (
+            <div className="student-starter-menu">
+              {welcomeNavItems.map((item) => {
+                const isCommunityInput = item.label === "Community Input";
+                if (isCommunityInput) {
+                  return (
+                    <button
+                      key={`welcome-nav-${item.path}`}
+                      type="button"
+                      className={`student-starter-link student-starter-link-disabled ${collapsed ? "justify-content-center" : ""}`}
+                      title={collapsed ? `${item.label} (Coming soon)` : "Coming soon"}
+                      disabled
+                    >
+                      <span className="student-starter-icon" aria-hidden="true">{item.icon}</span>
+                      {!collapsed && (
+                        <>
+                          <span>{item.label}</span>
+                          <span className="student-starter-soon-badge">Coming soon</span>
+                        </>
+                      )}
+                      {collapsed && <span className="visually-hidden">{item.label} coming soon</span>}
+                    </button>
+                  );
+                }
+                return (
+                  <NavLink
+                    key={`welcome-nav-${item.path}`}
+                    to={item.path}
+                    title={collapsed ? item.label : undefined}
+                    className={() =>
+                      `student-starter-link ${linkIsActive(item.path) ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`
+                    }
+                  >
+                    <span className="student-starter-icon" aria-hidden="true">{item.icon}</span>
+                    {!collapsed && <span>{item.label}</span>}
+                    {collapsed && <span className="visually-hidden">{item.label}</span>}
+                  </NavLink>
+                );
+              })}
+            </div>
           )}
         </div>
 
@@ -301,6 +532,75 @@ export default function StudentDashboardSectionPage({
         </div>
 
         <nav className="lms-sidebar-nav">
+          <div className={`student-starter-nav student-starter-nav-monthly ${collapsed ? "collapsed" : ""}`}>
+            <button
+              type="button"
+              className={`lms-nav-link lms-nav-link-button student-starter-title ${isMonthlyChallengesNavActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
+              onClick={() => setMonthlyChallengesMenuOpen((prev) => !prev)}
+              title={collapsed ? "Monthly Challenges" : undefined}
+              aria-expanded={showMonthlyChallengesMenu}
+            >
+              {collapsed ? (
+                <>
+                  <span className="lms-nav-icon-wrap" aria-hidden="true">
+                    <FiCalendar className="lms-nav-icon" />
+                  </span>
+                  <span className="lms-nav-short">MO</span>
+                </>
+              ) : (
+                <>
+                  <span className="lms-nav-link-main">
+                    <span className="lms-nav-icon-wrap" aria-hidden="true">
+                      <FiCalendar className="lms-nav-icon" />
+                    </span>
+                    <span>Monthly Challenges</span>
+                  </span>
+                  <span>{showMonthlyChallengesMenu ? "▾" : "▸"}</span>
+                </>
+              )}
+            </button>
+            {showMonthlyChallengesMenu && (
+              <div className="student-starter-menu">
+                {monthlySidebar.loading ? (
+                  <div className="student-starter-link student-starter-link-disabled text-muted py-2 px-2">
+                    {!collapsed ? "Loading months…" : "…"}
+                  </div>
+                ) : monthlySidebar.meta.length === 0 ? (
+                  <div className="student-starter-link student-starter-link-disabled text-muted py-2 px-2">
+                    {!collapsed ? "No months yet." : "—"}
+                  </div>
+                ) : (
+                  monthlySidebar.meta.map(({ key, count }, index) => {
+                    const cur = new URLSearchParams(search).get("month");
+                    const firstKey = monthlySidebar.meta[0]?.key;
+                    const isMonthActive = cur === key || (!cur && key === firstKey);
+                    const line = formatMonthlyChallengeLine(key, monthlySidebar.labels);
+                    const tip = `${displayTitleForMonthKey(key, monthlySidebar.labels)} — ${count} course${count === 1 ? "" : "s"}`;
+                    const emoji =
+                      MONTHLY_CHALLENGE_ROW_EMOJIS[index % MONTHLY_CHALLENGE_ROW_EMOJIS.length];
+                    return (
+                      <Link
+                        key={`mc-month-${key}`}
+                        to={`${STUDENT_MONTHLY_CHALLENGES_PATH}?month=${encodeURIComponent(key)}`}
+                        title={tip}
+                        className={`student-starter-link ${isMonthActive ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`}
+                      >
+                        <span className="student-starter-icon" aria-hidden="true">
+                          {emoji}
+                        </span>
+                        {!collapsed && (
+                          <span className="text-truncate" style={{ maxWidth: "11.5rem" }}>
+                            {line}
+                          </span>
+                        )}
+                        {collapsed && <span className="visually-hidden">{line}</span>}
+                      </Link>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
           {studentNavItems.map((item) => (
             <NavLink
               key={item.path}
@@ -313,6 +613,80 @@ export default function StudentDashboardSectionPage({
               <SidebarLinkLabel {...item} collapsed={collapsed} />
             </NavLink>
           ))}
+          <div className={`student-starter-nav ${collapsed ? "collapsed" : ""}`}>
+            <button
+              type="button"
+              className={`lms-nav-link lms-nav-link-button student-starter-title ${isWelcomeRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
+              onClick={() => setWelcomeMenuOpen((prev) => !prev)}
+              title={collapsed ? "Welcome" : undefined}
+              aria-expanded={showWelcomeMenu}
+            >
+              {collapsed ? (
+                <>
+                  <span className="lms-nav-icon-wrap" aria-hidden="true">
+                    <FiHome className="lms-nav-icon" />
+                  </span>
+                  <span className="lms-nav-short">W</span>
+                </>
+              ) : (
+                <>
+                  <span className="lms-nav-link-main">
+                    <span className="lms-nav-icon-wrap" aria-hidden="true">
+                      <FiHome className="lms-nav-icon" />
+                    </span>
+                    <span>Welcome!</span>
+                  </span>
+                  <span>{showWelcomeMenu ? "▾" : "▸"}</span>
+                </>
+              )}
+            </button>
+            {showWelcomeMenu && (
+              <div className="student-starter-menu">
+                {welcomeNavItems.map((item) => {
+                  const isCommunityInput = item.label === "Community Input";
+                  if (isCommunityInput) {
+                    return (
+                      <button
+                        key={`welcome-inner-${item.path}`}
+                        type="button"
+                        className={`student-starter-link student-starter-link-disabled ${collapsed ? "justify-content-center" : ""}`}
+                        title={collapsed ? `${item.label} (Coming soon)` : "Coming soon"}
+                        disabled
+                      >
+                        <span className="student-starter-icon" aria-hidden="true">
+                          {item.icon}
+                        </span>
+                        {!collapsed && (
+                          <>
+                            <span>{item.label}</span>
+                            <span className="student-starter-soon-badge">Coming soon</span>
+                          </>
+                        )}
+                        {collapsed && <span className="visually-hidden">{item.label} coming soon</span>}
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <NavLink
+                      key={`welcome-inner-${item.path}`}
+                      to={item.path}
+                      title={collapsed ? item.label : undefined}
+                      className={() =>
+                        `student-starter-link ${linkIsActive(item.path) ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`
+                      }
+                    >
+                      <span className="student-starter-icon" aria-hidden="true">
+                        {item.icon}
+                      </span>
+                      {!collapsed && <span>{item.label}</span>}
+                      {collapsed && <span className="visually-hidden">{item.label}</span>}
+                    </NavLink>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           <div className={`student-starter-nav ${collapsed ? "collapsed" : ""}`}>
             <button
               type="button"

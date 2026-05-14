@@ -9,8 +9,10 @@ import StudentCourseDetailPage from './pages/student/StudentCourseDetailPage';
 import StudentDashboard from './pages/student/SutdentDashboard';
 import StudentStartHerePage from './pages/student/StudentStartHerePage';
 import StudentStarterPlaceholderPage from './pages/student/StudentStarterPlaceholderPage';
+import StudentMeetGreetPage from './pages/student/StudentMeetGreetPage';
 import StudentFaqsPage from './pages/student/StudentFaqsPage';
 import StudentMembersPage from './pages/student/StudentMembersPage';
+import StudentAccountSettingsPage from './pages/student/StudentAccountSettingsPage';
 import StudentMessagesPage from './pages/student/StudentMessagesPage';
 import SellItSnackDetailPage from './pages/student/SellItSnackDetailPage';
 import SellItSnacksViewerPage from './pages/student/SellItSnacksViewerPage';
@@ -22,6 +24,7 @@ import MemberManagementPage from './pages/admin/MemberManagementPage';
 import CourseManagementPage from './pages/admin/CourseManagementPage';
 import CourseDetailPage from './pages/admin/CourseDetailPage';
 import AdminCourseVideoDetailPage from './pages/admin/AdminCourseVideoDetailPage';
+import AdminOwningManhattanDetailPage from './pages/admin/AdminOwningManhattanDetailPage';
 import WorkshopManagementPage from './pages/admin/WorkshopManagementPage';
 import NewsManagementPage from './pages/admin/NewsManagementPage';
 import PartnerManagementPage from './pages/admin/PartnerManagementPage';
@@ -40,6 +43,17 @@ import FaqManagementPage from './pages/admin/FaqManagementPage';
 import StudentWallOfWinsPage from './pages/student/StudentWallOfWinsPage';
 import SuperAdminWallOfWinsPage from './pages/admin/SuperAdminWallOfWinsPage';
 import WallOfWinsDetailPage, { AdminWallOfWinsDetailPage } from './pages/admin/WallOfWinsDetailPage';
+import WelcomeSellItFamilyPage from './pages/student/WelcomeSellItFamilyPage';
+import TrainerWelcomeSellItFamilyPage from './pages/trainer/TrainerWelcomeSellItFamilyPage';
+import TrainerStarterPlaceholderPage from './pages/trainer/TrainerStarterPlaceholderPage';
+import TrainerStartHerePage from './pages/trainer/TrainerStartHerePage';
+import WelcomeVideoManagementPage from './pages/admin/WelcomeVideoManagementPage';
+import AdminWelcomeNavPlaceholderPage from './pages/admin/AdminWelcomeNavPlaceholderPage';
+import StudentAskRyanPage from './pages/student/StudentAskRyanPage';
+import StudentCoursesByMonthPage from './pages/student/StudentCoursesByMonthPage';
+import TrainerAskRyanPage from './pages/trainer/TrainerAskRyanPage';
+import AdminAskRyanManagementPage from './pages/admin/AdminAskRyanManagementPage';
+import AdminMonthlyChallengesManagementPage from './pages/admin/AdminMonthlyChallengesManagementPage';
 
 function App() {
   return (
@@ -53,6 +67,14 @@ function App() {
           <Route path="/dashboard/student-course" element={<StudentPanel />} />
           <Route path="/dashboard/student-course/:courseId" element={<StudentCourseDetailPage />} />
           <Route path="/dashboard/student-start-here" element={<StudentStartHerePage />} />
+          <Route path="/dashboard/student-welcome-family" element={<WelcomeSellItFamilyPage />} />
+          <Route path="/dashboard/student-meet-greet" element={<StudentMeetGreetPage />} />
+          <Route path="/dashboard/student-ask-ryan" element={<StudentAskRyanPage />} />
+          <Route path="/dashboard/student-courses-by-month" element={<StudentCoursesByMonthPage />} />
+          <Route
+            path="/dashboard/student-owning-manhattan"
+            element={<StudentPanel />}
+          />
           <Route
             path="/dashboard/student-sell-it-snacks"
             element={<SellItSnacksViewerPage />}
@@ -69,6 +91,7 @@ function App() {
             element={<StudentFaqsPage />}
           />
           <Route path="/dashboard/student-members" element={<StudentMembersPage />} />
+          <Route path="/dashboard/student-account-settings" element={<StudentAccountSettingsPage />} />
           <Route path="/dashboard/student-messages" element={<StudentMessagesPage />} />
           <Route path="/dashboard/student-community" element={<StudentCommunityFeedPage />} />
           <Route path="/dashboard/student-dashboard" element={<StudentDashboard />} />
@@ -77,6 +100,17 @@ function App() {
           <Route path="/dashboard/members-management" element={<MemberManagementPage />} />
           <Route path="/dashboard/trainer-management" element={<TrannerManagementPage title="Trainer Management" />} />
           <Route path="/dashboard/trainer-dashboard" element={<TrainerDashboard />} />
+          <Route path="/dashboard/trainer-start-here" element={<TrainerStartHerePage />} />
+          <Route path="/dashboard/trainer-welcome-family" element={<TrainerWelcomeSellItFamilyPage />} />
+          <Route
+            path="/dashboard/trainer-meet-greet"
+            element={<TrainerStarterPlaceholderPage title="Meet + Greet" description="Coming soon." />}
+          />
+          <Route path="/dashboard/trainer-ask-ryan" element={<TrainerAskRyanPage />} />
+          <Route
+            path="/dashboard/trainer-owning-manhattan"
+            element={<TrainerCoursePage />}
+          />
           <Route path="/dashboard/trainer-sell-it-snacks" element={<TrainerSellItSnacksPage />} />
           <Route
             path="/dashboard/trainer-sell-it-snacks/:snackId"
@@ -94,6 +128,7 @@ function App() {
           <Route path="/dashboard/member-management" element={<Navigate to="/dashboard/members-management" replace />} />
           <Route path="/dashboard/course-management" element={<CourseManagementPage />} />
           <Route path="/dashboard/course-management/:courseId" element={<CourseDetailPage />} />
+          <Route path="/dashboard/owning-manhattan/:courseId" element={<AdminOwningManhattanDetailPage />} />
           <Route path="/dashboard/course-management/:courseId/videos/:videoId" element={<AdminCourseVideoDetailPage />} />
           <Route path="/dashboard/sell-it-snacks-management" element={<AdminSellItSnacksPage />} />
           <Route path="/dashboard/trainer-course" element={<TrainerCoursePage />} />
@@ -108,6 +143,10 @@ function App() {
           <Route path="/dashboard/feed-management/wall-of-wins/:entryId" element={<AdminWallOfWinsDetailPage />} />
           <Route path="/dashboard/news-management" element={<NewsManagementPage />} />
           <Route path="/dashboard/faqs-management" element={<FaqManagementPage />} />
+          <Route path="/dashboard/welcome-video-management" element={<WelcomeVideoManagementPage />} />
+          <Route path="/dashboard/welcome-admin/:section" element={<AdminWelcomeNavPlaceholderPage />} />
+          <Route path="/dashboard/ask-ryan-management" element={<AdminAskRyanManagementPage />} />
+          <Route path="/dashboard/monthly-challenges-management" element={<AdminMonthlyChallengesManagementPage />} />
           <Route path="/dashboard/partner-management" element={<PartnerManagementPage />} />
           <Route path="/register" element={<Register />} />
           <Route

@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import TrainerDashboardSectionPage from './TrainerDashboardSectionPage';
+import CommunityVideoPlayer from '../../components/CommunityVideoPlayer.jsx';
+import CourseAdaptiveVideo from '../../components/CourseAdaptiveVideo.jsx';
+import { resolvePublicMediaUrl } from '../../utils/mediaUrl';
 
 export default function TrainerCourseDetailPage() {
   const { courseId } = useParams();
   const navigate = useNavigate();
+  const { search } = useLocation();
+  const fromOwningManhattan = new URLSearchParams(search).get('from') === 'owning-manhattan';
+  const coursesListPath = fromOwningManhattan
+    ? '/dashboard/trainer-owning-manhattan'
+    : '/dashboard/trainer-course';
   const [course, setCourse] = useState(null);
   const [videos, setVideos] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -90,8 +98,8 @@ export default function TrainerCourseDetailPage() {
     <TrainerDashboardSectionPage title="Course Details">
       <div className="container-fluid px-0" style={{ maxWidth: 1200 }}>
         <div className="d-flex justify-content-between align-items-center mb-3">
-          <Link to="/dashboard/trainer-course" className="btn btn-outline-secondary btn-sm">
-            Back to Trainer Courses
+          <Link to={coursesListPath} className="btn btn-outline-secondary btn-sm">
+            {fromOwningManhattan ? 'Back to Owning Manhattan' : 'Back to Trainer Courses'}
           </Link>
         </div>
 
@@ -183,7 +191,7 @@ export default function TrainerCourseDetailPage() {
                             {isVideoContent(video) ? (
                               <>
                                 <img
-                                  src={video.thumbnail_url || video.thumbnail_data_url || 'https://via.placeholder.com/200x112?text=Video'}
+                                  src={resolvePublicMediaUrl(video.thumbnail_url || video.thumbnail_data_url || '', apiBaseUrl) || 'https://via.placeholder.com/200x112?text=Video'}
                                   alt={video.thumbnail_name || `${video.title} thumbnail`}
                                   style={{ width: 200, height: 112, objectFit: 'cover', borderRadius: 8 }}
                                 />
@@ -225,13 +233,31 @@ export default function TrainerCourseDetailPage() {
                   Close
                 </button>
               </div>
-              <div className="card-body p-0 bg-black">
-                <video
-                  src={resolvePlayableUrl(activeVideo)}
-                  controls
-                  autoPlay
-                  style={{ width: '100%', maxHeight: '70vh' }}
-                />
+              <div className="card-body p-0 bg-black position-relative">
+                {(() => {
+                  const playUrl = resolvePlayableUrl(activeVideo);
+                  if (!playUrl) return null;
+                  if (/\.m3u8(\?|$)/i.test(playUrl)) {
+                    return (
+                      <CourseAdaptiveVideo
+                        src={playUrl}
+                        controls
+                        autoPlay
+                        style={{ width: '100%', maxHeight: '70vh' }}
+                      />
+                    );
+                  }
+                  return (
+                    <CommunityVideoPlayer
+                      src={playUrl}
+                      title={activeVideo.title || 'Lesson'}
+                      variants={activeVideo.video_variants || []}
+                      autoQualityLabel="Original"
+                      autoPlay
+                      className="w-100"
+                    />
+                  );
+                })()}
               </div>
             </div>
           </div>

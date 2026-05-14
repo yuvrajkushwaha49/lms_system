@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
 import { SNACK_CATEGORIES } from "../../constants/snackCategories";
+import { resolvePublicMediaUrl } from "../../utils/mediaUrl";
 
 export default function SellItSnacksViewerPage({
   SectionComponent = StudentDashboardSectionPage,
@@ -204,7 +205,12 @@ export default function SellItSnacksViewerPage({
           </div>
         ) : (
           <div className="sell-snacks-grid">
-            {sortedSnacks.map((snack) => (
+            {sortedSnacks.map((snack) => {
+              const thumbUrl = resolvePublicMediaUrl(
+                snack.thumbnail_url || "",
+                apiBaseUrl,
+              );
+              return (
               <button
                 key={snack.id}
                 type="button"
@@ -214,12 +220,12 @@ export default function SellItSnacksViewerPage({
                 <div
                   className="sell-snack-thumb"
                   style={{
-                    background: snack.thumbnail_url
-                      ? `url(${snack.thumbnail_url}) center/cover no-repeat`
+                    background: thumbUrl
+                      ? `url(${thumbUrl}) center/cover no-repeat`
                       : "linear-gradient(135deg,#4169ff,#f7efe1)",
                   }}
                 >
-                  {!snack.thumbnail_url && <span>{snack.category}</span>}
+                  {!thumbUrl && <span>{snack.category}</span>}
                 </div>
                 <div className="sell-snack-body">
                   <h3>{snack.title}</h3>
@@ -244,7 +250,8 @@ export default function SellItSnacksViewerPage({
                   )}
                 </div>
               </button>
-            ))}
+              );
+            })}
           </div>
         )}
 

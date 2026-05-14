@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   FiBookOpen,
+  FiChevronDown,
+  FiChevronRight,
   FiGrid,
+  FiHome,
   FiLayers,
   FiLogOut,
   FiMenu,
@@ -15,6 +18,14 @@ import {
 import logo from '../../assets/logo.png';
 
 const STORAGE_KEY = 'trainer_dashboard_sidebar_collapsed';
+
+const trainerWelcomeNavItems = [
+  { label: 'Start Here', icon: '🆕', short: 'SH', path: '/dashboard/trainer-start-here' },
+  { label: 'Meet + Greet', icon: '👋', short: 'MG', path: '/dashboard/trainer-meet-greet' },
+  { label: 'Ask Ryan Anything', icon: 's.', short: 'AR', path: '/dashboard/trainer-ask-ryan' },
+  { label: 'Owning Manhattan', icon: '🏙', short: 'OM', path: '/dashboard/trainer-owning-manhattan' },
+  { label: 'Community Input', icon: '✏️', short: 'CI', path: '/dashboard/trainer-feed' },
+];
 
 const trainerNavItems = [
   { label: 'Dashboard', short: 'DB', path: '/dashboard/trainer-dashboard', icon: FiGrid },
@@ -39,17 +50,33 @@ function SidebarLinkLabel({ icon: Icon, label, short, collapsed }) {
 }
 
 export default function TrainerDashboardSectionPage({ title, children }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(() =>
     typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) === '1' : false,
   );
+  const [welcomeMenuOpen, setWelcomeMenuOpen] = useState(false);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0');
   }, [collapsed]);
 
-  const linkIsActive = (path) => pathname === path;
+  const isTrainerOwningManhattanDetail =
+    pathname.startsWith('/dashboard/trainer-course/') &&
+    new URLSearchParams(search).get('from') === 'owning-manhattan';
+
+  const linkIsActive = (path) => {
+    if (path === '/dashboard/trainer-owning-manhattan' && isTrainerOwningManhattanDetail) return true;
+    if (path === '/dashboard/trainer-course' && isTrainerOwningManhattanDetail) return false;
+    return pathname === path || pathname.startsWith(`${path}/`);
+  };
+
+  const isWelcomeRouteActive = trainerWelcomeNavItems.some((item) => linkIsActive(item.path));
+  const showWelcomeMenu = welcomeMenuOpen || isWelcomeRouteActive;
+
+  useEffect(() => {
+    if (isWelcomeRouteActive) setWelcomeMenuOpen(true);
+  }, [isWelcomeRouteActive]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -83,6 +110,52 @@ export default function TrainerDashboardSectionPage({ title, children }) {
         </div>
 
         {!collapsed && <div className="lms-sidebar-section-label">Teaching Tools</div>}
+
+        <div className={`student-starter-panel ${collapsed ? 'collapsed' : ''}`}>
+          {collapsed ? (
+            <NavLink
+              to="/dashboard/trainer-start-here"
+              title="Welcome"
+              className={`lms-nav-link lms-nav-link-collapsed ${isWelcomeRouteActive ? 'active' : ''}`}
+            >
+              <span className="lms-nav-icon-wrap" aria-hidden="true">
+                <FiHome className="lms-nav-icon" />
+              </span>
+              <span className="lms-nav-short">W</span>
+            </NavLink>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="student-starter-panel-head"
+                onClick={() => setWelcomeMenuOpen((prev) => !prev)}
+                aria-expanded={showWelcomeMenu}
+              >
+                <span className="student-starter-panel-title">Welcome!</span>
+                <span className="student-starter-panel-more" aria-hidden="true">
+                  {showWelcomeMenu ? <FiChevronDown /> : <FiChevronRight />}
+                </span>
+              </button>
+              {showWelcomeMenu && (
+                <div className="student-starter-panel-list">
+                  {trainerWelcomeNavItems.map((item) => (
+                    <NavLink
+                      key={`trainer-welcome-${item.path}`}
+                      to={item.path}
+                      className={`student-starter-panel-link ${linkIsActive(item.path) ? 'active' : ''}`}
+                    >
+                      <span className="student-starter-panel-icon" aria-hidden="true">
+                        {item.icon}
+                      </span>
+                      <span className="student-starter-panel-label">{item.label}</span>
+                      {item.label === 'Start Here' && <span className="student-starter-panel-badge">NEW</span>}
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
         <nav className="lms-sidebar-nav">
           {trainerNavItems.map((item) => (

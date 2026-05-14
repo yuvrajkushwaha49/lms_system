@@ -299,6 +299,9 @@ const ensureFeedTables = async () => {
   await db.query(
     'ALTER TABLE member_feed_posts ADD COLUMN IF NOT EXISTS blocked_by INT DEFAULT NULL',
   );
+  await db.query(
+    "ALTER TABLE member_feed_posts ADD COLUMN IF NOT EXISTS posting_space VARCHAR(64) NOT NULL DEFAULT 'sell-it-community'",
+  );
 
   await db.query(
     `CREATE TABLE IF NOT EXISTS member_feed_likes (
@@ -475,6 +478,15 @@ const serializeAttachment = (attachment, req, orgId) => ({
   video_variants: (attachment.video_variants || []).map((variant) => serializeVariant(variant, req, orgId)),
 });
 
+const FEED_POSTING_SPACES = new Set([
+  'meet-greet',
+  'sell-it-community',
+  'referral-partners',
+  'community-listings',
+  'workshop-replays',
+  'sell-it-short-courses',
+]);
+
 const serializePost = (post, comments = [], req = null) => {
   const orgId = post.org_id;
   const attachments = (post.attachments || []).map((attachment) => serializeAttachment(attachment, req, orgId));
@@ -501,6 +513,7 @@ const serializePost = (post, comments = [], req = null) => {
     likes_count: Number(post.likes_count || 0),
     comments_count: Number(post.comments_count || 0),
     is_liked: Boolean(post.is_liked),
+    posting_space: post.posting_space || 'sell-it-community',
     attachments,
     comments,
   };
@@ -652,6 +665,14 @@ const getFeedPosts = async (req, res) => {
     const ownerFilterParams = showOnlyMine ? [userId] : [];
     const blockedFilterSql = showOnlyMine ? '' : ' AND COALESCE(p.is_blocked, 0) = 0';
 
+    const requestedSpace = String(req.query.space || '').trim();
+    const applySpaceFilter = Boolean(requestedSpace && FEED_POSTING_SPACES.has(requestedSpace));
+    const spaceSql = applySpaceFilter ? ' AND p.posting_space = ?' : '';
+
+    const feedQueryParams = [userId || 0, orgId];
+    if (applySpaceFilter) feedQueryParams.push(requestedSpace);
+    feedQueryParams.push(...ownerFilterParams);
+
     const [posts] = await db.query(
       `SELECT p.*,
         COALESCE(l.like_count, 0) AS likes_count,
@@ -680,10 +701,10 @@ const getFeedPosts = async (req, res) => {
        ) br ON br.org_id = p.org_id AND br.post_id = p.id
        LEFT JOIN member_feed_likes ul
          ON ul.org_id = p.org_id AND ul.post_id = p.id AND ul.user_id = ?
-       WHERE p.org_id = ? AND p.processing_status = 'ready'${blockedFilterSql}${ownerFilterSql}
+       WHERE p.org_id = ?${spaceSql} AND p.processing_status = 'ready'${blockedFilterSql}${ownerFilterSql}
        ORDER BY p.created_at DESC, p.id DESC
        LIMIT ${limit + 1} OFFSET ${offset}`,
-      [userId || 0, orgId, ...ownerFilterParams],
+      feedQueryParams,
     );
     const hasMore = posts.length > limit;
     const pagePosts = hasMore ? posts.slice(0, limit) : posts;
@@ -692,10 +713,10 @@ const getFeedPosts = async (req, res) => {
       ? await db.query(
         `SELECT p.*, 0 AS likes_count, 0 AS comments_count, 0 AS is_liked
          FROM member_feed_posts p
-         WHERE p.org_id = ? AND p.user_id = ? AND p.processing_status IN ('processing', 'failed') AND COALESCE(p.is_blocked, 0) = 0
+         WHERE p.org_id = ? AND p.user_id = ? AND p.processing_status IN ('processing', 'failed') AND COALESCE(p.is_blocked, 0) = 0${applySpaceFilter ? ' AND p.posting_space = ?' : ''}
          ORDER BY p.created_at DESC, p.id DESC
          LIMIT 5`,
-        [orgId, userId],
+        applySpaceFilter ? [orgId, userId, requestedSpace] : [orgId, userId],
       )
       : [[]];
 
@@ -820,6 +841,11 @@ const createFeedPost = async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Heading is required.' });
     }
 
+    let postingSpace = String(req.body.posting_space || req.body.postingSpace || '').trim();
+    if (!FEED_POSTING_SPACES.has(postingSpace)) {
+      postingSpace = 'sell-it-community';
+    }
+
     const files = Array.isArray(req.files) ? req.files : (req.file ? [req.file] : []);
     const hasVideoUpload = files.some((uploadedFile) => resolveMediaType(uploadedFile.mimetype || '') === 'video');
     const file = files[0] || null;
@@ -828,8 +854,8 @@ const createFeedPost = async (req, res) => {
 
     const [result] = await db.query(
       `INSERT INTO member_feed_posts
-      (org_id, user_id, user_name, heading, sub_heading, content, media_url, media_type, media_name, media_mime, media_size, processing_status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (org_id, user_id, user_name, heading, sub_heading, content, media_url, media_type, media_name, media_mime, media_size, processing_status, posting_space)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         orgId,
         userId,
@@ -843,6 +869,7 @@ const createFeedPost = async (req, res) => {
         file?.mimetype || null,
         file?.size || null,
         hasVideoUpload ? 'processing' : 'ready',
+        postingSpace,
       ],
     );
 

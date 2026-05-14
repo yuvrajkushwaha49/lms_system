@@ -1,4 +1,13 @@
+const path = require('path');
+const fs = require('fs/promises');
+const fsSync = require('fs');
 const db = require('../config/db');
+const {
+  ensureCourseVideoVariantsTable,
+  processCourseVideoVariants,
+  resolveLocalCourseUploadPath,
+  VIDEO_VARIANTS,
+} = require('../services/courseVideoVariants.service');
 
 const resolveOrgId = (user) => user?.org_id || user?.business_id || null;
 
@@ -69,6 +78,10 @@ const ensureCourseVideosTable = async () => {
   await db.query(
     'ALTER TABLE course_videos ADD COLUMN IF NOT EXISTS short_description VARCHAR(300) DEFAULT NULL',
   );
+  await db.query(
+    "ALTER TABLE course_videos ADD COLUMN IF NOT EXISTS processing_status ENUM('ready','processing','failed') NOT NULL DEFAULT 'ready'",
+  );
+  await ensureCourseVideoVariantsTable();
 };
 
 const ensureCourseLessonsTable = async () => {
@@ -117,6 +130,9 @@ const ensureCourseVideoEngagementTables = async () => {
   );
   await db.query(
     'ALTER TABLE course_video_comments ADD COLUMN IF NOT EXISTS is_blocked TINYINT(1) NOT NULL DEFAULT 0',
+  );
+  await db.query(
+    'ALTER TABLE course_video_comments ADD COLUMN IF NOT EXISTS parent_comment_id INT DEFAULT NULL',
   );
   await db.query(
     `CREATE TABLE IF NOT EXISTS course_video_comment_reactions (
@@ -251,7 +267,7 @@ const createCourse = async (req, res) => {
       deliveryMode: normalizedDeliveryMode,
       recordedType: normalizedRecordedType,
     });
-    await db.query(
+    const [insertResult] = await db.query(
       `INSERT INTO courses
        (org_id, instructor_id, title, description, price, delivery_mode, recorded_type, pricing_type, free_for_members, course_type)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -268,34 +284,68 @@ const createCourse = async (req, res) => {
         resolvedCourseType,
       ],
     );
-    res.json({status: 'success'});
+    const newCourseId = insertResult?.insertId;
+    res.json({ status: 'success', data: { id: newCourseId } });
   } catch(e) { res.status(500).json({status: 'error'}); }
 };
+const mapCourseRow = (row) => {
+  const {
+    effective_delivery_mode: deliveryMode,
+    effective_pricing_type: pricingType,
+    effective_free_for_members: freeForMembers,
+    effective_course_type: courseType,
+    ...rest
+  } = row;
+  return {
+    ...rest,
+    delivery_mode: deliveryMode,
+    pricing_type: pricingType,
+    free_for_members: freeForMembers,
+    course_type: courseType,
+  };
+};
+
+/** Used by monthly challenge schedule; same rows as GET /api/courses without request context. */
+const fetchOrgCoursesForOrg = async (orgId, { courseTypeFilter = '' } = {}) => {
+  await ensureCoursesTableColumns();
+  const params = [orgId];
+  let typeClause = '';
+  const cf = String(courseTypeFilter || '').trim();
+  if (cf) {
+    typeClause = ' AND LOWER(TRIM(COALESCE(courses.course_type, \'\'))) = LOWER(?)';
+    params.push(cf);
+  }
+  const [rows] = await db.query(
+    `SELECT courses.*,
+            COALESCE(courses.delivery_mode, 'Recorded') AS effective_delivery_mode,
+            COALESCE(courses.pricing_type, CASE WHEN courses.price = 0 THEN 'Free for Members' ELSE 'Paid' END) AS effective_pricing_type,
+            COALESCE(courses.free_for_members, CASE WHEN courses.price = 0 THEN 1 ELSE 0 END) AS effective_free_for_members,
+            COALESCE(courses.course_type,
+              CASE
+                WHEN LOWER(COALESCE(courses.delivery_mode, 'Recorded')) = 'live' THEN 'Workshop'
+                WHEN LOWER(COALESCE(courses.recorded_type, '')) LIKE '%short%' THEN 'Short Course'
+                ELSE 'Chapter Wise Course'
+              END
+            ) AS effective_course_type
+     FROM courses
+     WHERE courses.org_id = ?${typeClause}`,
+    params,
+  );
+  return rows.map(mapCourseRow);
+};
+
 const getCourses = async (req, res) => {
   try {
-    await ensureCoursesTableColumns();
     const orgId = resolveOrgId(req.user);
     if (!orgId) {
       return res.status(400).json({ status: 'error', message: 'Organization context missing in token.' });
     }
-    const [courses] = await db.query(
-      `SELECT *,
-              COALESCE(delivery_mode, 'Recorded') AS delivery_mode,
-              COALESCE(pricing_type, CASE WHEN price = 0 THEN 'Free for Members' ELSE 'Paid' END) AS pricing_type,
-              COALESCE(free_for_members, CASE WHEN price = 0 THEN 1 ELSE 0 END) AS free_for_members,
-              COALESCE(course_type,
-                CASE
-                  WHEN LOWER(COALESCE(delivery_mode, 'Recorded')) = 'live' THEN 'Workshop'
-                  WHEN LOWER(COALESCE(recorded_type, '')) LIKE '%short%' THEN 'Short Course'
-                  ELSE 'Chapter Wise Course'
-                END
-              ) AS course_type
-       FROM courses
-       WHERE org_id = ?`,
-      [orgId],
-    );
-    res.json({status: 'success', data: courses});
-  } catch(e) { res.status(500).json({status: 'error'}); }
+    const courseTypeFilter = String(req.query.course_type || req.query.courseType || '').trim();
+    const courses = await fetchOrgCoursesForOrg(orgId, { courseTypeFilter });
+    res.json({ status: 'success', data: courses });
+  } catch (e) {
+    res.status(500).json({ status: 'error' });
+  }
 };
 
 const updateCourse = async (req, res) => {
@@ -564,7 +614,8 @@ const createCourseVideo = async (req, res) => {
       resolvedLessonTitle = lessonRows[0].title;
     }
 
-    await db.query(
+    const ct = String(contentType || 'video').toLowerCase();
+    const [insertResult] = await db.query(
       `INSERT INTO course_videos
       (org_id, course_id, title, short_description, description, video_url, thumbnail_url, content_type, assigned_trainer_id, assigned_trainer_name, lesson_id, lesson_title, duration_seconds, uploader_id, uploader_role, is_active)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -576,7 +627,7 @@ const createCourseVideo = async (req, res) => {
         description || null,
         videoUrl,
         thumbnailUrl || null,
-        contentType || 'video',
+        ct,
         assignedTrainerId || null,
         assignedTrainerName || null,
         resolvedLessonId,
@@ -587,6 +638,39 @@ const createCourseVideo = async (req, res) => {
         1,
       ],
     );
+    const newVideoId = insertResult.insertId;
+
+    const localPath = resolveLocalCourseUploadPath(videoUrl);
+    const isLocalVideoFile =
+      localPath &&
+      fsSync.existsSync(localPath) &&
+      ct === 'video' &&
+      !/\.m3u8(\?|$)/i.test(String(videoUrl));
+
+    if (isLocalVideoFile && newVideoId) {
+      await ensureCourseVideoVariantsTable();
+      await db.query('UPDATE course_videos SET processing_status = ? WHERE id = ? AND org_id = ?', [
+        'processing',
+        newVideoId,
+        orgId,
+      ]);
+      const variantRows = VIDEO_VARIANTS.map((variant) => [orgId, courseId, newVideoId, variant.resolution, 'pending']);
+      await db.query(
+        `INSERT INTO course_video_variants (org_id, course_id, video_id, resolution, status) VALUES ?`,
+        [variantRows],
+      );
+      const resolveMediaUrl = (relativeKey) =>
+        `${req.protocol}://${req.get('host')}/uploads/course-media/${String(relativeKey).replace(/\\/g, '/')}`;
+      processCourseVideoVariants({
+        resolveMediaUrl,
+        orgId,
+        courseId,
+        videoId: newVideoId,
+        inputPath: localPath,
+      }).catch((error) => {
+        console.error('course video variant processing error:', error);
+      });
+    }
 
     res.json({ status: 'success' });
   } catch (e) {
@@ -614,6 +698,32 @@ const uploadCourseMedia = async (req, res) => {
   }
 };
 
+const attachCourseVideoVariants = async (orgId, courseId, videos) => {
+  const ids = videos.map((v) => v.id).filter((id) => id != null);
+  if (!ids.length) return videos;
+  await ensureCourseVideoVariantsTable();
+  const placeholders = ids.map(() => '?').join(', ');
+  const [rows] = await db.query(
+    `SELECT id, video_id, resolution, media_url, status, error_message
+     FROM course_video_variants
+     WHERE org_id = ? AND course_id = ? AND video_id IN (${placeholders})
+     ORDER BY FIELD(resolution, '360p', '720p', '1080p'), id ASC`,
+    [orgId, courseId, ...ids],
+  );
+  return videos.map((video) => ({
+    ...video,
+    video_variants: rows
+      .filter((r) => Number(r.video_id) === Number(video.id))
+      .map((r) => ({
+        id: r.id,
+        resolution: r.resolution,
+        media_url: r.media_url,
+        status: r.status,
+        error_message: r.error_message,
+      })),
+  }));
+};
+
 const getCourseVideos = async (req, res) => {
   try {
     await ensureCourseVideosTable();
@@ -632,13 +742,15 @@ const getCourseVideos = async (req, res) => {
     const canViewAll = requesterRole === 'admin' || requesterRole === 'ceo';
     const activeFilter = canViewAll ? '' : ' AND is_active = 1';
     const [videos] = await db.query(
-      `SELECT id, course_id, title, short_description, description, video_url, thumbnail_url, content_type, assigned_trainer_id, assigned_trainer_name, lesson_id, lesson_title, duration_seconds, uploader_role, is_active, created_at
+      `SELECT id, course_id, title, short_description, description, video_url, thumbnail_url, content_type, assigned_trainer_id, assigned_trainer_name, lesson_id, lesson_title, duration_seconds, uploader_role, is_active, created_at,
+              COALESCE(processing_status, 'ready') AS processing_status
        FROM course_videos
        WHERE org_id = ? AND course_id = ?${activeFilter}
        ORDER BY COALESCE(lesson_id, 999999), created_at DESC`,
       [orgId, courseId],
     );
-    res.json({ status: 'success', data: videos });
+    const withVariants = await attachCourseVideoVariants(orgId, courseId, videos);
+    res.json({ status: 'success', data: withVariants });
   } catch (e) {
     res.status(500).json({ status: 'error', message: e.message || 'Failed to fetch videos.' });
   }
@@ -913,6 +1025,25 @@ const createCourseVideoComment = async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'Video not found.' });
     }
 
+    let parentCommentId = null;
+    if (req.body?.parent_comment_id != null && req.body.parent_comment_id !== '') {
+      const rawParent = Number(req.body.parent_comment_id);
+      if (!Number.isNaN(rawParent)) {
+        const [parentRows] = await db.query(
+          `SELECT id, parent_comment_id FROM course_video_comments
+           WHERE id = ? AND org_id = ? AND course_id = ? AND video_id = ? LIMIT 1`,
+          [rawParent, orgId, courseId, videoId],
+        );
+        if (!parentRows.length) {
+          return res.status(400).json({ status: 'error', message: 'Parent comment not found.' });
+        }
+        if (parentRows[0].parent_comment_id != null) {
+          return res.status(400).json({ status: 'error', message: 'You can only reply to top-level comments.' });
+        }
+        parentCommentId = rawParent;
+      }
+    }
+
     let userName = req.user?.name || null;
     if (!userName) {
       const [userRows] = await db.query(
@@ -922,12 +1053,12 @@ const createCourseVideoComment = async (req, res) => {
       userName = userRows[0]?.name || null;
     }
     const [insertResult] = await db.query(
-      'INSERT INTO course_video_comments (org_id, course_id, video_id, user_id, user_name, comment_text) VALUES (?, ?, ?, ?, ?, ?)',
-      [orgId, courseId, videoId, userId, userName, commentText],
+      'INSERT INTO course_video_comments (org_id, course_id, video_id, user_id, user_name, comment_text, parent_comment_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [orgId, courseId, videoId, userId, userName, commentText, parentCommentId],
     );
 
     const [rows] = await db.query(
-      'SELECT id, video_id, user_id, user_name, comment_text, created_at FROM course_video_comments WHERE id = ? LIMIT 1',
+      'SELECT id, video_id, user_id, user_name, comment_text, created_at, parent_comment_id FROM course_video_comments WHERE id = ? LIMIT 1',
       [insertResult.insertId],
     );
     return res.json({ status: 'success', data: rows[0] || null });
@@ -1103,6 +1234,11 @@ const deleteCourseVideoComment = async (req, res) => {
       return res.status(403).json({ status: 'error', message: 'You cannot delete this comment.' });
     }
 
+    await db.query(
+      `DELETE FROM course_video_comments WHERE parent_comment_id = ? AND org_id = ? AND course_id = ? AND video_id = ?`,
+      [commentId, orgId, courseId, videoId],
+    );
+
     const [result] = await db.query(
       'DELETE FROM course_video_comments WHERE id = ? AND org_id = ? AND course_id = ? AND video_id = ?',
       [commentId, orgId, courseId, videoId],
@@ -1181,11 +1317,11 @@ const getCourseVideoEngagement = async (req, res) => {
       [userId, orgId, courseId, videoIds],
     );
     const [commentRows] = await db.query(
-      `SELECT c.id, c.video_id, c.user_id, COALESCE(NULLIF(c.user_name, ''), u.name) AS user_name, c.comment_text, c.is_blocked, c.created_at
+      `SELECT c.id, c.video_id, c.user_id, COALESCE(NULLIF(c.user_name, ''), u.name) AS user_name, c.comment_text, c.is_blocked, c.created_at, c.parent_comment_id
        FROM course_video_comments c
        LEFT JOIN users u ON u.id = c.user_id
        WHERE c.org_id = ? AND c.course_id = ? AND c.video_id IN (?)
-       ORDER BY c.created_at DESC`,
+       ORDER BY c.video_id ASC, c.id ASC`,
       [orgId, courseId, videoIds],
     );
     const [reactionRows] = await db.query(
@@ -1232,15 +1368,13 @@ const getCourseVideoEngagement = async (req, res) => {
         my_reaction: row.my_reaction || null,
       };
     });
-    commentRows.forEach((row) => {
-      const key = String(row.video_id);
-      if (!comments[key]) comments[key] = [];
+    const buildCommentNode = (row) => {
       const commentReaction = reactionMap[String(row.id)] || {
         likes_count: 0,
         dislikes_count: 0,
         my_reaction: null,
       };
-      comments[key].push({
+      return {
         id: row.id,
         video_id: row.video_id,
         user_id: row.user_id,
@@ -1248,10 +1382,48 @@ const getCourseVideoEngagement = async (req, res) => {
         text: row.comment_text,
         is_blocked: Number(row.is_blocked || 0) === 1,
         createdAt: row.created_at,
+        parent_comment_id: row.parent_comment_id != null ? Number(row.parent_comment_id) : null,
         likesCount: commentReaction.likes_count,
         dislikesCount: commentReaction.dislikes_count,
         myReaction: commentReaction.my_reaction,
+        replies: [],
+      };
+    };
+
+    videoIds.forEach((id) => {
+      comments[String(id)] = [];
+    });
+
+    const rowsByVideo = {};
+    commentRows.forEach((row) => {
+      const key = String(row.video_id);
+      if (!rowsByVideo[key]) rowsByVideo[key] = [];
+      rowsByVideo[key].push(row);
+    });
+
+    Object.keys(rowsByVideo).forEach((vid) => {
+      const rows = rowsByVideo[vid];
+      const byId = new Map();
+      rows.forEach((row) => {
+        byId.set(Number(row.id), buildCommentNode(row));
       });
+      const roots = [];
+      rows.forEach((row) => {
+        const node = byId.get(Number(row.id));
+        const pid = row.parent_comment_id != null ? Number(row.parent_comment_id) : null;
+        if (pid && byId.has(pid)) {
+          byId.get(pid).replies.push(node);
+        } else {
+          roots.push(node);
+        }
+      });
+      roots.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      roots.forEach((r) => {
+        r.replies.sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        );
+      });
+      comments[vid] = roots;
     });
 
     const progress = {};
@@ -1483,6 +1655,7 @@ const listCourseVideoCommentReports = async (req, res) => {
 module.exports = {
   createCourse,
   getCourses,
+  fetchOrgCoursesForOrg,
   updateCourse,
   deleteCourse,
   getCourseBookmarks,

@@ -43,13 +43,29 @@ const sortOptions = ["For you", "Alphabetical", "Latest", "Likes", "New activity
 const COMMENTS_PAGE_SIZE = 7;
 const FEED_PAGE_SIZE = 7;
 const FEED_BOOKMARKS_STORAGE_KEY = "student_community_feed_bookmarks";
-const upcomingEvents = [
-  { id: "pipeline-1", day: "5", month: "May", title: "Build the Pipeline: Prospecting + Relationships", time: "10:30 - 11:00 PM IST" },
-  { id: "pipeline-2", day: "5", month: "May", title: "Build the Pipeline: Prospecting + Relationships", time: "10:30 - 11:00 PM IST" },
-  { id: "ai-text", day: "8", month: "May", title: "AI Text Kitchen", time: "12:30 - 1:00 AM IST" },
-  { id: "discovery", day: "12", month: "May", title: "Qualify and Position: Discovery + Presentation", time: "10:30 - 11:00 PM IST" },
-  { id: "real-world", day: "14", month: "May", title: "The Real World: Pipeline Breakdown", time: "10:30 - 11:00 PM IST" },
+
+/** Spaces shown in Create post → "Posting in" (UI; server post body unchanged). */
+const POSTING_SPACES = [
+  { id: "meet-greet", top: "welcome", emoji: "👋", title: "Meet + Greet", search: "welcome meet greet" },
+  { id: "sell-it-community", top: "Community", emoji: "", title: "Sell It Community", search: "community sell it" },
+  { id: "referral-partners", top: "", emoji: "🤝", title: "Referral Partners", search: "referral partners" },
+  { id: "community-listings", top: "", emoji: "🏠", title: "Community Listings", search: "listings home community" },
+  { id: "workshop-replays", top: "", emoji: "📽️", title: "Workshop Replays", search: "workshop replays" },
+  { id: "sell-it-short-courses", top: "", emoji: "", title: "Sell It Short Courses", search: "short courses sell it" },
 ];
+
+const resolveDefaultPostingSpaceId = (contextLabel) => {
+  const t = String(contextLabel || "")
+    .trim()
+    .toLowerCase();
+  if (t.includes("meet") && t.includes("greet")) return "meet-greet";
+  if (t.includes("referral")) return "referral-partners";
+  if (t.includes("listing")) return "community-listings";
+  if (t.includes("workshop") && t.includes("replay")) return "workshop-replays";
+  if (t.includes("short") && t.includes("course")) return "sell-it-short-courses";
+  if (t.includes("sell it") && t.includes("community")) return "sell-it-community";
+  return "sell-it-community";
+};
 
 const editorCommandGroups = [
   {
@@ -388,8 +404,10 @@ export default function StudentCommunityFeedPage({
   title = "Feed",
   storageKey = FEED_BOOKMARKS_STORAGE_KEY,
   roleBadge = "Member",
-  postingContext = "Meet + Greet",
+  postingContext = "Sell It Community",
   showMyFeedFilter = true,
+  feedVariant = "default",
+  feedSpaceFilter = "",
 }) {
   const DashboardSection = SectionComponent;
   const fileInputRef = useRef(null);
@@ -424,6 +442,12 @@ export default function StudentCommunityFeedPage({
   });
   const [showComposer, setShowComposer] = useState(false);
   const [showCommandMenu, setShowCommandMenu] = useState(false);
+  const [selectedPostingSpaceId, setSelectedPostingSpaceId] = useState(() =>
+    feedSpaceFilter || resolveDefaultPostingSpaceId(postingContext),
+  );
+  const [postingSpaceMenuOpen, setPostingSpaceMenuOpen] = useState(false);
+  const [postingSpaceSearch, setPostingSpaceSearch] = useState("");
+  const postingSpaceSearchRef = useRef(null);
   const [activeBlockFormat, setActiveBlockFormat] = useState(null);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [activeSort, setActiveSort] = useState("Latest");
@@ -456,6 +480,52 @@ export default function StudentCommunityFeedPage({
     localStorage.setItem(storageKey, JSON.stringify(bookmarkedPostMap));
   }, [bookmarkedPostMap, storageKey]);
 
+  useEffect(() => {
+    if (feedSpaceFilter) {
+      setSelectedPostingSpaceId(feedSpaceFilter);
+      return;
+    }
+    setSelectedPostingSpaceId(resolveDefaultPostingSpaceId(postingContext));
+  }, [postingContext, feedSpaceFilter]);
+
+  const selectedPostingSpace = useMemo(
+    () => POSTING_SPACES.find((s) => s.id === selectedPostingSpaceId) || POSTING_SPACES[0],
+    [selectedPostingSpaceId],
+  );
+
+  const filteredPostingSpaces = useMemo(() => {
+    const q = postingSpaceSearch.trim().toLowerCase();
+    if (!q) return POSTING_SPACES;
+    return POSTING_SPACES.filter((s) => {
+      const hay = `${s.search} ${s.title} ${s.top} ${s.emoji}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [postingSpaceSearch]);
+
+  useEffect(() => {
+    if (!showComposer) {
+      setPostingSpaceMenuOpen(false);
+      setPostingSpaceSearch("");
+    }
+  }, [showComposer]);
+
+  useEffect(() => {
+    if (!postingSpaceMenuOpen) return undefined;
+    const onDocMouseDown = (event) => {
+      if (!event.target.closest(".student-community-posting-space-wrap")) {
+        setPostingSpaceMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, [postingSpaceMenuOpen]);
+
+  useEffect(() => {
+    if (postingSpaceMenuOpen) {
+      queueMicrotask(() => postingSpaceSearchRef.current?.focus());
+    }
+  }, [postingSpaceMenuOpen]);
+
   const sortedPosts = useMemo(() => {
     const nextPosts = [...posts];
     if (activeSort === "Alphabetical") {
@@ -476,18 +546,6 @@ export default function StudentCommunityFeedPage({
     }
     return nextPosts.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   }, [activeSort, posts]);
-
-  const trendingPosts = useMemo(
-    () =>
-      [...posts]
-        .sort((a, b) => {
-          const bScore = Number(b.likes_count || 0) + Number(b.comments_count || 0);
-          const aScore = Number(a.likes_count || 0) + Number(a.comments_count || 0);
-          return bScore - aScore;
-        })
-        .slice(0, 3),
-    [posts],
-  );
 
   const selectedPost = useMemo(
     () => posts.find((post) => String(post.id) === String(selectedPostId)) || null,
@@ -521,9 +579,13 @@ export default function StudentCommunityFeedPage({
           setError("");
         }
         const scopeParam = showMyFeedFilter && feedScope === "mine" ? "&mine=1" : "";
-        const response = await fetch(`${apiBaseUrl}/api/feed?limit=${FEED_PAGE_SIZE}&offset=${offset}${scopeParam}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const spaceParam = feedSpaceFilter ? `&space=${encodeURIComponent(feedSpaceFilter)}` : "";
+        const response = await fetch(
+          `${apiBaseUrl}/api/feed?limit=${FEED_PAGE_SIZE}&offset=${offset}${scopeParam}${spaceParam}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
         const payload = await response.json();
         if (!response.ok || payload.status !== "success") {
           throw new Error(payload.message || "Unable to fetch feed posts.");
@@ -547,7 +609,7 @@ export default function StudentCommunityFeedPage({
         }
       }
     },
-    [apiBaseUrl, feedScope, showMyFeedFilter],
+    [apiBaseUrl, feedScope, showMyFeedFilter, feedSpaceFilter],
   );
 
   useEffect(() => {
@@ -724,6 +786,7 @@ export default function StudentCommunityFeedPage({
       formData.append("heading", formValues.heading.trim());
       formData.append("sub_heading", formValues.subHeading.trim());
       formData.append("content", formValues.content.trim());
+      formData.append("posting_space", feedSpaceFilter || selectedPostingSpaceId);
       mediaFiles.forEach((file) => formData.append("media", file));
 
       const response = await fetch(`${apiBaseUrl}/api/feed`, {
@@ -1262,15 +1325,35 @@ export default function StudentCommunityFeedPage({
           </div>
         </div>
 
-        <div className="student-community-layout">
+        <div
+          className={`student-community-layout${processingPosts.length > 0 ? "" : " student-community-layout--no-rail"}`}
+        >
           <section className="student-community-main">
-            <div className="student-community-hero">
-              <div>
-                <span>TAKE CARE OF THE</span>
-                <span>WORK AND <strong>THE</strong></span>
-                <span><strong>WORK WILL TAKE</strong></span>
-                <span><strong>CARE OF YOU.</strong></span>
-              </div>
+            <div
+              className={`student-community-hero${feedVariant === "meetGreet" ? " student-community-hero--meet-greet" : ""}`}
+            >
+              {feedVariant === "meetGreet" ? (
+                <div className="student-community-hero-meet-copy">
+                  <span className="student-community-hero-meet-badge">MEMBERSHIP</span>
+                  <p className="student-community-hero-meet-headline">SAY HELLO &amp; GET CONNECTED</p>
+                  <p className="student-community-hero-meet-lede">
+                    Tell us about yourself—your background, passions, and what brought you to this community!
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <span>TAKE CARE OF THE</span>
+                  <span>
+                    WORK AND <strong>THE</strong>
+                  </span>
+                  <span>
+                    <strong>WORK WILL TAKE</strong>
+                  </span>
+                  <span>
+                    <strong>CARE OF YOU.</strong>
+                  </span>
+                </div>
+              )}
             </div>
 
             <button type="button" className="lms-card student-community-start-post" onClick={() => setShowComposer((prev) => !prev)}>
@@ -1511,8 +1594,8 @@ export default function StudentCommunityFeedPage({
             )}
           </section>
 
-          <aside className="student-community-right-rail">
-            {processingPosts.length > 0 && (
+          {processingPosts.length > 0 && (
+            <aside className="student-community-right-rail">
               <div className="lms-card student-community-side-card">
                 <h2>Processing posts</h2>
                 <div className="student-community-processing-list">
@@ -1528,47 +1611,8 @@ export default function StudentCommunityFeedPage({
                   ))}
                 </div>
               </div>
-            )}
-
-            <div className="lms-card student-community-side-card">
-              <h2>Upcoming events</h2>
-              <div className="student-community-event-list">
-                {upcomingEvents.map((event) => (
-                  <div key={event.id} className="student-community-event">
-                    <div className="student-community-date">
-                      <strong>{event.day}</strong>
-                      <span>{event.month}</span>
-                    </div>
-                    <div>
-                      <h3>{event.title}</h3>
-                      <p>{event.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="lms-card student-community-side-card">
-              <h2>Trending posts</h2>
-              {trendingPosts.length > 0 ? (
-                <div className="student-community-trending-list">
-                  {trendingPosts.map((post) => (
-                    <div key={post.id} className="student-community-trending">
-                      <div className="student-community-avatar mini">{getInitial(post.user_name)}</div>
-                      <div>
-                        <strong>{post.heading}</strong>
-                        <p>
-                          {formatCountLabel(post.likes_count)} likes · {formatCountLabel(post.comments_count)} comments
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted mb-0">Trending posts will appear here.</p>
-              )}
-            </div>
-          </aside>
+            </aside>
+          )}
         </div>
 
         <CommentReportReasonModal
@@ -1882,7 +1926,77 @@ export default function StudentCommunityFeedPage({
                     {mediaFiles.length} file{mediaFiles.length > 1 ? "s" : ""} selected
                   </span>
                 )}
-                <span className="student-community-posting-context">Posting in: {postingContext}</span>
+                {feedSpaceFilter ? (
+                  <div className="student-community-posting-space-wrap student-community-posting-space-wrap--locked">
+                    <span className="student-community-posting-space-locked">
+                      Posting in: <strong>{selectedPostingSpace.title}</strong>
+                    </span>
+                  </div>
+                ) : (
+                  <div className="student-community-posting-space-wrap">
+                    <button
+                      type="button"
+                      className="student-community-posting-space-trigger"
+                      onClick={() => setPostingSpaceMenuOpen((v) => !v)}
+                      aria-expanded={postingSpaceMenuOpen}
+                      aria-haspopup="listbox"
+                      aria-label={`Posting in ${selectedPostingSpace.title}. Choose space.`}
+                    >
+                      <span className="student-community-posting-space-trigger-text">
+                        Posting in: <strong>{selectedPostingSpace.title}</strong>
+                      </span>
+                      <FiChevronDown className={`student-community-posting-space-trigger-chevron${postingSpaceMenuOpen ? " is-open" : ""}`} aria-hidden />
+                    </button>
+                    {postingSpaceMenuOpen && (
+                      <div className="student-community-posting-space-panel" role="listbox" aria-label="Choose posting space">
+                        <input
+                          ref={postingSpaceSearchRef}
+                          type="search"
+                          className="student-community-posting-space-search"
+                          placeholder="Search space..."
+                          value={postingSpaceSearch}
+                          onChange={(e) => setPostingSpaceSearch(e.target.value)}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        />
+                        {filteredPostingSpaces.length === 0 ? (
+                          <p className="student-community-posting-space-empty">No spaces match your search.</p>
+                        ) : (
+                          <ul className="student-community-posting-space-list">
+                            {filteredPostingSpaces.map((space) => (
+                              <li key={space.id}>
+                                <button
+                                  type="button"
+                                  role="option"
+                                  aria-selected={space.id === selectedPostingSpaceId}
+                                  className={`student-community-posting-space-option${space.id === selectedPostingSpaceId ? " is-active" : ""}`}
+                                  onClick={() => {
+                                    setSelectedPostingSpaceId(space.id);
+                                    setPostingSpaceMenuOpen(false);
+                                    setPostingSpaceSearch("");
+                                  }}
+                                >
+                                  <span className="student-community-posting-space-option-inner">
+                                    {space.top ? (
+                                      <span className="student-community-posting-space-option-kicker">{space.top}</span>
+                                    ) : null}
+                                    <span className="student-community-posting-space-option-main">
+                                      {space.emoji ? (
+                                        <span className="student-community-posting-space-option-emoji" aria-hidden>
+                                          {space.emoji}
+                                        </span>
+                                      ) : null}
+                                      <span className="student-community-posting-space-option-title">{space.title}</span>
+                                    </span>
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <button type="submit" className="student-community-modal-publish" disabled={isSubmitting}>
                   {isSubmitting ? "Posting..." : "Publish"}
                 </button>

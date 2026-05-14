@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import DashboardSectionPage from "./DashboardSectionPage";
+import CommunityVideoPlayer from "../../components/CommunityVideoPlayer.jsx";
+import CourseAdaptiveVideo from "../../components/CourseAdaptiveVideo.jsx";
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -12,9 +14,25 @@ const resolveCommentAuthorName = (comment) =>
     comment?.user_name || comment?.userName || comment?.name || "Unknown User",
   ).trim() || "Unknown User";
 
+const flattenCourseVideoCommentTree = (roots) => {
+  if (!Array.isArray(roots)) return [];
+  const out = [];
+  const walk = (node, depth) => {
+    if (!node || node.id == null) return;
+    const replies = Array.isArray(node.replies) ? node.replies : [];
+    out.push({ ...node, _replyDepth: depth });
+    replies.forEach((child) => walk(child, depth + 1));
+  };
+  roots.forEach((n) => walk(n, 0));
+  return out;
+};
+
 export default function AdminCourseVideoDetailPage() {
   const { courseId, videoId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const courseVideosListPath =
+    location.state?.omAdminReturnPath || `/dashboard/course-management/${courseId}`;
   const [course, setCourse] = useState(null);
   const [video, setVideo] = useState(null);
   const [trainers, setTrainers] = useState([]);
@@ -173,22 +191,15 @@ export default function AdminCourseVideoDetailPage() {
   const comments = Array.isArray(commentsMap[String(videoId)])
     ? commentsMap[String(videoId)]
     : [];
-  const sortedComments = useMemo(
-    () =>
-      comments
-        .slice()
-        .sort(
-          (a, b) =>
-            new Date(b?.createdAt || 0).getTime() -
-            new Date(a?.createdAt || 0).getTime(),
-        ),
+  const flatComments = useMemo(
+    () => flattenCourseVideoCommentTree(comments),
     [comments],
   );
   const paginatedComments = useMemo(
-    () => sortedComments.slice(0, visibleCommentsCount),
-    [sortedComments, visibleCommentsCount],
+    () => flatComments.slice(0, visibleCommentsCount),
+    [flatComments, visibleCommentsCount],
   );
-  const hasMoreComments = paginatedComments.length < sortedComments.length;
+  const hasMoreComments = paginatedComments.length < flatComments.length;
   const isCompleted = Boolean(progressMap[String(videoId)]);
 
   const resolvePlayableUrl = (entry) =>
@@ -323,7 +334,7 @@ export default function AdminCourseVideoDetailPage() {
       if (!response.ok || payload.status !== "success") {
         throw new Error(payload.message || "Failed to delete video.");
       }
-      navigate(`/dashboard/course-management/${courseId}`);
+      navigate(courseVideosListPath);
     } catch (deleteError) {
       setError(deleteError.message);
     }
@@ -341,7 +352,7 @@ export default function AdminCourseVideoDetailPage() {
 
   useEffect(() => {
     setVisibleCommentsCount(10);
-  }, [videoId, comments.length]);
+  }, [videoId, flatComments.length]);
 
   const handleCommentsScroll = (event) => {
     const node = event.currentTarget;
@@ -349,7 +360,7 @@ export default function AdminCourseVideoDetailPage() {
       node.scrollTop + node.clientHeight >= node.scrollHeight - 40;
     if (nearBottom && hasMoreComments) {
       setVisibleCommentsCount((prev) =>
-        Math.min(prev + 10, sortedComments.length),
+        Math.min(prev + 10, flatComments.length),
       );
     }
   };
@@ -463,7 +474,7 @@ export default function AdminCourseVideoDetailPage() {
       >
         <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
           <Link
-            to={`/dashboard/course-management/${courseId}`}
+            to={courseVideosListPath}
             className="btn btn-outline-secondary btn-sm"
           >
             Back to Course Videos
@@ -531,11 +542,27 @@ export default function AdminCourseVideoDetailPage() {
             <div className="lms-card p-0 overflow-hidden admin-video-main-card">
               <div className="bg-black admin-video-player-wrap">
                 {video && resolvePlayableUrl(video) ? (
-                  <video
-                    src={resolvePlayableUrl(video)}
-                    controls
-                    style={{ width: "100%", maxHeight: "70vh" }}
-                  />
+                  (() => {
+                    const playUrl = resolvePlayableUrl(video);
+                    if (/\.m3u8(\?|$)/i.test(playUrl)) {
+                      return (
+                        <CourseAdaptiveVideo
+                          src={playUrl}
+                          controls
+                          style={{ width: "100%", maxHeight: "70vh" }}
+                        />
+                      );
+                    }
+                    return (
+                      <CommunityVideoPlayer
+                        src={playUrl}
+                        title={video.title || "Video"}
+                        variants={video.video_variants || []}
+                        autoQualityLabel="Original"
+                        className="w-100"
+                      />
+                    );
+                  })()
                 ) : (
                   <div className="text-white text-center py-5">
                     Video preview unavailable.
@@ -589,7 +616,7 @@ export default function AdminCourseVideoDetailPage() {
               </div>
               <div className="d-flex justify-content-between align-items-center mb-3 admin-metric-row">
                 <span>Total Comments</span>
-                <strong className="fs-5">{comments.length}</strong>
+                <strong className="fs-5">{flatComments.length}</strong>
               </div>
               <div className="d-flex justify-content-between align-items-center admin-metric-row">
                 <span>Completion Status</span>
@@ -599,7 +626,7 @@ export default function AdminCourseVideoDetailPage() {
 
             <div className="lms-card p-4 admin-comments-card">
               <h3 className="h6 fw-bold mb-3">Latest Comments</h3>
-              {comments.length === 0 ? (
+              {flatComments.length === 0 ? (
                 <p className="text-muted small mb-0">
                   No comments on this video yet.
                 </p>
@@ -612,6 +639,9 @@ export default function AdminCourseVideoDetailPage() {
                     <div
                       key={`${comment.id || comment.createdAt}-${idx}`}
                       className={`admin-comment-item p-3 mb-2 ${idx < paginatedComments.length - 1 ? "" : "mb-0"}`}
+                      style={{
+                        marginLeft: Math.min(24, Number(comment._replyDepth || 0) * 12),
+                      }}
                     >
                       <div className="d-flex justify-content-between align-items-start gap-2 mb-1">
                         <p className="mb-0 fw-semibold small">

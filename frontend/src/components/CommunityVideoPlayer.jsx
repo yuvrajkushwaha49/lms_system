@@ -34,6 +34,10 @@ export default function CommunityVideoPlayer({
   variants = [],
   autoQualityLabel = "Auto",
   className = "",
+  autoPlay = false,
+  onVideoTimeUpdate,
+  onVideoLoadedMetadata,
+  onVideoEnded,
 }) {
   const videoRef = useRef(null);
   const playerRef = useRef(null);
@@ -141,6 +145,7 @@ export default function CommunityVideoPlayer({
         className="student-community-video"
         preload="metadata"
         title={title}
+        autoPlay={autoPlay}
         controlsList="nodownload noremoteplayback"
         disablePictureInPicture
         disableRemotePlayback
@@ -162,11 +167,18 @@ export default function CommunityVideoPlayer({
           }
           pendingSeekRef.current = 0;
           shouldResumeRef.current = false;
+          onVideoLoadedMetadata?.(event);
         }}
-        onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime || 0)}
+        onTimeUpdate={(event) => {
+          setCurrentTime(event.currentTarget.currentTime || 0);
+          onVideoTimeUpdate?.(event);
+        }}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
-        onEnded={() => setIsPlaying(false)}
+        onEnded={(event) => {
+          setIsPlaying(false);
+          onVideoEnded?.(event);
+        }}
       />
       {!isPlaying && (
         <button type="button" className="student-community-video-center-play" onClick={togglePlayback} aria-label="Play video">

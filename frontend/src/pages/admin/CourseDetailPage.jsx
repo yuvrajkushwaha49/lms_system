@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import DashboardSectionPage from './DashboardSectionPage';
+import CommunityVideoPlayer from '../../components/CommunityVideoPlayer.jsx';
+import CourseAdaptiveVideo from '../../components/CourseAdaptiveVideo.jsx';
+import { resolvePublicMediaUrl } from '../../utils/mediaUrl';
 
 const TRAINER_UPLOAD_PERMISSION_KEY = 'course_trainer_upload_permissions';
 
@@ -490,14 +493,16 @@ export default function CourseDetailPage() {
   };
 
   const openCourseEditModal = () => {
+    const catalogType = course?.course_type || 'Chapter Wise Course';
+    const isOmCatalog = catalogType === 'OwningManhattan';
     setCourseForm({
       title: course?.title || '',
       description: course?.description || '',
       price: String(course?.price ?? ''),
       deliveryMode: course?.delivery_mode || 'Recorded',
-      recordedType: course?.recorded_type || 'Chapter Wise/Topic Wise',
+      recordedType: isOmCatalog ? 'Short Courses' : course?.recorded_type || 'Chapter Wise/Topic Wise',
       pricingType: course?.pricing_type || (Number(course?.price) === 0 ? 'Free for Members' : 'Paid'),
-      courseType: course?.course_type || 'Chapter Wise Course',
+      courseType: catalogType,
     });
     setShowCourseEditModal(true);
   };
@@ -523,7 +528,12 @@ export default function CourseDetailPage() {
           description: courseForm.description.trim(),
           price: Number(courseForm.pricingType === 'Free for Members' ? 0 : courseForm.price || 0),
           delivery_mode: courseForm.deliveryMode,
-          recorded_type: courseForm.deliveryMode === 'Recorded' ? courseForm.recordedType : null,
+          recorded_type:
+            courseForm.deliveryMode === 'Recorded'
+              ? courseForm.courseType === 'OwningManhattan'
+                ? 'Short Courses'
+                : courseForm.recordedType || 'Chapter Wise/Topic Wise'
+              : null,
           pricing_type: courseForm.pricingType,
           free_for_members: courseForm.pricingType === 'Free for Members',
           course_type: courseForm.courseType,
@@ -539,7 +549,12 @@ export default function CourseDetailPage() {
         description: courseForm.description.trim(),
         price: Number(courseForm.pricingType === 'Free for Members' ? 0 : courseForm.price || 0),
         delivery_mode: courseForm.deliveryMode,
-        recorded_type: courseForm.deliveryMode === 'Recorded' ? courseForm.recordedType : null,
+        recorded_type:
+          courseForm.deliveryMode === 'Recorded'
+            ? courseForm.courseType === 'OwningManhattan'
+              ? 'Short Courses'
+              : courseForm.recordedType || 'Chapter Wise/Topic Wise'
+            : null,
         pricing_type: courseForm.pricingType,
         course_type: courseForm.courseType,
       }));
@@ -717,7 +732,14 @@ export default function CourseDetailPage() {
               <p className="mb-2 text-light">{course?.description || '-'}</p>
               <div className="d-flex flex-wrap gap-2 mb-3">
                 <span className="badge bg-light text-dark px-3 py-2">Mode: {course?.delivery_mode || '-'}</span>
-                <span className="badge bg-light text-dark px-3 py-2">Type: {course?.recorded_type || '-'}</span>
+                <span className="badge bg-light text-dark px-3 py-2">
+                  Catalog type:{' '}
+                  {course?.course_type === 'OwningManhattan' ? 'Owning Manhattan' : course?.course_type || '-'}
+                </span>
+                <span className="badge bg-light text-dark px-3 py-2">
+                  Recorded:{' '}
+                  {course?.recorded_type === 'Short Courses' ? 'Short Course' : course?.recorded_type || '—'}
+                </span>
                 <span className="badge bg-light text-dark px-3 py-2">
                   Pricing: {course?.pricing_type || (Number(course?.price) === 0 ? 'Free for Members' : 'Paid')}
                 </span>
@@ -834,7 +856,7 @@ export default function CourseDetailPage() {
                                           title="Play video"
                                         >
                                           <img
-                                            src={video.thumbnail_url || video.thumbnail_data_url || 'https://via.placeholder.com/200x112?text=Video'}
+                                            src={resolvePublicMediaUrl(video.thumbnail_url || video.thumbnail_data_url || '', apiBaseUrl) || 'https://via.placeholder.com/200x112?text=Video'}
                                             alt={video.thumbnail_name || `${video.title} thumbnail`}
                                             style={{ width: 160, height: 90, objectFit: 'cover', borderRadius: 8 }}
                                           />
@@ -937,7 +959,7 @@ export default function CourseDetailPage() {
                                         title="Play video"
                                       >
                                         <img
-                                          src={video.thumbnail_url || video.thumbnail_data_url || 'https://via.placeholder.com/200x112?text=Video'}
+                                          src={resolvePublicMediaUrl(video.thumbnail_url || video.thumbnail_data_url || '', apiBaseUrl) || 'https://via.placeholder.com/200x112?text=Video'}
                                           alt={video.thumbnail_name || `${video.title} thumbnail`}
                                           style={{ width: 160, height: 90, objectFit: 'cover', borderRadius: 8 }}
                                         />
@@ -1263,6 +1285,7 @@ export default function CourseDetailPage() {
                             const value = event.target.value;
                             if (value === 'Workshop') return { ...prev, courseType: value, deliveryMode: 'Live', recordedType: 'Chapter Wise/Topic Wise' };
                             if (value === 'Short Course') return { ...prev, courseType: value, deliveryMode: 'Recorded', recordedType: 'Short Courses' };
+                            if (value === 'OwningManhattan') return { ...prev, courseType: value, deliveryMode: 'Recorded', recordedType: 'Short Courses' };
                             return { ...prev, courseType: value, deliveryMode: 'Recorded', recordedType: 'Chapter Wise/Topic Wise' };
                           })
                         }
@@ -1270,6 +1293,7 @@ export default function CourseDetailPage() {
                         <option value="Chapter Wise Course">Chapter Wise Course</option>
                         <option value="Short Course">Short Course</option>
                         <option value="Workshop">Workshop</option>
+                        <option value="OwningManhattan">Owning Manhattan</option>
                       </select>
                     </div>
                     <div className="col-12 col-md-6">
@@ -1288,11 +1312,26 @@ export default function CourseDetailPage() {
                         <label className="form-label fw-semibold">Recorded Type</label>
                         <select
                           className="form-select"
-                          value={courseForm.recordedType}
-                          onChange={(event) => setCourseForm((prev) => ({ ...prev, recordedType: event.target.value }))}
+                          value={
+                            courseForm.courseType === 'OwningManhattan'
+                              ? 'Short Courses'
+                              : courseForm.recordedType || 'Chapter Wise/Topic Wise'
+                          }
+                          onChange={(event) => {
+                            if (courseForm.courseType !== 'OwningManhattan') {
+                              setCourseForm((prev) => ({ ...prev, recordedType: event.target.value }));
+                            }
+                          }}
+                          disabled={courseForm.courseType === 'OwningManhattan'}
                         >
-                          <option value="Chapter Wise/Topic Wise">Chapter Wise/Topic Wise</option>
-                          <option value="Short Courses">Short Courses</option>
+                          {courseForm.courseType === 'OwningManhattan' ? (
+                            <option value="Short Courses">Short Course</option>
+                          ) : (
+                            <>
+                              <option value="Chapter Wise/Topic Wise">Chapter Wise/Topic Wise</option>
+                              <option value="Short Courses">Short Course</option>
+                            </>
+                          )}
                         </select>
                       </div>
                     )}
@@ -1418,13 +1457,31 @@ export default function CourseDetailPage() {
                   Close
                 </button>
               </div>
-              <div className="card-body p-0 bg-black">
-                <video
-                  src={resolvePlayableUrl(activeVideo)}
-                  controls
-                  autoPlay
-                  style={{ width: '100%', maxHeight: '70vh' }}
-                />
+              <div className="card-body p-0 bg-black position-relative">
+                {(() => {
+                  const playUrl = resolvePlayableUrl(activeVideo);
+                  if (!playUrl) return null;
+                  if (/\.m3u8(\?|$)/i.test(playUrl)) {
+                    return (
+                      <CourseAdaptiveVideo
+                        src={playUrl}
+                        controls
+                        autoPlay
+                        style={{ width: '100%', maxHeight: '70vh' }}
+                      />
+                    );
+                  }
+                  return (
+                    <CommunityVideoPlayer
+                      src={playUrl}
+                      title={activeVideo.title || 'Lesson'}
+                      variants={activeVideo.video_variants || []}
+                      autoQualityLabel="Original"
+                      autoPlay
+                      className="w-100"
+                    />
+                  );
+                })()}
               </div>
             </div>
           </div>

@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import StartHereSixSteps from "./StartHereSixSteps";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
+import WelcomeFamilyVideoInner from "./WelcomeFamilyVideoInner";
 
 export default function StudentStartHerePage() {
   const navigate = useNavigate();
@@ -34,7 +36,7 @@ export default function StudentStartHerePage() {
     return Math.round((completedCount / courseVideos.length) * 100);
   }, [apiBaseUrl]);
 
-  const loadFirstCourse = useCallback(async () => {
+  const goToCourse = useCallback(async () => {
     const token = localStorage.getItem("token");
     if (!token) {
       setError("Session missing. Please login first.");
@@ -68,7 +70,7 @@ export default function StudentStartHerePage() {
         }
       }
 
-      navigate(`/dashboard/student-course/${targetCourse.id}?from=start-here`, { replace: true });
+      navigate(`/dashboard/student-course/${targetCourse.id}?from=start-here`);
     } catch (loadError) {
       setError(loadError.message || "Unable to load Start Here.");
     } finally {
@@ -76,27 +78,49 @@ export default function StudentStartHerePage() {
     }
   }, [apiBaseUrl, getCourseProgress, navigate]);
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(loadFirstCourse, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [loadFirstCourse]);
-
   return (
     <StudentDashboardSectionPage title="Start Here">
-      <div className="container-fluid px-0 student-panel-page" style={{ maxWidth: 1200 }}>
-        <div className="lms-card p-4 p-md-5 mb-3">
-          <p className="text-uppercase small text-primary fw-bold mb-2">Sell It Starter</p>
-          <h1 className="h3 fw-bold mb-1">Start Here</h1>
-          <p className="text-muted mb-0">Begin with your first course and continue from your current progress.</p>
+      <div className="student-start-here-page container-fluid px-0 student-panel-page">
+        <header className="student-start-here-hero">
+          <span className="student-start-here-hero-badge">Sell It Starter</span>
+          <h1 className="student-start-here-hero-title">Start Here</h1>
+          <p className="student-start-here-hero-lede">
+            Watch the welcome message, complete the quick checklist below, then jump back into your course where you left off.
+          </p>
+          <ul className="student-start-here-hero-pills" aria-label="What you will do on this page">
+            <li>Welcome video</li>
+            <li>Six starter steps</li>
+            <li>Continue learning</li>
+          </ul>
+        </header>
+
+        {error && <div className="alert alert-danger student-start-here-alert mb-3">{error}</div>}
+
+        <div className="student-start-here-welcome-slot">
+          <WelcomeFamilyVideoInner showHero={false} />
         </div>
 
-        {error && <div className="alert alert-danger mb-3">{error}</div>}
+        <StartHereSixSteps variant="student" onPickCourse={goToCourse} />
 
-        <div className="lms-card p-4 text-center text-muted">
-          {isLoading ? "Redirecting to course detail..." : hasCourse ? "Redirecting..." : "No course available yet."}
+        <div className="student-start-here-cta">
+          <div className="student-start-here-cta-copy">
+            <h2 className="student-start-here-cta-title">Ready to learn?</h2>
+            <p className="student-start-here-cta-text mb-0">
+              {hasCourse
+                ? "We will open the next lesson in your path based on what you have already completed."
+                : "No course is linked to your account yet. Check back soon or contact your admin."}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn student-start-here-cta-btn"
+            onClick={goToCourse}
+            disabled={isLoading || !hasCourse}
+          >
+            {isLoading ? "Opening…" : "Continue to my course"}
+          </button>
         </div>
       </div>
     </StudentDashboardSectionPage>
   );
 }
-

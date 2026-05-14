@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import StudentDashboardSectionPage from './StudentDashboardSectionPage';
+import { resolvePublicMediaUrl } from '../../utils/mediaUrl';
 
 const COURSE_PAGE_SIZE = 8;
+const OWNING_MANHATTAN_COURSE_TYPE = 'OwningManhattan';
+
+const isOwningManhattanCatalogCourse = (course) =>
+  String(course?.course_type || '')
+    .replace(/\s+/g, '')
+    .toLowerCase() === 'owningmanhattan';
 
 export default function StudentPanel() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const owningManhattanOnly = pathname.includes('student-owning-manhattan');
   const [courses, setCourses] = useState([]);
   const [courseFirstVideoThumbMap, setCourseFirstVideoThumbMap] = useState({});
   const [courseProgressPercentMap, setCourseProgressPercentMap] = useState({});
@@ -39,7 +48,10 @@ export default function StudentPanel() {
     const fetchCourses = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(`${apiBaseUrl}/api/courses`, {
+        const coursesPath = owningManhattanOnly
+          ? `/api/courses?course_type=${encodeURIComponent(OWNING_MANHATTAN_COURSE_TYPE)}`
+          : '/api/courses';
+        const response = await fetch(`${apiBaseUrl}${coursesPath}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const payload = await response.json();
@@ -60,8 +72,9 @@ export default function StudentPanel() {
                 return [String(course.id), { thumb: '', progress: 0 }];
               }
               const courseVideos = videoPayload.data || [];
-              const firstVideo = courseVideos[0] || null;
-              const firstThumb = firstVideo?.thumbnail_url || firstVideo?.thumbnail_data_url || '';
+              const thumbVideo =
+                courseVideos.find((v) => v.thumbnail_url || v.thumbnail_data_url) || courseVideos[0] || null;
+              const firstThumb = thumbVideo?.thumbnail_url || thumbVideo?.thumbnail_data_url || '';
               let progressPercent = 0;
               if (courseVideos.length > 0) {
                 const engagementResponse = await fetch(`${apiBaseUrl}/api/courses/${course.id}/videos/engagement`, {
@@ -114,16 +127,26 @@ export default function StudentPanel() {
 
     fetchCourses();
     fetchBookmarkedCourses();
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, owningManhattanOnly]);
 
-  const liveCount = courses.filter((course) => (course.delivery_mode || '').toLowerCase() === 'live').length;
-  const recordedCount = courses.filter((course) => (course.delivery_mode || '').toLowerCase() === 'recorded').length;
+  useEffect(() => {
+    if (owningManhattanOnly) setActiveTab('all');
+  }, [owningManhattanOnly]);
+
+  const catalogCourses = useMemo(() => {
+    if (!owningManhattanOnly) return courses;
+    return courses.filter((course) => isOwningManhattanCatalogCourse(course));
+  }, [courses, owningManhattanOnly]);
   const isShortCourse = (course) => {
     const courseType = String(course?.course_type || '').toLowerCase();
     const recordedType = String(course?.recorded_type || '').toLowerCase();
     return courseType.includes('short') || recordedType.includes('short');
   };
-  const shortCoursesCount = courses.filter((course) => isShortCourse(course)).length;
+  const shortCoursesCount = catalogCourses.filter((course) => isShortCourse(course)).length;
+  const liveCount = catalogCourses.filter((course) => String(course?.delivery_mode || '').toLowerCase() === 'live').length;
+  const recordedCount = catalogCourses.filter(
+    (course) => String(course?.delivery_mode || '').toLowerCase() !== 'live',
+  ).length;
 
   const savedMyCourseIds = (() => {
     try {
@@ -135,25 +158,27 @@ export default function StudentPanel() {
     }
   })();
 
-  const myCourses = courses.filter((course) => {
+  const myCourses = catalogCourses.filter((course) => {
     if (savedMyCourseIds.length > 0) return savedMyCourseIds.includes(String(course.id));
     return Number(course.price) === 0;
   });
 
   const bookmarkedCourses = useMemo(
-    () => courses.filter((course) => bookmarkedCourseIds.includes(String(course.id))),
-    [courses, bookmarkedCourseIds],
+    () => catalogCourses.filter((course) => bookmarkedCourseIds.includes(String(course.id))),
+    [catalogCourses, bookmarkedCourseIds],
   );
 
   const displayedCourses = useMemo(() => {
-    const shortCourses = courses.filter((course) => isShortCourse(course));
-    const baseCourses = activeTab === 'my'
+    const shortCourses = catalogCourses.filter((course) => isShortCourse(course));
+    const baseCourses = owningManhattanOnly
+      ? catalogCourses
+      : activeTab === 'my'
       ? myCourses
       : activeTab === 'short'
         ? shortCourses
         : activeTab === 'bookmarks'
           ? bookmarkedCourses
-          : courses;
+          : catalogCourses;
     const query = headerSearch.trim().toLowerCase();
     if (!query) return baseCourses;
     return baseCourses.filter((course) => {
@@ -162,7 +187,7 @@ export default function StudentPanel() {
       const mode = String(course.delivery_mode || '').toLowerCase();
       return title.includes(query) || description.includes(query) || mode.includes(query);
     });
-  }, [activeTab, courses, myCourses, headerSearch, bookmarkedCourseIds]);
+  }, [activeTab, catalogCourses, myCourses, headerSearch, bookmarkedCourseIds, owningManhattanOnly]);
 
   const visibleCourses = useMemo(
     () => displayedCourses.slice(0, visibleCourseCount),
@@ -216,7 +241,7 @@ export default function StudentPanel() {
 
   return (
     <StudentDashboardSectionPage
-      title="Student Panel"
+      title={owningManhattanOnly ? 'Owning Manhattan' : 'Student Panel'}
       topHeaderSearchValue={headerSearch}
       onTopHeaderSearchChange={(event) => setHeaderSearch(event.target.value)}
       bookmarkLessons={bookmarkedCourses}
@@ -261,11 +286,12 @@ export default function StudentPanel() {
 
         <div className="lms-card p-0 overflow-hidden">
           <div className="d-flex justify-content-between align-items-center p-3 border-bottom">
-            <h5 className="mb-0">Courses</h5>
+            <h5 className="mb-0">{owningManhattanOnly ? 'Owning Manhattan' : 'Courses'}</h5>
             <div className="small text-muted">
               {liveCount} Live • {recordedCount} Recorded • {shortCoursesCount} Short Courses
             </div>
           </div>
+          {!owningManhattanOnly && (
           <div className="px-3 pb-3 pt-2 border-bottom">
             <div className="btn-group student-filter-tabs" role="group" aria-label="Course filter tabs">
               <button
@@ -298,6 +324,7 @@ export default function StudentPanel() {
               </button>
             </div>
           </div>
+          )}
           <div className="p-3 p-md-4">
             {isLoading ? (
               <div className="text-center py-5 text-muted">Loading courses...</div>
@@ -309,7 +336,9 @@ export default function StudentPanel() {
                     ? 'No short courses available.'
                     : activeTab === 'bookmarks'
                       ? 'No bookmarked courses yet.'
-                      : 'No courses available.'}
+                      : owningManhattanOnly
+                        ? 'No Owning Manhattan courses yet.'
+                        : 'No courses available.'}
               </div>
             ) : (
               <div className="row g-3">
@@ -317,12 +346,22 @@ export default function StudentPanel() {
                   const progress = Number(courseProgressPercentMap[String(course.id)] ?? 0);
                   const pricingLabel = course.pricing_type || (Number(course.price) === 0 ? 'Free for Members' : 'Paid');
                   const isBookmarked = bookmarkedCourseIds.includes(String(course.id));
+                  const thumbSrc = resolvePublicMediaUrl(
+                    courseFirstVideoThumbMap[String(course.id)] || course.thumbnail_url || '',
+                    apiBaseUrl,
+                  );
                   return (
                     <div key={course.id} className="col-12 col-sm-6 col-lg-4 col-xl-3">
                       <button
                         type="button"
                         className="border rounded-4 p-3 h-100 bg-white text-start w-100 student-course-card position-relative"
-                        onClick={() => navigate(`/dashboard/student-course/${course.id}`)}
+                        onClick={() =>
+                          navigate(
+                            owningManhattanOnly
+                              ? `/dashboard/student-course/${course.id}?from=owning-manhattan&view=player`
+                              : `/dashboard/student-course/${course.id}`,
+                          )
+                        }
                       >
                         <span
                           role="button"
@@ -346,12 +385,12 @@ export default function StudentPanel() {
                         <div
                           className="rounded-3 mb-3 d-flex align-items-center justify-content-center text-white fw-semibold student-course-thumb"
                           style={{
-                            background: (courseFirstVideoThumbMap[String(course.id)] || course.thumbnail_url)
-                              ? `url(${courseFirstVideoThumbMap[String(course.id)] || course.thumbnail_url}) center/cover no-repeat`
+                            background: thumbSrc
+                              ? `url(${thumbSrc}) center/cover no-repeat`
                               : 'linear-gradient(135deg,#3f64e0,#6e8dff)',
                           }}
                         >
-                          {!(courseFirstVideoThumbMap[String(course.id)] || course.thumbnail_url) && (
+                          {!thumbSrc && (
                             <span className="px-2 text-center">{course.title || 'Course'}</span>
                           )}
                         </div>
