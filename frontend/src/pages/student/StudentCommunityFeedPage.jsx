@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import {
   FiAlignLeft,
   FiAtSign,
+  FiAward,
   FiBarChart2,
   FiBookmark,
   FiChevronDown,
@@ -32,26 +35,72 @@ import {
   FiThumbsUp,
   FiTrash2,
   FiUpload,
+  FiUser,
   FiVideo,
 } from "react-icons/fi";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
 import CommunityVideoPlayer from "../../components/CommunityVideoPlayer";
 import CommentReportReasonModal from "../../components/CommentReportReasonModal";
+import MemberProfileModal from "../../components/MemberProfileModal";
 import { REPORT_REASONS } from "../../constants/reportReasons";
 
-const sortOptions = ["For you", "Alphabetical", "Latest", "Likes", "New activity", "Oldest", "Popular"];
+const sortOptions = [
+  "For you",
+  "Alphabetical",
+  "Latest",
+  "Likes",
+  "New activity",
+  "Oldest",
+  "Popular",
+];
 const COMMENTS_PAGE_SIZE = 7;
 const FEED_PAGE_SIZE = 7;
 const FEED_BOOKMARKS_STORAGE_KEY = "student_community_feed_bookmarks";
 
 /** Spaces shown in Create post → "Posting in" (UI; server post body unchanged). */
 const POSTING_SPACES = [
-  { id: "meet-greet", top: "welcome", emoji: "👋", title: "Meet + Greet", search: "welcome meet greet" },
-  { id: "sell-it-community", top: "Community", emoji: "", title: "Sell It Community", search: "community sell it" },
-  { id: "referral-partners", top: "", emoji: "🤝", title: "Referral Partners", search: "referral partners" },
-  { id: "community-listings", top: "", emoji: "🏠", title: "Community Listings", search: "listings home community" },
-  { id: "workshop-replays", top: "", emoji: "📽️", title: "Workshop Replays", search: "workshop replays" },
-  { id: "sell-it-short-courses", top: "", emoji: "", title: "Sell It Short Courses", search: "short courses sell it" },
+  {
+    id: "meet-greet",
+    top: "welcome",
+    emoji: "👋",
+    title: "Meet + Greet",
+    search: "welcome meet greet",
+  },
+  {
+    id: "sell-it-community",
+    top: "Community",
+    emoji: "",
+    title: "Sell It Community",
+    search: "community sell it",
+  },
+  {
+    id: "referral-partners",
+    top: "",
+    emoji: "🤝",
+    title: "Referral Partners",
+    search: "referral partners",
+  },
+  {
+    id: "community-listings",
+    top: "",
+    emoji: "🏠",
+    title: "Community Listings",
+    search: "listings home community",
+  },
+  {
+    id: "workshop-replays",
+    top: "",
+    emoji: "📽️",
+    title: "Workshop Replays",
+    search: "workshop replays",
+  },
+  {
+    id: "sell-it-short-courses",
+    top: "",
+    emoji: "",
+    title: "Sell It Short Courses",
+    search: "short courses sell it",
+  },
 ];
 
 const resolveDefaultPostingSpaceId = (contextLabel) => {
@@ -62,8 +111,10 @@ const resolveDefaultPostingSpaceId = (contextLabel) => {
   if (t.includes("referral")) return "referral-partners";
   if (t.includes("listing")) return "community-listings";
   if (t.includes("workshop") && t.includes("replay")) return "workshop-replays";
-  if (t.includes("short") && t.includes("course")) return "sell-it-short-courses";
-  if (t.includes("sell it") && t.includes("community")) return "sell-it-community";
+  if (t.includes("short") && t.includes("course"))
+    return "sell-it-short-courses";
+  if (t.includes("sell it") && t.includes("community"))
+    return "sell-it-community";
   return "sell-it-community";
 };
 
@@ -72,11 +123,36 @@ const editorCommandGroups = [
     label: "Basic",
     items: [
       { label: "Paragraph", Icon: FiAlignLeft, insert: "", format: null },
-      { label: "Heading 2", Icon: FiHash, insert: "## ", format: { type: "heading2", prefix: "## " } },
-      { label: "Heading 3", Icon: FiHash, insert: "### ", format: { type: "heading3", prefix: "### " } },
-      { label: "Numbered list", Icon: FiList, insert: "1. ", format: { type: "numbered", prefix: "1. " } },
-      { label: "Bulleted list", Icon: FiList, insert: "- ", format: { type: "bulleted", prefix: "- " } },
-      { label: "Blockquote", Icon: FiMinus, insert: "> ", format: { type: "blockquote", prefix: "> " } },
+      {
+        label: "Heading 2",
+        Icon: FiHash,
+        insert: "## ",
+        format: { type: "heading2", prefix: "## " },
+      },
+      {
+        label: "Heading 3",
+        Icon: FiHash,
+        insert: "### ",
+        format: { type: "heading3", prefix: "### " },
+      },
+      {
+        label: "Numbered list",
+        Icon: FiList,
+        insert: "1. ",
+        format: { type: "numbered", prefix: "1. " },
+      },
+      {
+        label: "Bulleted list",
+        Icon: FiList,
+        insert: "- ",
+        format: { type: "bulleted", prefix: "- " },
+      },
+      {
+        label: "Blockquote",
+        Icon: FiMinus,
+        insert: "> ",
+        format: { type: "blockquote", prefix: "> " },
+      },
       { label: "Divider", Icon: FiMinus, insert: "\n---\n" },
       { label: "Mention", Icon: FiAtSign, insert: "@" },
     ],
@@ -107,14 +183,39 @@ const formatPostDate = (value) => {
   if (!value) return "Just now";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Just now";
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 };
 
 const getInitial = (name) =>
-  String(name || "M").trim().charAt(0).toUpperCase() || "M";
+  String(name || "M")
+    .trim()
+    .charAt(0)
+    .toUpperCase() || "M";
+
+const MEMBER_HOVER_CARD_WIDTH = 288;
+
+const resolveMemberStatusTier = (member, listIndex = 0) => {
+  const n = Number(member?.id);
+  if (Number.isFinite(n) && n > 0) return (n % 9) + 1;
+  return ((Number(listIndex) || 0) % 9) + 1;
+};
+
+const buildMemberHoverTagline = (member) => {
+  const role = String(member?.role || "Student").trim().toLowerCase();
+  if (role === "student") return "Learning fast. Selling smart.";
+  return `${String(member?.role || "Member").trim()} · Sell It member`;
+};
 
 const isInteractiveEventTarget = (target) =>
-  Boolean(target?.closest?.("button, input, textarea, select, a, form, [role='button']"));
+  Boolean(
+    target?.closest?.(
+      "button, input, textarea, select, a, form, [role='button']",
+    ),
+  );
 
 const resolveMediaType = (post) => {
   const type = String(post?.media_type || "").toLowerCase();
@@ -150,7 +251,9 @@ const buildCommentTree = (comments = []) => {
 };
 
 const updateCommentInList = (comments = [], commentId, updater) =>
-  comments.map((comment) => (String(comment.id) === String(commentId) ? updater(comment) : comment));
+  comments.map((comment) =>
+    String(comment.id) === String(commentId) ? updater(comment) : comment,
+  );
 
 const collectDescendantCommentIdsFromFlat = (comments = [], rootId) => {
   const byParent = new Map();
@@ -186,8 +289,12 @@ const resolveFilePreviewType = (file) => {
 };
 
 const resolveVideoPlaybackUrl = (attachment) => {
-  const variants = Array.isArray(attachment?.video_variants) ? attachment.video_variants : [];
-  const readyVariants = variants.filter((variant) => variant.status === "ready" && variant.media_url);
+  const variants = Array.isArray(attachment?.video_variants)
+    ? attachment.video_variants
+    : [];
+  const readyVariants = variants.filter(
+    (variant) => variant.status === "ready" && variant.media_url,
+  );
   const preferredVariant =
     readyVariants.find((variant) => variant.resolution === "720p") ||
     readyVariants.find((variant) => variant.resolution === "1080p") ||
@@ -220,13 +327,20 @@ const resolveAuthenticatedMediaUrl = (src) => {
 
 const hasProcessingVideoVariants = (attachment) =>
   Array.isArray(attachment?.video_variants) &&
-  attachment.video_variants.some((variant) => variant.status === "pending" || variant.status === "processing");
+  attachment.video_variants.some(
+    (variant) =>
+      variant.status === "pending" || variant.status === "processing",
+  );
 
 const getProcessingPostProgress = (post) => {
   if (post?.processing_status === "failed") return "Processing failed";
-  const variants = (post?.attachments || []).flatMap((attachment) => attachment.video_variants || []);
+  const variants = (post?.attachments || []).flatMap(
+    (attachment) => attachment.video_variants || [],
+  );
   if (!variants.length) return "Preparing video";
-  const readyCount = variants.filter((variant) => variant.status === "ready").length;
+  const readyCount = variants.filter(
+    (variant) => variant.status === "ready",
+  ).length;
   return `${readyCount}/${variants.length} resolutions ready`;
 };
 
@@ -268,7 +382,12 @@ function ProtectedFeedImage({ src, alt, className = "" }) {
   const objectUrl = loadedImage.src === src ? loadedImage.objectUrl : "";
 
   if (!objectUrl) {
-    return <span className={`student-community-protected-image-placeholder ${className}`} aria-label={alt} />;
+    return (
+      <span
+        className={`student-community-protected-image-placeholder ${className}`}
+        aria-label={alt}
+      />
+    );
   }
 
   return (
@@ -283,32 +402,43 @@ function ProtectedFeedImage({ src, alt, className = "" }) {
 }
 
 const renderMedia = (post, onImageClick) => {
-  const attachments = Array.isArray(post.attachments) && post.attachments.length > 0
-    ? post.attachments
-    : post.media_url
-      ? [{
-          media_url: post.media_url,
-          media_type: post.media_type,
-          media_name: post.media_name,
-          media_mime: post.media_mime,
-        }]
-      : [];
+  const attachments =
+    Array.isArray(post.attachments) && post.attachments.length > 0
+      ? post.attachments
+      : post.media_url
+        ? [
+            {
+              media_url: post.media_url,
+              media_type: post.media_type,
+              media_name: post.media_name,
+              media_mime: post.media_mime,
+            },
+          ]
+        : [];
   if (!attachments.length) return null;
   if (attachments.length > 1) {
     return (
-      <div className={`student-community-gallery count-${Math.min(attachments.length, 4)}`}>
+      <div
+        className={`student-community-gallery count-${Math.min(attachments.length, 4)}`}
+      >
         {attachments.slice(0, 4).map((attachment, index) => {
           const mediaType = String(attachment.media_type || "").toLowerCase();
           const extraCount = attachments.length - 4;
           return (
-            <div key={attachment.id || attachment.media_url} className="student-community-gallery-item">
+            <div
+              key={attachment.id || attachment.media_url}
+              className="student-community-gallery-item"
+            >
               {mediaType === "image" ? (
                 <button
                   type="button"
                   className="student-community-image-open"
                   onClick={(event) => {
                     event.stopPropagation();
-                    onImageClick?.(attachment.media_url, attachment.media_name || post.heading || "Feed media");
+                    onImageClick?.(
+                      attachment.media_url,
+                      attachment.media_name || post.heading || "Feed media",
+                    );
                   }}
                   onContextMenu={preventProtectedMediaAction}
                 >
@@ -321,12 +451,16 @@ const renderMedia = (post, onImageClick) => {
                 <>
                   <CommunityVideoPlayer
                     src={resolveVideoPlaybackUrl(attachment)}
-                    title={attachment.media_name || post.heading || "Feed video"}
+                    title={
+                      attachment.media_name || post.heading || "Feed video"
+                    }
                     variants={attachment.video_variants || []}
                     compact
                   />
                   {hasProcessingVideoVariants(attachment) && (
-                    <span className="student-community-video-processing">Processing HD</span>
+                    <span className="student-community-video-processing">
+                      Processing HD
+                    </span>
                   )}
                 </>
               ) : (
@@ -335,7 +469,11 @@ const renderMedia = (post, onImageClick) => {
                   <span>{attachment.media_name || "Open file"}</span>
                 </a>
               )}
-              {index === 3 && extraCount > 0 && <span className="student-community-gallery-more">+{extraCount}</span>}
+              {index === 3 && extraCount > 0 && (
+                <span className="student-community-gallery-more">
+                  +{extraCount}
+                </span>
+              )}
             </div>
           );
         })}
@@ -361,7 +499,10 @@ const renderMedia = (post, onImageClick) => {
           className="student-community-image-open"
           onClick={(event) => {
             event.stopPropagation();
-            onImageClick?.(singlePost.media_url, singlePost.heading || "Feed media");
+            onImageClick?.(
+              singlePost.media_url,
+              singlePost.heading || "Feed media",
+            );
           }}
           onContextMenu={preventProtectedMediaAction}
         >
@@ -383,14 +524,23 @@ const renderMedia = (post, onImageClick) => {
           variants={singlePost.video_variants || []}
         />
         {hasProcessingVideoVariants(singlePost) && (
-          <span className="student-community-video-processing">Processing 360p / 720p / 1080p</span>
+          <span className="student-community-video-processing">
+            Processing 360p / 720p / 1080p
+          </span>
         )}
       </div>
     );
   }
   return (
-    <a href={singlePost.media_url} target="_blank" rel="noreferrer" className="student-community-document text-decoration-none">
-      <span className="student-community-document-icon"><FiFileText /></span>
+    <a
+      href={singlePost.media_url}
+      target="_blank"
+      rel="noreferrer"
+      className="student-community-document text-decoration-none"
+    >
+      <span className="student-community-document-icon">
+        <FiFileText />
+      </span>
       <span>
         <strong>{singlePost.media_name || "Open attached document"}</strong>
         <small>Document attachment</small>
@@ -408,13 +558,48 @@ export default function StudentCommunityFeedPage({
   showMyFeedFilter = true,
   feedVariant = "default",
   feedSpaceFilter = "",
+  showMembersRail = false,
+  membersRailCtaPath = "/dashboard/student-members",
+  membersRailCtaLabel = "See members",
+  memberProfileLinkTo = "/dashboard/student-members",
+  showMemberProfileMessageButton = true,
+  memberProfileMessagesPath = "/dashboard/student-messages",
 }) {
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const DashboardSection = SectionComponent;
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
+  const [railMembers, setRailMembers] = useState([]);
+  const [memberHoverPopover, setMemberHoverPopover] = useState(null);
+  const [memberProfileModalUser, setMemberProfileModalUser] = useState(null);
+  const memberPopoverCloseTimer = useRef(null);
+
+  useEffect(() => {
+    const raw = searchParams.get("memberProfile");
+    const id = Number(raw);
+    if (!Number.isFinite(id) || id <= 0) return;
+    setMemberProfileModalUser((prev) => {
+      if (prev && Number(prev.id) === id) return prev;
+      return { id };
+    });
+  }, [searchParams]);
+
+  const closeMemberProfileModal = useCallback(() => {
+    setMemberProfileModalUser(null);
+    if (searchParams.has("memberProfile")) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("memberProfile");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   const [posts, setPosts] = useState([]);
   const [processingPosts, setProcessingPosts] = useState([]);
-  const [formValues, setFormValues] = useState({ heading: "", subHeading: "", content: "" });
+  const [formValues, setFormValues] = useState({
+    heading: "",
+    subHeading: "",
+    content: "",
+  });
   const [mediaFiles, setMediaFiles] = useState([]);
   const [commentDrafts, setCommentDrafts] = useState({});
   const [replyDrafts, setReplyDrafts] = useState({});
@@ -442,9 +627,12 @@ export default function StudentCommunityFeedPage({
   });
   const [showComposer, setShowComposer] = useState(false);
   const [showCommandMenu, setShowCommandMenu] = useState(false);
-  const [selectedPostingSpaceId, setSelectedPostingSpaceId] = useState(() =>
-    feedSpaceFilter || resolveDefaultPostingSpaceId(postingContext),
-  );
+  const [selectedPostingSpaceId, setSelectedPostingSpaceId] = useState(() => {
+    if (feedVariant === "communityHub") return "sell-it-community";
+    const trimmed =
+      typeof feedSpaceFilter === "string" ? feedSpaceFilter.trim() : "";
+    return trimmed || resolveDefaultPostingSpaceId(postingContext);
+  });
   const [postingSpaceMenuOpen, setPostingSpaceMenuOpen] = useState(false);
   const [postingSpaceSearch, setPostingSpaceSearch] = useState("");
   const postingSpaceSearchRef = useRef(null);
@@ -461,19 +649,106 @@ export default function StudentCommunityFeedPage({
   const [notice, setNotice] = useState("");
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(/\/$/, ""),
+    () =>
+      (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(
+        /\/$/,
+        "",
+      ),
     [],
   );
-  const currentUser = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
+  const currentUser = useMemo(
+    () => JSON.parse(localStorage.getItem("user") || "{}"),
+    [],
+  );
+
+  /** Space sent to GET /api/feed — hub always pins sell-it-community. */
+  const effectiveFeedSpaceFilter = useMemo(() => {
+    if (feedVariant === "communityHub") return "sell-it-community";
+    return typeof feedSpaceFilter === "string" ? feedSpaceFilter.trim() : "";
+  }, [feedSpaceFilter, feedVariant]);
+
+  useEffect(() => {
+    if (!showMembersRail) {
+      setRailMembers([]);
+      return undefined;
+    }
+    const token = localStorage.getItem("token");
+    if (!token) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${apiBaseUrl}/api/users/members`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const payload = await res.json();
+        if (!res.ok || payload.status !== "success") return;
+        const list = Array.isArray(payload.data) ? payload.data : [];
+        if (!cancelled) setRailMembers(list.slice(0, 6));
+      } catch {
+        if (!cancelled) setRailMembers([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showMembersRail, apiBaseUrl]);
+
+  const clearMemberPopoverTimer = useCallback(() => {
+    if (memberPopoverCloseTimer.current) {
+      window.clearTimeout(memberPopoverCloseTimer.current);
+      memberPopoverCloseTimer.current = null;
+    }
+  }, []);
+
+  const openMemberPopover = useCallback(
+    (member, anchorEl, listIndex) => {
+      clearMemberPopoverTimer();
+      if (!anchorEl) return;
+      const rect = anchorEl.getBoundingClientRect();
+      setMemberHoverPopover({ member, rect, listIndex });
+    },
+    [clearMemberPopoverTimer],
+  );
+
+  const scheduleCloseMemberPopover = useCallback(() => {
+    clearMemberPopoverTimer();
+    memberPopoverCloseTimer.current = window.setTimeout(() => {
+      setMemberHoverPopover(null);
+    }, 220);
+  }, [clearMemberPopoverTimer]);
+
+  const keepMemberPopoverOpen = useCallback(() => {
+    clearMemberPopoverTimer();
+  }, [clearMemberPopoverTimer]);
+
+  useEffect(() => {
+    if (!memberHoverPopover) return undefined;
+    const onScroll = () => setMemberHoverPopover(null);
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
+  }, [memberHoverPopover]);
+
+  useEffect(
+    () => () => {
+      clearMemberPopoverTimer();
+    },
+    [clearMemberPopoverTimer],
+  );
 
   const mediaPreviewItems = useMemo(
-    () => mediaFiles.map((file) => ({ file, url: URL.createObjectURL(file), type: resolveFilePreviewType(file) })),
+    () =>
+      mediaFiles.map((file) => ({
+        file,
+        url: URL.createObjectURL(file),
+        type: resolveFilePreviewType(file),
+      })),
     [mediaFiles],
   );
 
   useEffect(() => {
     if (!mediaPreviewItems.length) return undefined;
-    return () => mediaPreviewItems.forEach((item) => URL.revokeObjectURL(item.url));
+    return () =>
+      mediaPreviewItems.forEach((item) => URL.revokeObjectURL(item.url));
   }, [mediaPreviewItems]);
 
   useEffect(() => {
@@ -481,15 +756,17 @@ export default function StudentCommunityFeedPage({
   }, [bookmarkedPostMap, storageKey]);
 
   useEffect(() => {
-    if (feedSpaceFilter) {
-      setSelectedPostingSpaceId(feedSpaceFilter);
+    if (effectiveFeedSpaceFilter) {
+      setSelectedPostingSpaceId(effectiveFeedSpaceFilter);
       return;
     }
     setSelectedPostingSpaceId(resolveDefaultPostingSpaceId(postingContext));
-  }, [postingContext, feedSpaceFilter]);
+  }, [postingContext, effectiveFeedSpaceFilter]);
 
   const selectedPostingSpace = useMemo(
-    () => POSTING_SPACES.find((s) => s.id === selectedPostingSpaceId) || POSTING_SPACES[0],
+    () =>
+      POSTING_SPACES.find((s) => s.id === selectedPostingSpaceId) ||
+      POSTING_SPACES[0],
     [selectedPostingSpaceId],
   );
 
@@ -529,26 +806,37 @@ export default function StudentCommunityFeedPage({
   const sortedPosts = useMemo(() => {
     const nextPosts = [...posts];
     if (activeSort === "Alphabetical") {
-      return nextPosts.sort((a, b) => String(a.heading || "").localeCompare(String(b.heading || "")));
+      return nextPosts.sort((a, b) =>
+        String(a.heading || "").localeCompare(String(b.heading || "")),
+      );
     }
     if (activeSort === "Likes" || activeSort === "Popular") {
-      return nextPosts.sort((a, b) => Number(b.likes_count || 0) - Number(a.likes_count || 0));
+      return nextPosts.sort(
+        (a, b) => Number(b.likes_count || 0) - Number(a.likes_count || 0),
+      );
     }
     if (activeSort === "Oldest") {
-      return nextPosts.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+      return nextPosts.sort(
+        (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0),
+      );
     }
     if (activeSort === "New activity") {
       return nextPosts.sort((a, b) => {
-        const bActivity = Number(b.comments_count || 0) + Number(b.likes_count || 0);
-        const aActivity = Number(a.comments_count || 0) + Number(a.likes_count || 0);
+        const bActivity =
+          Number(b.comments_count || 0) + Number(b.likes_count || 0);
+        const aActivity =
+          Number(a.comments_count || 0) + Number(a.likes_count || 0);
         return bActivity - aActivity;
       });
     }
-    return nextPosts.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    return nextPosts.sort(
+      (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
+    );
   }, [activeSort, posts]);
 
   const selectedPost = useMemo(
-    () => posts.find((post) => String(post.id) === String(selectedPostId)) || null,
+    () =>
+      posts.find((post) => String(post.id) === String(selectedPostId)) || null,
     [posts, selectedPostId],
   );
   const selectedPostCommentTree = useMemo(
@@ -556,10 +844,14 @@ export default function StudentCommunityFeedPage({
     [selectedPost],
   );
   const selectedPostIndex = useMemo(
-    () => sortedPosts.findIndex((post) => String(post.id) === String(selectedPostId)),
+    () =>
+      sortedPosts.findIndex(
+        (post) => String(post.id) === String(selectedPostId),
+      ),
     [selectedPostId, sortedPosts],
   );
-  const previousPost = selectedPostIndex > 0 ? sortedPosts[selectedPostIndex - 1] : null;
+  const previousPost =
+    selectedPostIndex > 0 ? sortedPosts[selectedPostIndex - 1] : null;
   const nextPost =
     selectedPostIndex >= 0 && selectedPostIndex < sortedPosts.length - 1
       ? sortedPosts[selectedPostIndex + 1]
@@ -578,10 +870,14 @@ export default function StudentCommunityFeedPage({
           else setIsLoading(true);
           setError("");
         }
-        const scopeParam = showMyFeedFilter && feedScope === "mine" ? "&mine=1" : "";
-        const spaceParam = feedSpaceFilter ? `&space=${encodeURIComponent(feedSpaceFilter)}` : "";
+        const params = new URLSearchParams();
+        params.set("limit", String(FEED_PAGE_SIZE));
+        params.set("offset", String(offset));
+        if (showMyFeedFilter && feedScope === "mine") params.set("mine", "1");
+        if (effectiveFeedSpaceFilter)
+          params.set("space", effectiveFeedSpaceFilter);
         const response = await fetch(
-          `${apiBaseUrl}/api/feed?limit=${FEED_PAGE_SIZE}&offset=${offset}${scopeParam}${spaceParam}`,
+          `${apiBaseUrl}/api/feed?${params.toString()}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           },
@@ -591,17 +887,23 @@ export default function StudentCommunityFeedPage({
           throw new Error(payload.message || "Unable to fetch feed posts.");
         }
         const rows = Array.isArray(payload.data) ? payload.data : [];
-        const processingRows = Array.isArray(payload.processing_posts) ? payload.processing_posts : [];
+        const processingRows = Array.isArray(payload.processing_posts)
+          ? payload.processing_posts
+          : [];
         setPosts((prev) => {
           if (!append) return rows;
           const existingIds = new Set(prev.map((post) => String(post.id)));
-          return [...prev, ...rows.filter((post) => !existingIds.has(String(post.id)))];
+          return [
+            ...prev,
+            ...rows.filter((post) => !existingIds.has(String(post.id))),
+          ];
         });
         setProcessingPosts(processingRows);
         setFeedOffset(payload.pagination?.next_offset ?? offset + rows.length);
         setHasMoreFeed(Boolean(payload.pagination?.has_more));
       } catch (fetchError) {
-        if (!silent) setError(fetchError.message || "Unable to fetch feed posts.");
+        if (!silent)
+          setError(fetchError.message || "Unable to fetch feed posts.");
       } finally {
         if (!silent) {
           if (append) setIsLoadingMore(false);
@@ -609,7 +911,7 @@ export default function StudentCommunityFeedPage({
         }
       }
     },
-    [apiBaseUrl, feedScope, showMyFeedFilter, feedSpaceFilter],
+    [apiBaseUrl, feedScope, showMyFeedFilter, effectiveFeedSpaceFilter],
   );
 
   useEffect(() => {
@@ -669,7 +971,8 @@ export default function StudentCommunityFeedPage({
 
   const getCurrentLinePrefix = (format, currentLine) => {
     if (!format) return "";
-    if (format.type !== "numbered") return currentLine.match(/^\d+\.\s/)?.[0] || format.prefix || "";
+    if (format.type !== "numbered")
+      return currentLine.match(/^\d+\.\s/)?.[0] || format.prefix || "";
     return format.prefix || "";
   };
 
@@ -722,26 +1025,51 @@ export default function StudentCommunityFeedPage({
       <div className="student-community-upload-preview">
         <div className="student-community-upload-preview-head">
           <div>
-            <strong>{mediaPreviewItems.length} file{mediaPreviewItems.length > 1 ? "s" : ""} selected</strong>
+            <strong>
+              {mediaPreviewItems.length} file
+              {mediaPreviewItems.length > 1 ? "s" : ""} selected
+            </strong>
             <span>Multiple photos will publish as a gallery.</span>
           </div>
-          <button type="button" onClick={clearMediaFiles}>Remove all</button>
+          <button type="button" onClick={clearMediaFiles}>
+            Remove all
+          </button>
         </div>
 
         <div className="student-community-upload-preview-grid">
           {mediaPreviewItems.map((item, index) => (
-            <div key={`${item.file.name}-${index}`} className="student-community-upload-preview-tile">
+            <div
+              key={`${item.file.name}-${index}`}
+              className="student-community-upload-preview-tile"
+            >
               {item.type === "image" && (
-                <img src={item.url} alt={item.file.name} draggable={false} {...protectedMediaHandlers} />
+                <img
+                  src={item.url}
+                  alt={item.file.name}
+                  draggable={false}
+                  {...protectedMediaHandlers}
+                />
               )}
-              {item.type === "video" && <CommunityVideoPlayer src={item.url} title={item.file.name} compact />}
+              {item.type === "video" && (
+                <CommunityVideoPlayer
+                  src={item.url}
+                  title={item.file.name}
+                  compact
+                />
+              )}
               {item.type === "audio" && <audio src={item.url} controls />}
               {(item.type === "pdf" || item.type === "document") && (
                 <div className="student-community-upload-preview-file compact">
                   <FiFileText />
                 </div>
               )}
-              <button type="button" onClick={() => removeMediaFile(index)} aria-label="Remove file">×</button>
+              <button
+                type="button"
+                onClick={() => removeMediaFile(index)}
+                aria-label="Remove file"
+              >
+                ×
+              </button>
               <span>{item.file.name}</span>
             </div>
           ))}
@@ -763,7 +1091,9 @@ export default function StudentCommunityFeedPage({
         : prev.content;
       return { ...prev, content: `${content}${item.insert || ""}` };
     });
-    moveTextareaCursor(formValues.content.replace(/\/$/, "").length + (item.insert || "").length);
+    moveTextareaCursor(
+      formValues.content.replace(/\/$/, "").length + (item.insert || "").length,
+    );
   };
 
   const handleCreatePost = async (event) => {
@@ -786,7 +1116,10 @@ export default function StudentCommunityFeedPage({
       formData.append("heading", formValues.heading.trim());
       formData.append("sub_heading", formValues.subHeading.trim());
       formData.append("content", formValues.content.trim());
-      formData.append("posting_space", feedSpaceFilter || selectedPostingSpaceId);
+      formData.append(
+        "posting_space",
+        effectiveFeedSpaceFilter || selectedPostingSpaceId,
+      );
       mediaFiles.forEach((file) => formData.append("media", file));
 
       const response = await fetch(`${apiBaseUrl}/api/feed`, {
@@ -802,8 +1135,13 @@ export default function StudentCommunityFeedPage({
       if (payload.data?.processing_status === "ready") {
         setPosts((prev) => [payload.data, ...prev]);
       } else {
-        setProcessingPosts((prev) => [payload.data, ...prev.filter((post) => String(post.id) !== String(payload.data.id))]);
-        setNotice("Video post processing me hai. Processing complete hone ke baad feed me dikhegi.");
+        setProcessingPosts((prev) => [
+          payload.data,
+          ...prev.filter((post) => String(post.id) !== String(payload.data.id)),
+        ]);
+        setNotice(
+          "Video post processing me hai. Processing complete hone ke baad feed me dikhegi.",
+        );
       }
       setFormValues({ heading: "", subHeading: "", content: "" });
       setMediaFiles([]);
@@ -821,10 +1159,13 @@ export default function StudentCommunityFeedPage({
     const token = localStorage.getItem("token");
     if (!token) return;
     try {
-      const response = await fetch(`${apiBaseUrl}/api/feed/${postId}/likes/toggle`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch(
+        `${apiBaseUrl}/api/feed/${postId}/likes/toggle`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       const payload = await response.json();
       if (!response.ok || payload.status !== "success") {
         throw new Error(payload.message || "Unable to update like.");
@@ -838,7 +1179,11 @@ export default function StudentCommunityFeedPage({
       setPosts((prev) =>
         prev.map((post) =>
           String(post.id) === String(postId)
-            ? { ...post, is_liked: payload.data.is_liked, likes_count: payload.data.likes_count }
+            ? {
+                ...post,
+                is_liked: payload.data.is_liked,
+                likes_count: payload.data.likes_count,
+              }
             : post,
         ),
       );
@@ -860,12 +1205,18 @@ export default function StudentCommunityFeedPage({
     const key = String(postId);
     setVisibleCommentCounts((prev) => ({
       ...prev,
-      [key]: Math.min((prev[key] || COMMENTS_PAGE_SIZE) + COMMENTS_PAGE_SIZE, totalComments),
+      [key]: Math.min(
+        (prev[key] || COMMENTS_PAGE_SIZE) + COMMENTS_PAGE_SIZE,
+        totalComments,
+      ),
     }));
   };
 
   const showLessComments = (postId) => {
-    setVisibleCommentCounts((prev) => ({ ...prev, [String(postId)]: COMMENTS_PAGE_SIZE }));
+    setVisibleCommentCounts((prev) => ({
+      ...prev,
+      [String(postId)]: COMMENTS_PAGE_SIZE,
+    }));
   };
 
   const closePostDetail = () => {
@@ -919,14 +1270,19 @@ export default function StudentCommunityFeedPage({
       }
       const response = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ reason: selectedReportReason }),
       });
       const payload = await response.json();
       if (!response.ok || payload.status !== "success") {
         throw new Error(payload.message || "Unable to submit report.");
       }
-      setNotice("The report has been submitted. We will review it in accordance with our Community Guidelines.");
+      setNotice(
+        "The report has been submitted. We will review it in accordance with our Community Guidelines.",
+      );
       closeReportModal();
     } catch (reportError) {
       setError(reportError.message || "Unable to submit report.");
@@ -937,26 +1293,37 @@ export default function StudentCommunityFeedPage({
     const token = localStorage.getItem("token");
     if (!token) return;
     try {
-      const response = await fetch(`${apiBaseUrl}/api/feed/${postId}/comments/${commentId}/reaction`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ reaction }),
-      });
+      const response = await fetch(
+        `${apiBaseUrl}/api/feed/${postId}/comments/${commentId}/reaction`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ reaction }),
+        },
+      );
       const payload = await response.json();
       if (!response.ok || payload.status !== "success") {
-        throw new Error(payload.message || "Unable to update comment reaction.");
+        throw new Error(
+          payload.message || "Unable to update comment reaction.",
+        );
       }
       setPosts((prev) =>
         prev.map((post) =>
           String(post.id) === String(postId)
             ? {
                 ...post,
-                comments: updateCommentInList(post.comments || [], commentId, (comment) => ({
-                  ...comment,
-                  likes_count: payload.data.likes_count,
-                  dislikes_count: payload.data.dislikes_count,
-                  current_user_reaction: payload.data.current_user_reaction,
-                }),
+                comments: updateCommentInList(
+                  post.comments || [],
+                  commentId,
+                  (comment) => ({
+                    ...comment,
+                    likes_count: payload.data.likes_count,
+                    dislikes_count: payload.data.dislikes_count,
+                    current_user_reaction: payload.data.current_user_reaction,
+                  }),
                 ),
               }
             : post,
@@ -971,15 +1338,28 @@ export default function StudentCommunityFeedPage({
     event.preventDefault();
     const token = localStorage.getItem("token");
     const draftKey = parentCommentId ? String(parentCommentId) : String(postId);
-    const draft = String(parentCommentId ? (replyDrafts[draftKey] || "") : (commentDrafts[draftKey] || "")).trim();
+    const draft = String(
+      parentCommentId
+        ? replyDrafts[draftKey] || ""
+        : commentDrafts[draftKey] || "",
+    ).trim();
     if (!token || !draft) return;
     try {
       setError("");
-      const response = await fetch(`${apiBaseUrl}/api/feed/${postId}/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ comment_text: draft, parent_comment_id: parentCommentId }),
-      });
+      const response = await fetch(
+        `${apiBaseUrl}/api/feed/${postId}/comments`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            comment_text: draft,
+            parent_comment_id: parentCommentId,
+          }),
+        },
+      );
       const payload = await response.json();
       if (!response.ok || payload.status !== "success") {
         throw new Error(payload.message || "Unable to add comment.");
@@ -1004,7 +1384,10 @@ export default function StudentCommunityFeedPage({
       setOpenCommentsMap((prev) => ({ ...prev, [String(postId)]: true }));
       setVisibleCommentCounts((prev) => ({
         ...prev,
-        [String(postId)]: Math.max(prev[String(postId)] || COMMENTS_PAGE_SIZE, COMMENTS_PAGE_SIZE),
+        [String(postId)]: Math.max(
+          prev[String(postId)] || COMMENTS_PAGE_SIZE,
+          COMMENTS_PAGE_SIZE,
+        ),
       }));
     } catch (commentError) {
       setError(commentError.message || "Unable to add comment.");
@@ -1034,29 +1417,38 @@ export default function StudentCommunityFeedPage({
     if (!token || !trimmed) return;
     setFeedCommentBusyId(String(commentId));
     try {
-      const response = await fetch(`${apiBaseUrl}/api/feed/${postId}/comments/${commentId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await fetch(
+        `${apiBaseUrl}/api/feed/${postId}/comments/${commentId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ comment_text: trimmed }),
         },
-        body: JSON.stringify({ comment_text: trimmed }),
-      });
+      );
       const payload = await response.json();
       if (!response.ok || payload.status !== "success") {
         throw new Error(payload.message || "Unable to update comment.");
       }
       const text =
-        typeof payload?.data?.comment_text === "string" ? payload.data.comment_text : trimmed;
+        typeof payload?.data?.comment_text === "string"
+          ? payload.data.comment_text
+          : trimmed;
       setPosts((prev) =>
         prev.map((post) => {
           if (String(post.id) !== String(postId)) return post;
           return {
             ...post,
-            comments: updateCommentInList(post.comments || [], commentId, (c) => ({
-              ...c,
-              comment_text: text,
-            })),
+            comments: updateCommentInList(
+              post.comments || [],
+              commentId,
+              (c) => ({
+                ...c,
+                comment_text: text,
+              }),
+            ),
           };
         }),
       );
@@ -1070,22 +1462,28 @@ export default function StudentCommunityFeedPage({
   };
 
   const handleDeleteFeedComment = async (postId, commentId) => {
-    if (!window.confirm("Delete this comment and all replies under it?")) return;
+    if (!window.confirm("Delete this comment and all replies under it?"))
+      return;
     const token = localStorage.getItem("token");
     if (!token) return;
     setFeedCommentBusyId(String(commentId));
     try {
-      const response = await fetch(`${apiBaseUrl}/api/feed/${postId}/comments/${commentId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch(
+        `${apiBaseUrl}/api/feed/${postId}/comments/${commentId}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       const payload = await response.json();
       if (!response.ok || payload.status !== "success") {
         throw new Error(payload.message || "Unable to delete comment.");
       }
       const deletedCount = Number(payload?.data?.deleted_count ?? 1);
       const nextCount =
-        typeof payload?.data?.comments_count === "number" ? payload.data.comments_count : undefined;
+        typeof payload?.data?.comments_count === "number"
+          ? payload.data.comments_count
+          : undefined;
       setPosts((prev) =>
         prev.map((post) => {
           if (String(post.id) !== String(postId)) return post;
@@ -1124,8 +1522,12 @@ export default function StudentCommunityFeedPage({
     const isMenuOpen = feedCommentMenuOpenKey === menuKey;
     return (
       <div key={comment.id} className="student-community-comment-thread">
-        <div className={`student-community-comment ${depth > 0 ? "is-reply" : ""}`}>
-          <div className="student-community-avatar mini">{getInitial(comment.user_name)}</div>
+        <div
+          className={`student-community-comment ${depth > 0 ? "is-reply" : ""}`}
+        >
+          <div className="student-community-avatar mini">
+            {getInitial(comment.user_name)}
+          </div>
           <div className="student-community-comment-bubble">
             <strong>{comment.user_name || "Member"}</strong>
             {isEditing ? (
@@ -1134,14 +1536,18 @@ export default function StudentCommunityFeedPage({
                   className="form-control form-control-sm"
                   rows={2}
                   value={feedCommentEditDraft}
-                  onChange={(event) => setFeedCommentEditDraft(event.target.value)}
+                  onChange={(event) =>
+                    setFeedCommentEditDraft(event.target.value)
+                  }
                 />
                 <div className="d-flex gap-2 mt-2">
                   <button
                     type="button"
                     className="btn btn-sm btn-primary"
                     disabled={busy}
-                    onClick={() => handleSaveFeedCommentEdit(postId, comment.id)}
+                    onClick={() =>
+                      handleSaveFeedCommentEdit(postId, comment.id)
+                    }
                   >
                     Save
                   </button>
@@ -1164,15 +1570,23 @@ export default function StudentCommunityFeedPage({
             <div className="student-community-comment-reactions">
               <button
                 type="button"
-                className={comment.current_user_reaction === "like" ? "active" : ""}
-                onClick={() => handleToggleCommentReaction(postId, comment.id, "like")}
+                className={
+                  comment.current_user_reaction === "like" ? "active" : ""
+                }
+                onClick={() =>
+                  handleToggleCommentReaction(postId, comment.id, "like")
+                }
               >
                 <FiThumbsUp /> {formatCountLabel(comment.likes_count)}
               </button>
               <button
                 type="button"
-                className={comment.current_user_reaction === "dislike" ? "active" : ""}
-                onClick={() => handleToggleCommentReaction(postId, comment.id, "dislike")}
+                className={
+                  comment.current_user_reaction === "dislike" ? "active" : ""
+                }
+                onClick={() =>
+                  handleToggleCommentReaction(postId, comment.id, "dislike")
+                }
               >
                 <FiThumbsDown /> {formatCountLabel(comment.dislikes_count)}
               </button>
@@ -1186,24 +1600,36 @@ export default function StudentCommunityFeedPage({
                     aria-haspopup="menu"
                     onClick={(event) => {
                       event.stopPropagation();
-                      setFeedCommentMenuOpenKey((cur) => (cur === menuKey ? null : menuKey));
+                      setFeedCommentMenuOpenKey((cur) =>
+                        cur === menuKey ? null : menuKey,
+                      );
                     }}
                   >
                     <FiMoreVertical size={18} aria-hidden />
                   </button>
                   {isMenuOpen ? (
-                    <div className="comment-actions-menu" role="menu" onClick={(e) => e.stopPropagation()}>
+                    <div
+                      className="comment-actions-menu"
+                      role="menu"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <button
                         type="button"
                         role="menuitem"
                         disabled={busy}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setActiveReplyMap((prev) => ({ ...prev, [replyKey]: !prev[replyKey] }));
+                          setActiveReplyMap((prev) => ({
+                            ...prev,
+                            [replyKey]: !prev[replyKey],
+                          }));
                           setFeedCommentMenuOpenKey(null);
                         }}
                       >
-                        <FiMessageCircle style={{ marginRight: 6 }} aria-hidden />{" "}
+                        <FiMessageCircle
+                          style={{ marginRight: 6 }}
+                          aria-hidden
+                        />{" "}
                         {isReplyOpen ? "Hide reply" : "Reply"}
                       </button>
                       <button
@@ -1226,12 +1652,18 @@ export default function StudentCommunityFeedPage({
                             onClick={(e) => {
                               e.stopPropagation();
                               setFeedCommentEditingKey(editKey);
-                              setFeedCommentEditDraft(comment.comment_text || "");
-                              setActiveReplyMap((prev) => ({ ...prev, [replyKey]: false }));
+                              setFeedCommentEditDraft(
+                                comment.comment_text || "",
+                              );
+                              setActiveReplyMap((prev) => ({
+                                ...prev,
+                                [replyKey]: false,
+                              }));
                               setFeedCommentMenuOpenKey(null);
                             }}
                           >
-                            <FiEdit2 style={{ marginRight: 6 }} aria-hidden /> Edit
+                            <FiEdit2 style={{ marginRight: 6 }} aria-hidden />{" "}
+                            Edit
                           </button>
                           <button
                             type="button"
@@ -1244,7 +1676,8 @@ export default function StudentCommunityFeedPage({
                               handleDeleteFeedComment(postId, comment.id);
                             }}
                           >
-                            <FiTrash2 style={{ marginRight: 6 }} aria-hidden /> Delete
+                            <FiTrash2 style={{ marginRight: 6 }} aria-hidden />{" "}
+                            Delete
                           </button>
                         </>
                       ) : null}
@@ -1255,17 +1688,29 @@ export default function StudentCommunityFeedPage({
             </div>
 
             {isReplyOpen && !isEditing && (
-              <form className="student-community-reply-form" onSubmit={(event) => handleAddComment(event, postId, comment.id)}>
+              <form
+                className="student-community-reply-form"
+                onSubmit={(event) =>
+                  handleAddComment(event, postId, comment.id)
+                }
+              >
                 <input
                   type="text"
                   value={replyDrafts[replyKey] || ""}
                   onChange={(event) =>
-                    setReplyDrafts((prev) => ({ ...prev, [replyKey]: event.target.value }))
+                    setReplyDrafts((prev) => ({
+                      ...prev,
+                      [replyKey]: event.target.value,
+                    }))
                   }
                   className="form-control"
                   placeholder={`Reply to ${comment.user_name || "Member"}...`}
                 />
-                <button type="submit" className="btn btn-primary" aria-label="Send reply">
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  aria-label="Send reply"
+                >
                   <FiSend />
                 </button>
               </form>
@@ -1275,7 +1720,9 @@ export default function StudentCommunityFeedPage({
 
         {comment.replies?.length > 0 && (
           <div className="student-community-replies">
-            {comment.replies.map((reply) => renderCommentNode(postId, reply, depth + 1))}
+            {comment.replies.map((reply) =>
+              renderCommentNode(postId, reply, depth + 1),
+            )}
           </div>
         )}
       </div>
@@ -1288,9 +1735,19 @@ export default function StudentCommunityFeedPage({
         <div className="student-community-shell-head">
           <h1>{title}</h1>
           <div className="student-community-toolbar">
-            <button type="button" className="student-community-sparkle" aria-label="Highlights">✦</button>
+            <button
+              type="button"
+              className="student-community-sparkle"
+              aria-label="Highlights"
+            >
+              ✦
+            </button>
             <div className="student-community-sort">
-              <button type="button" className="student-community-sort-btn" onClick={() => setShowSortMenu((prev) => !prev)}>
+              <button
+                type="button"
+                className="student-community-sort-btn"
+                onClick={() => setShowSortMenu((prev) => !prev)}
+              >
                 {activeSort} <FiChevronDown />
               </button>
               {showSortMenu && (
@@ -1314,30 +1771,64 @@ export default function StudentCommunityFeedPage({
               <button
                 type="button"
                 className={`student-community-my-feed ${feedScope === "mine" ? "active" : ""}`}
-                onClick={() => setFeedScope((prev) => (prev === "mine" ? "all" : "mine"))}
+                onClick={() =>
+                  setFeedScope((prev) => (prev === "mine" ? "all" : "mine"))
+                }
               >
                 {feedScope === "mine" ? "All Feed" : "My Feed"}
               </button>
             )}
-            <button type="button" className="student-community-new-post" onClick={() => setShowComposer((prev) => !prev)}>
+            <button
+              type="button"
+              className="student-community-new-post"
+              onClick={() => setShowComposer((prev) => !prev)}
+            >
               New post
             </button>
           </div>
         </div>
 
         <div
-          className={`student-community-layout${processingPosts.length > 0 ? "" : " student-community-layout--no-rail"}`}
+          className={`student-community-layout${
+            processingPosts.length > 0 || showMembersRail
+              ? ""
+              : " student-community-layout--no-rail"
+          }`}
         >
           <section className="student-community-main">
             <div
-              className={`student-community-hero${feedVariant === "meetGreet" ? " student-community-hero--meet-greet" : ""}`}
+              className={`student-community-hero${
+                feedVariant === "meetGreet"
+                  ? " student-community-hero--meet-greet"
+                  : feedVariant === "communityHub"
+                    ? " student-community-hero--community-hub"
+                    : ""
+              }`}
             >
-              {feedVariant === "meetGreet" ? (
+              {feedVariant === "communityHub" ? (
+                <div className="student-community-hero-hub-copy">
+                  <span className="student-community-hero-hub-badge">
+                    MEMBERSHIP
+                  </span>
+                  <p className="student-community-hero-hub-headline">
+                    YOUR SELL IT COMMUNITY HUB
+                  </p>
+                  <p className="student-community-hero-hub-lede">
+                    Your space to connect, share, and grow. Jump in, start a
+                    conversation, and build your network!
+                  </p>
+                </div>
+              ) : feedVariant === "meetGreet" ? (
                 <div className="student-community-hero-meet-copy">
-                  <span className="student-community-hero-meet-badge">MEMBERSHIP</span>
-                  <p className="student-community-hero-meet-headline">SAY HELLO &amp; GET CONNECTED</p>
+                  <span className="student-community-hero-meet-badge">
+                    MEMBERSHIP
+                  </span>
+                  <p className="student-community-hero-meet-headline">
+                    SAY HELLO &amp; GET CONNECTED
+                  </p>
                   <p className="student-community-hero-meet-lede">
-                    Tell us about yourself—your background, passions, and what brought you to this community!
+                    Tell us about yourself—your background, passions, and what
+                    brought you to this community!
                   </p>
                 </div>
               ) : (
@@ -1356,19 +1847,37 @@ export default function StudentCommunityFeedPage({
               )}
             </div>
 
-            <button type="button" className="lms-card student-community-start-post" onClick={() => setShowComposer((prev) => !prev)}>
-              <span className="student-community-avatar small">{getInitial(currentUser?.name)}</span>
+            <button
+              type="button"
+              className="lms-card student-community-start-post"
+              onClick={() => setShowComposer((prev) => !prev)}
+            >
+              <span className="student-community-avatar small">
+                {getInitial(currentUser?.name)}
+              </span>
               <span>Start a post</span>
-              <span className="student-community-start-plus"><FiPlus /></span>
+              <span className="student-community-start-plus">
+                <FiPlus />
+              </span>
             </button>
 
-            {!showComposer && error && <div className="alert alert-danger py-2">{error}</div>}
-            {!showComposer && notice && <div className="alert alert-info py-2">{notice}</div>}
+            {!showComposer && error && (
+              <div className="alert alert-danger py-2">{error}</div>
+            )}
+            {!showComposer && notice && (
+              <div className="alert alert-info py-2">{notice}</div>
+            )}
 
             {isLoading ? (
-              <div className="student-community-skeleton-list" aria-label="Loading community feed">
+              <div
+                className="student-community-skeleton-list"
+                aria-label="Loading community feed"
+              >
                 {[0, 1, 2].map((item) => (
-                  <div key={item} className="lms-card student-community-skeleton-card">
+                  <div
+                    key={item}
+                    className="lms-card student-community-skeleton-card"
+                  >
                     <div className="student-community-skeleton-head">
                       <span className="student-community-skeleton-avatar" />
                       <div className="flex-grow-1">
@@ -1392,24 +1901,38 @@ export default function StudentCommunityFeedPage({
               <div className="lms-card p-5 text-center">
                 <FiImage className="student-community-empty-icon" />
                 <h2 className="h5 fw-semibold mt-3">
-                  {feedScope === "mine" ? "No posts in My Feed yet" : "No feed posts yet"}
+                  {feedScope === "mine"
+                    ? "No posts in My Feed yet"
+                    : "No feed posts yet"}
                 </h2>
                 <p className="text-muted mb-0">
-                  {feedScope === "mine" ? "Create a post to see it here." : "Create the first post for your members."}
+                  {feedScope === "mine"
+                    ? "Create a post to see it here."
+                    : "Create the first post for your members."}
                 </p>
               </div>
             ) : (
               <div className="student-community-feed-list">
                 {sortedPosts.map((post) => {
                   const isExpanded = Boolean(expandedPosts[String(post.id)]);
-                  const contentPreview = getContentPreview(post.content, isExpanded);
-                  const canExpand = String(post.content || "").trim().length > 180;
-                  const comments = Array.isArray(post.comments) ? post.comments : [];
+                  const contentPreview = getContentPreview(
+                    post.content,
+                    isExpanded,
+                  );
+                  const canExpand =
+                    String(post.content || "").trim().length > 180;
+                  const comments = Array.isArray(post.comments)
+                    ? post.comments
+                    : [];
                   const commentTree = buildCommentTree(comments);
                   const postKey = String(post.id);
                   const commentsOpen = Boolean(openCommentsMap[postKey]);
-                  const visibleCommentCount = visibleCommentCounts[postKey] || COMMENTS_PAGE_SIZE;
-                  const visibleComments = commentTree.slice(0, visibleCommentCount);
+                  const visibleCommentCount =
+                    visibleCommentCounts[postKey] || COMMENTS_PAGE_SIZE;
+                  const visibleComments = commentTree.slice(
+                    0,
+                    visibleCommentCount,
+                  );
                   const isBlockedPost = Boolean(post.is_blocked);
                   return (
                     <article
@@ -1420,43 +1943,69 @@ export default function StudentCommunityFeedPage({
                       onClick={() => setSelectedPostId(post.id)}
                       onKeyDown={(event) => {
                         if (isInteractiveEventTarget(event.target)) return;
-                        if (event.key === "Enter" || event.key === " ") setSelectedPostId(post.id);
+                        if (event.key === "Enter" || event.key === " ")
+                          setSelectedPostId(post.id);
                       }}
                     >
                       <div className="student-community-card-top">
                         <div className="d-flex align-items-center gap-2">
-                          <div className="student-community-avatar small">{getInitial(post.user_name)}</div>
+                          <div className="student-community-avatar small">
+                            {getInitial(post.user_name)}
+                          </div>
                           <div>
                             <div className="d-flex align-items-center gap-2 flex-wrap">
                               <strong>{post.user_name || "Member"}</strong>
-                              <span className="student-community-member-badge">{roleBadge}</span>
+                              <span className="student-community-member-badge">
+                                {roleBadge}
+                              </span>
                               {isBlockedPost && (
                                 <span className="student-community-blocked-badge">
                                   <FiSlash /> Blocked
                                 </span>
                               )}
-                              <span className="text-muted small">{formatPostDate(post.created_at)}</span>
+                              <span className="text-muted small">
+                                {formatPostDate(post.created_at)}
+                              </span>
                             </div>
-                            <div className="text-muted small">Posted in Community</div>
+                            <div className="text-muted small">
+                              Posted in Community
+                            </div>
                           </div>
                         </div>
-                        <div className="student-community-post-menu-wrap" onClick={(event) => event.stopPropagation()}>
+                        <div
+                          className="student-community-post-menu-wrap"
+                          onClick={(event) => event.stopPropagation()}
+                        >
                           <button
                             type="button"
                             className="student-community-card-icon-btn"
                             aria-label="Post options"
                             title="Post options"
-                            onClick={() => setActivePostMenuId((prev) => (String(prev) === String(post.id) ? null : post.id))}
+                            onClick={() =>
+                              setActivePostMenuId((prev) =>
+                                String(prev) === String(post.id)
+                                  ? null
+                                  : post.id,
+                              )
+                            }
                           >
                             <FiMoreHorizontal />
                           </button>
                           {String(activePostMenuId) === String(post.id) && (
                             <div className="student-community-post-menu">
-                              <button type="button" onClick={() => togglePostBookmark(post.id)}>
+                              <button
+                                type="button"
+                                onClick={() => togglePostBookmark(post.id)}
+                              >
                                 <FiBookmark />
-                                {bookmarkedPostMap[String(post.id)] ? "Remove bookmark" : "Add to bookmark"}
+                                {bookmarkedPostMap[String(post.id)]
+                                  ? "Remove bookmark"
+                                  : "Add to bookmark"}
                               </button>
-                              <button type="button" onClick={() => openReportPostModal(post)}>
+                              <button
+                                type="button"
+                                onClick={() => openReportPostModal(post)}
+                              >
                                 <FiFlag />
                                 Report
                               </button>
@@ -1465,13 +2014,23 @@ export default function StudentCommunityFeedPage({
                         </div>
                       </div>
 
-                      <h2 className="student-community-card-title">{post.heading}</h2>
-                      {post.sub_heading && <p className="student-community-subtitle">{post.sub_heading}</p>}
+                      <h2 className="student-community-card-title">
+                        {post.heading}
+                      </h2>
+                      {post.sub_heading && (
+                        <p className="student-community-subtitle">
+                          {post.sub_heading}
+                        </p>
+                      )}
                       {isBlockedPost && (
                         <div className="student-community-blocked-reason">
                           <FiSlash />
                           <span>
-                            This post is blocked. Reason: <strong>{post.block_reason || "Community guideline violation"}</strong>
+                            This post is blocked. Reason:{" "}
+                            <strong>
+                              {post.block_reason ||
+                                "Community guideline violation"}
+                            </strong>
                           </span>
                         </div>
                       )}
@@ -1499,10 +2058,15 @@ export default function StudentCommunityFeedPage({
                       )}
 
                       <div className="student-community-stats">
-                        <span>{formatCountLabel(post.comments_count)} comments</span>
+                        <span>
+                          {formatCountLabel(post.comments_count)} comments
+                        </span>
                       </div>
 
-                      <div className="student-community-actions" onClick={(event) => event.stopPropagation()}>
+                      <div
+                        className="student-community-actions"
+                        onClick={(event) => event.stopPropagation()}
+                      >
                         <button
                           type="button"
                           className={`${post.is_liked ? "active liked" : ""} ${animatedLikeMap[String(post.id)] ? "like-burst" : ""}`}
@@ -1529,20 +2093,38 @@ export default function StudentCommunityFeedPage({
                           {commentTree.length > 0 ? (
                             <>
                               <div className="student-community-comments">
-                                {visibleComments.map((comment) => renderCommentNode(post.id, comment))}
+                                {visibleComments.map((comment) =>
+                                  renderCommentNode(post.id, comment),
+                                )}
                               </div>
                               <div className="student-community-comment-pagination">
                                 <span>
-                                  Showing {Math.min(visibleCommentCount, commentTree.length)} of {commentTree.length} threads
+                                  Showing{" "}
+                                  {Math.min(
+                                    visibleCommentCount,
+                                    commentTree.length,
+                                  )}{" "}
+                                  of {commentTree.length} threads
                                 </span>
                                 <div>
                                   {visibleCommentCount < commentTree.length && (
-                                    <button type="button" onClick={() => showMoreComments(post.id, commentTree.length)}>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        showMoreComments(
+                                          post.id,
+                                          commentTree.length,
+                                        )
+                                      }
+                                    >
                                       Show 7 more
                                     </button>
                                   )}
                                   {visibleCommentCount > COMMENTS_PAGE_SIZE && (
-                                    <button type="button" onClick={() => showLessComments(post.id)}>
+                                    <button
+                                      type="button"
+                                      onClick={() => showLessComments(post.id)}
+                                    >
                                       Show less
                                     </button>
                                   )}
@@ -1550,21 +2132,35 @@ export default function StudentCommunityFeedPage({
                               </div>
                             </>
                           ) : (
-                            <p className="student-community-no-comments">No comments yet. Start the conversation.</p>
+                            <p className="student-community-no-comments">
+                              No comments yet. Start the conversation.
+                            </p>
                           )}
 
-                          <form className="student-community-comment-form" onSubmit={(event) => handleAddComment(event, post.id)}>
+                          <form
+                            className="student-community-comment-form"
+                            onSubmit={(event) =>
+                              handleAddComment(event, post.id)
+                            }
+                          >
                             <input
                               id={`feed-comment-${post.id}`}
                               type="text"
                               value={commentDrafts[String(post.id)] || ""}
                               onChange={(event) =>
-                                setCommentDrafts((prev) => ({ ...prev, [String(post.id)]: event.target.value }))
+                                setCommentDrafts((prev) => ({
+                                  ...prev,
+                                  [String(post.id)]: event.target.value,
+                                }))
                               }
                               className="form-control"
                               placeholder="Write a comment..."
                             />
-                            <button type="submit" className="btn btn-primary" aria-label="Send comment">
+                            <button
+                              type="submit"
+                              className="btn btn-primary"
+                              aria-label="Send comment"
+                            >
                               <FiSend />
                             </button>
                           </form>
@@ -1588,36 +2184,93 @@ export default function StudentCommunityFeedPage({
                   </div>
                 )}
                 {!hasMoreFeed && sortedPosts.length > 0 && (
-                  <div className="student-community-feed-end">You&apos;re all caught up.</div>
+                  <div className="student-community-feed-end">
+                    You&apos;re all caught up.
+                  </div>
                 )}
               </div>
             )}
           </section>
 
-          {processingPosts.length > 0 && (
+          {processingPosts.length > 0 || showMembersRail ? (
             <aside className="student-community-right-rail">
-              <div className="lms-card student-community-side-card">
-                <h2>Processing posts</h2>
-                <div className="student-community-processing-list">
-                  {processingPosts.map((post) => (
-                    <div key={post.id} className={`student-community-processing-post ${post.processing_status === "failed" ? "failed" : ""}`}>
-                      <span className="student-community-processing-icon"><FiVideo /></span>
-                      <div>
-                        <strong>{post.heading}</strong>
-                        <p>{getProcessingPostProgress(post)}</p>
-                        <small>{formatPostDate(post.created_at)}</small>
-                      </div>
-                    </div>
-                  ))}
+              {showMembersRail && (
+                <div className="lms-card student-community-side-card student-community-members-card">
+                  <h2>Members</h2>
+                  <ul className="list-unstyled mb-0 student-community-members-list">
+                    {railMembers.length === 0 ? (
+                      <li className="text-muted small py-2">
+                        No members loaded yet.
+                      </li>
+                    ) : (
+                      railMembers.map((m, idx) => (
+                        <li
+                          key={m.id ?? `${m.email}-${idx}`}
+                          className="student-community-member-row student-community-member-row--hoverable"
+                          onMouseEnter={(event) =>
+                            openMemberPopover(m, event.currentTarget, idx)
+                          }
+                          onMouseLeave={scheduleCloseMemberPopover}
+                        >
+                          <span className="student-community-avatar small">
+                            {getInitial(m.name || m.email || "M")}
+                          </span>
+                          <div className="student-community-member-meta">
+                            <span className="student-community-member-name">
+                              {m.name || "Member"}
+                            </span>
+                            {idx === 0 ? (
+                              <span
+                                className="student-community-member-chip"
+                                title="Community"
+                              >
+                                M
+                              </span>
+                            ) : null}
+                          </div>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                  <Link
+                    to={membersRailCtaPath}
+                    className="student-community-see-members"
+                  >
+                    {membersRailCtaLabel}
+                  </Link>
                 </div>
-              </div>
+              )}
+              {processingPosts.length > 0 && (
+                <div className="lms-card student-community-side-card">
+                  <h2>Processing posts</h2>
+                  <div className="student-community-processing-list">
+                    {processingPosts.map((post) => (
+                      <div
+                        key={post.id}
+                        className={`student-community-processing-post ${post.processing_status === "failed" ? "failed" : ""}`}
+                      >
+                        <span className="student-community-processing-icon">
+                          <FiVideo />
+                        </span>
+                        <div>
+                          <strong>{post.heading}</strong>
+                          <p>{getProcessingPostProgress(post)}</p>
+                          <small>{formatPostDate(post.created_at)}</small>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </aside>
-          )}
+          ) : null}
         </div>
 
         <CommentReportReasonModal
           open={Boolean(feedReportModal)}
-          title={feedReportModal?.kind === "comment" ? "Report comment" : "Report"}
+          title={
+            feedReportModal?.kind === "comment" ? "Report comment" : "Report"
+          }
           onClose={closeReportModal}
           selectedReason={selectedReportReason}
           onSelectReason={setSelectedReportReason}
@@ -1626,7 +2279,11 @@ export default function StudentCommunityFeedPage({
         />
 
         {selectedPost && (
-          <div className="student-community-detail-layer" role="dialog" aria-modal="true">
+          <div
+            className="student-community-detail-layer"
+            role="dialog"
+            aria-modal="true"
+          >
             <button
               type="button"
               className="student-community-detail-backdrop"
@@ -1642,23 +2299,43 @@ export default function StudentCommunityFeedPage({
             >
               ‹
             </button>
-            <div className={`student-community-detail-modal ${isPostDetailFullscreen ? "fullscreen" : ""}`}>
+            <div
+              className={`student-community-detail-modal ${isPostDetailFullscreen ? "fullscreen" : ""}`}
+            >
               <div className="student-community-detail-head">
                 <h2>{selectedPost.heading}</h2>
                 <div className="student-community-detail-tools">
                   <button
                     type="button"
-                    className={bookmarkedPostMap[String(selectedPost.id)] ? "active" : ""}
-                    aria-label={bookmarkedPostMap[String(selectedPost.id)] ? "Remove bookmark" : "Add to bookmark"}
-                    title={bookmarkedPostMap[String(selectedPost.id)] ? "Remove bookmark" : "Add to bookmark"}
+                    className={
+                      bookmarkedPostMap[String(selectedPost.id)] ? "active" : ""
+                    }
+                    aria-label={
+                      bookmarkedPostMap[String(selectedPost.id)]
+                        ? "Remove bookmark"
+                        : "Add to bookmark"
+                    }
+                    title={
+                      bookmarkedPostMap[String(selectedPost.id)]
+                        ? "Remove bookmark"
+                        : "Add to bookmark"
+                    }
                     onClick={() => togglePostBookmark(selectedPost.id)}
                   >
                     <FiBookmark />
                   </button>
                   <button
                     type="button"
-                    aria-label={isPostDetailFullscreen ? "Exit full screen" : "Full screen"}
-                    title={isPostDetailFullscreen ? "Exit full screen" : "Full screen"}
+                    aria-label={
+                      isPostDetailFullscreen
+                        ? "Exit full screen"
+                        : "Full screen"
+                    }
+                    title={
+                      isPostDetailFullscreen
+                        ? "Exit full screen"
+                        : "Full screen"
+                    }
                     onClick={() => setIsPostDetailFullscreen((prev) => !prev)}
                   >
                     {isPostDetailFullscreen ? <FiMinimize2 /> : <FiMaximize2 />}
@@ -1668,24 +2345,43 @@ export default function StudentCommunityFeedPage({
                       type="button"
                       aria-label="Post options"
                       title="Post options"
-                      onClick={() => setActivePostMenuId((prev) => (String(prev) === `detail-${selectedPost.id}` ? null : `detail-${selectedPost.id}`))}
+                      onClick={() =>
+                        setActivePostMenuId((prev) =>
+                          String(prev) === `detail-${selectedPost.id}`
+                            ? null
+                            : `detail-${selectedPost.id}`,
+                        )
+                      }
                     >
                       <FiMoreHorizontal />
                     </button>
-                    {String(activePostMenuId) === `detail-${selectedPost.id}` && (
+                    {String(activePostMenuId) ===
+                      `detail-${selectedPost.id}` && (
                       <div className="student-community-post-menu detail">
-                        <button type="button" onClick={() => togglePostBookmark(selectedPost.id)}>
+                        <button
+                          type="button"
+                          onClick={() => togglePostBookmark(selectedPost.id)}
+                        >
                           <FiBookmark />
-                          {bookmarkedPostMap[String(selectedPost.id)] ? "Remove bookmark" : "Add to bookmark"}
+                          {bookmarkedPostMap[String(selectedPost.id)]
+                            ? "Remove bookmark"
+                            : "Add to bookmark"}
                         </button>
-                        <button type="button" onClick={() => openReportPostModal(selectedPost)}>
+                        <button
+                          type="button"
+                          onClick={() => openReportPostModal(selectedPost)}
+                        >
                           <FiFlag />
                           Report
                         </button>
                       </div>
                     )}
                   </div>
-                  <button type="button" aria-label="Close post detail" onClick={closePostDetail}>
+                  <button
+                    type="button"
+                    aria-label="Close post detail"
+                    onClick={closePostDetail}
+                  >
                     ×
                   </button>
                 </div>
@@ -1694,37 +2390,59 @@ export default function StudentCommunityFeedPage({
               <div className="student-community-detail-body">
                 <div className="student-community-card-top">
                   <div className="d-flex align-items-center gap-2">
-                    <div className="student-community-avatar small">{getInitial(selectedPost.user_name)}</div>
+                    <div className="student-community-avatar small">
+                      {getInitial(selectedPost.user_name)}
+                    </div>
                     <div>
                       <div className="d-flex align-items-center gap-2 flex-wrap">
                         <strong>{selectedPost.user_name || "Member"}</strong>
-                        <span className="student-community-member-badge">{roleBadge}</span>
+                        <span className="student-community-member-badge">
+                          {roleBadge}
+                        </span>
                         {selectedPost.is_blocked && (
                           <span className="student-community-blocked-badge">
                             <FiSlash /> Blocked
                           </span>
                         )}
-                        <span className="text-muted small">{formatPostDate(selectedPost.created_at)}</span>
+                        <span className="text-muted small">
+                          {formatPostDate(selectedPost.created_at)}
+                        </span>
                       </div>
-                      <div className="text-muted small">Posted in Community</div>
+                      <div className="text-muted small">
+                        Posted in Community
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {selectedPost.sub_heading && <p className="student-community-subtitle">{selectedPost.sub_heading}</p>}
-                {selectedPost.content && <p className="student-community-detail-content">{selectedPost.content}</p>}
+                {selectedPost.sub_heading && (
+                  <p className="student-community-subtitle">
+                    {selectedPost.sub_heading}
+                  </p>
+                )}
+                {selectedPost.content && (
+                  <p className="student-community-detail-content">
+                    {selectedPost.content}
+                  </p>
+                )}
                 {selectedPost.is_blocked && (
                   <div className="student-community-blocked-reason">
                     <FiSlash />
                     <span>
-                      This post is blocked. Reason: <strong>{selectedPost.block_reason || "Community guideline violation"}</strong>
+                      This post is blocked. Reason:{" "}
+                      <strong>
+                        {selectedPost.block_reason ||
+                          "Community guideline violation"}
+                      </strong>
                     </span>
                   </div>
                 )}
                 {renderMedia(selectedPost, openImagePreview)}
 
                 <div className="student-community-stats">
-                  <span>{formatCountLabel(selectedPost.comments_count)} comments</span>
+                  <span>
+                    {formatCountLabel(selectedPost.comments_count)} comments
+                  </span>
                 </div>
 
                 <div className="student-community-actions">
@@ -1744,29 +2462,46 @@ export default function StudentCommunityFeedPage({
                 <div className="student-community-detail-summary">
                   <strong>✦ Conversation summary</strong>
                   <p>
-                    Members can read the full post here, react, and continue the discussion with comments and replies.
+                    Members can read the full post here, react, and continue the
+                    discussion with comments and replies.
                   </p>
                 </div>
 
                 <div className="student-community-comment-dropdown detail">
                   {selectedPostCommentTree.length > 0 ? (
                     <div className="student-community-comments">
-                      {selectedPostCommentTree.map((comment) => renderCommentNode(selectedPost.id, comment))}
+                      {selectedPostCommentTree.map((comment) =>
+                        renderCommentNode(selectedPost.id, comment),
+                      )}
                     </div>
                   ) : (
-                    <p className="student-community-no-comments">No comments yet. Start the conversation.</p>
+                    <p className="student-community-no-comments">
+                      No comments yet. Start the conversation.
+                    </p>
                   )}
-                  <form className="student-community-comment-form" onSubmit={(event) => handleAddComment(event, selectedPost.id)}>
+                  <form
+                    className="student-community-comment-form"
+                    onSubmit={(event) =>
+                      handleAddComment(event, selectedPost.id)
+                    }
+                  >
                     <input
                       type="text"
                       value={commentDrafts[String(selectedPost.id)] || ""}
                       onChange={(event) =>
-                        setCommentDrafts((prev) => ({ ...prev, [String(selectedPost.id)]: event.target.value }))
+                        setCommentDrafts((prev) => ({
+                          ...prev,
+                          [String(selectedPost.id)]: event.target.value,
+                        }))
                       }
                       className="form-control"
                       placeholder="What are your thoughts?"
                     />
-                    <button type="submit" className="btn btn-primary" aria-label="Send comment">
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      aria-label="Send comment"
+                    >
                       <FiSend />
                     </button>
                   </form>
@@ -1786,7 +2521,11 @@ export default function StudentCommunityFeedPage({
         )}
 
         {selectedImagePreview && (
-          <div className="student-community-image-viewer" role="dialog" aria-modal="true">
+          <div
+            className="student-community-image-viewer"
+            role="dialog"
+            aria-modal="true"
+          >
             <button
               type="button"
               className="student-community-image-viewer-backdrop"
@@ -1818,7 +2557,10 @@ export default function StudentCommunityFeedPage({
               aria-label="Close create post"
               onClick={() => setShowComposer(false)}
             />
-            <form className="student-community-post-modal" onSubmit={handleCreatePost}>
+            <form
+              className="student-community-post-modal"
+              onSubmit={handleCreatePost}
+            >
               <div className="student-community-post-modal-head">
                 <h2>Create post</h2>
                 <button
@@ -1827,14 +2569,19 @@ export default function StudentCommunityFeedPage({
                   aria-label="Close create post"
                   onClick={() => setShowComposer(false)}
                 >
-                  ×
+                  <i className="bi bi-x-lg"></i>
                 </button>
               </div>
 
               <div className="student-community-post-modal-body">
-                {error && <div className="alert alert-danger py-2">{error}</div>}
+                {error && (
+                  <div className="alert alert-danger py-2">{error}</div>
+                )}
 
-                <label className="student-community-modal-label" htmlFor="feed-heading">
+                <label
+                  className="student-community-modal-label"
+                  htmlFor="feed-heading"
+                >
                   Heading
                 </label>
                 <input
@@ -1849,7 +2596,10 @@ export default function StudentCommunityFeedPage({
                   required
                 />
 
-                <label className="student-community-modal-label" htmlFor="feed-subheading">
+                <label
+                  className="student-community-modal-label"
+                  htmlFor="feed-subheading"
+                >
                   Sub heading
                 </label>
                 <input
@@ -1877,7 +2627,10 @@ export default function StudentCommunityFeedPage({
                 {showCommandMenu && (
                   <div className="student-community-command-menu">
                     {editorCommandGroups.map((group) => (
-                      <div key={group.label} className="student-community-command-group">
+                      <div
+                        key={group.label}
+                        className="student-community-command-group"
+                      >
                         <h3>{group.label}</h3>
                         {group.items.map((item) => {
                           const Icon = item.Icon;
@@ -1909,7 +2662,11 @@ export default function StudentCommunityFeedPage({
                 >
                   <FiPlus />
                 </button>
-                <label className="student-community-modal-tool" htmlFor="feed-media" title="Upload media">
+                <label
+                  className="student-community-modal-tool"
+                  htmlFor="feed-media"
+                  title="Upload media"
+                >
                   <FiUpload />
                 </label>
                 <input
@@ -1923,10 +2680,11 @@ export default function StudentCommunityFeedPage({
                 />
                 {mediaFiles.length > 0 && (
                   <span className="student-community-modal-file">
-                    {mediaFiles.length} file{mediaFiles.length > 1 ? "s" : ""} selected
+                    {mediaFiles.length} file{mediaFiles.length > 1 ? "s" : ""}{" "}
+                    selected
                   </span>
                 )}
-                {feedSpaceFilter ? (
+                {effectiveFeedSpaceFilter ? (
                   <div className="student-community-posting-space-wrap student-community-posting-space-wrap--locked">
                     <span className="student-community-posting-space-locked">
                       Posting in: <strong>{selectedPostingSpace.title}</strong>
@@ -1943,23 +2701,35 @@ export default function StudentCommunityFeedPage({
                       aria-label={`Posting in ${selectedPostingSpace.title}. Choose space.`}
                     >
                       <span className="student-community-posting-space-trigger-text">
-                        Posting in: <strong>{selectedPostingSpace.title}</strong>
+                        Posting in:{" "}
+                        <strong>{selectedPostingSpace.title}</strong>
                       </span>
-                      <FiChevronDown className={`student-community-posting-space-trigger-chevron${postingSpaceMenuOpen ? " is-open" : ""}`} aria-hidden />
+                      <FiChevronDown
+                        className={`student-community-posting-space-trigger-chevron${postingSpaceMenuOpen ? " is-open" : ""}`}
+                        aria-hidden
+                      />
                     </button>
                     {postingSpaceMenuOpen && (
-                      <div className="student-community-posting-space-panel" role="listbox" aria-label="Choose posting space">
+                      <div
+                        className="student-community-posting-space-panel"
+                        role="listbox"
+                        aria-label="Choose posting space"
+                      >
                         <input
                           ref={postingSpaceSearchRef}
                           type="search"
                           className="student-community-posting-space-search"
                           placeholder="Search space..."
                           value={postingSpaceSearch}
-                          onChange={(e) => setPostingSpaceSearch(e.target.value)}
+                          onChange={(e) =>
+                            setPostingSpaceSearch(e.target.value)
+                          }
                           onKeyDown={(e) => e.stopPropagation()}
                         />
                         {filteredPostingSpaces.length === 0 ? (
-                          <p className="student-community-posting-space-empty">No spaces match your search.</p>
+                          <p className="student-community-posting-space-empty">
+                            No spaces match your search.
+                          </p>
                         ) : (
                           <ul className="student-community-posting-space-list">
                             {filteredPostingSpaces.map((space) => (
@@ -1967,7 +2737,9 @@ export default function StudentCommunityFeedPage({
                                 <button
                                   type="button"
                                   role="option"
-                                  aria-selected={space.id === selectedPostingSpaceId}
+                                  aria-selected={
+                                    space.id === selectedPostingSpaceId
+                                  }
                                   className={`student-community-posting-space-option${space.id === selectedPostingSpaceId ? " is-active" : ""}`}
                                   onClick={() => {
                                     setSelectedPostingSpaceId(space.id);
@@ -1977,15 +2749,22 @@ export default function StudentCommunityFeedPage({
                                 >
                                   <span className="student-community-posting-space-option-inner">
                                     {space.top ? (
-                                      <span className="student-community-posting-space-option-kicker">{space.top}</span>
+                                      <span className="student-community-posting-space-option-kicker">
+                                        {space.top}
+                                      </span>
                                     ) : null}
                                     <span className="student-community-posting-space-option-main">
                                       {space.emoji ? (
-                                        <span className="student-community-posting-space-option-emoji" aria-hidden>
+                                        <span
+                                          className="student-community-posting-space-option-emoji"
+                                          aria-hidden
+                                        >
                                           {space.emoji}
                                         </span>
                                       ) : null}
-                                      <span className="student-community-posting-space-option-title">{space.title}</span>
+                                      <span className="student-community-posting-space-option-title">
+                                        {space.title}
+                                      </span>
                                     </span>
                                   </span>
                                 </button>
@@ -1997,15 +2776,121 @@ export default function StudentCommunityFeedPage({
                     )}
                   </div>
                 )}
-                <button type="submit" className="student-community-modal-publish" disabled={isSubmitting}>
+                <button
+                  type="submit"
+                  className="student-community-modal-publish"
+                  disabled={isSubmitting}
+                >
                   {isSubmitting ? "Posting..." : "Publish"}
                 </button>
               </div>
             </form>
           </div>
         )}
+        {feedVariant === "communityHub" ? (
+          <Link
+            to="/dashboard/student-message"
+            className="student-community-fab"
+            title="Messages"
+            aria-label="Open messages"
+          >
+            <FiMessageCircle />
+          </Link>
+        ) : null}
+        {showMembersRail && memberHoverPopover && typeof document !== "undefined"
+          ? createPortal(
+              (() => {
+                const { member, rect, listIndex } = memberHoverPopover;
+                const gap = 14;
+                const w = MEMBER_HOVER_CARD_WIDTH;
+                let left = rect.left - gap - w;
+                if (left < 12) left = rect.right + gap;
+                const maxLeft = window.innerWidth - w - 12;
+                if (left > maxLeft) left = Math.max(12, maxLeft);
+                const top = rect.top + rect.height / 2;
+                const tier = resolveMemberStatusTier(member, listIndex);
+                const tagline = buildMemberHoverTagline(member);
+                return (
+                  <div
+                    key={String(member.id ?? member.email)}
+                    className="student-community-member-hover-root"
+                    style={{
+                      position: "fixed",
+                      top,
+                      left,
+                      width: w,
+                      transform: "translateY(-50%)",
+                      zIndex: 12060,
+                    }}
+                    onMouseEnter={keepMemberPopoverOpen}
+                    onMouseLeave={scheduleCloseMemberPopover}
+                    role="dialog"
+                    aria-label={`${member.name || "Member"} profile preview`}
+                  >
+                    <div className="student-community-member-hover-card">
+                      <div className="student-community-member-hover-top">
+                        <div className="student-community-member-hover-copy">
+                          <div className="student-community-member-hover-name">
+                            {member.name || "Member"}
+                          </div>
+                          <p className="student-community-member-hover-tagline">
+                            {tagline}
+                          </p>
+                          <div
+                            className="student-community-member-hover-pill"
+                            aria-hidden
+                          >
+                            <FiAward className="student-community-member-hover-trophy" />
+                            <span className="student-community-member-hover-tier">
+                              {tier}
+                            </span>
+                            <span className="student-community-member-hover-pill-divider" />
+                            <span>Sell It status</span>
+                          </div>
+                        </div>
+                        <div className="student-community-member-hover-avatar-wrap">
+                          <div className="student-community-member-hover-avatar-ring">
+                            <span className="student-community-member-hover-avatar-letter">
+                              {getInitial(
+                                member.name || member.email || "M",
+                              )}
+                            </span>
+                          </div>
+                          <span className="student-community-member-hover-level-badge">
+                            {tier}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="student-community-member-hover-profile-btn"
+                        onClick={() => {
+                          clearMemberPopoverTimer();
+                          setMemberHoverPopover(null);
+                          setMemberProfileModalUser(member);
+                        }}
+                      >
+                        <FiUser aria-hidden />
+                        <span>View profile</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })(),
+              document.body,
+            )
+          : null}
+        <MemberProfileModal
+          open={Boolean(memberProfileModalUser)}
+          summaryMember={memberProfileModalUser}
+          onClose={closeMemberProfileModal}
+          apiBaseUrl={apiBaseUrl}
+          messagesPath={memberProfileMessagesPath}
+          showMessageButton={showMemberProfileMessageButton}
+          profileCopyPathname={location.pathname}
+          profileCopyQueryParam="memberProfile"
+        />
       </div>
     </DashboardSection>
   );
 }
-

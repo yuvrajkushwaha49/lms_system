@@ -648,6 +648,40 @@ const streamFeedPostMedia = async (req, res) => {
   }
 };
 
+const getFeedSpaceSummary = async (req, res) => {
+  try {
+    await ensureFeedTables();
+    const orgId = resolveOrgId(req.user);
+    if (!orgId) {
+      return res.status(400).json({ status: 'error', message: 'Organization context missing in token.' });
+    }
+    const [rows] = await db.query(
+      `SELECT posting_space AS space, COUNT(*) AS cnt
+       FROM member_feed_posts
+       WHERE org_id = ? AND processing_status = 'ready' AND COALESCE(is_blocked, 0) = 0
+       GROUP BY posting_space`,
+      [orgId],
+    );
+    const feedBySpace = {};
+    (rows || []).forEach((r) => {
+      feedBySpace[r.space] = Number(r.cnt) || 0;
+    });
+    let wallOfWins = 0;
+    try {
+      const [[w]] = await db.query(
+        `SELECT COUNT(*) AS c FROM wall_of_wins_entries WHERE org_id = ? AND COALESCE(is_blocked, 0) = 0`,
+        [orgId],
+      );
+      wallOfWins = Number(w?.c) || 0;
+    } catch {
+      wallOfWins = 0;
+    }
+    return res.json({ status: 'success', data: { feedBySpace, wallOfWins } });
+  } catch (e) {
+    return res.status(500).json({ status: 'error', message: e.message || 'Failed to load feed summary.' });
+  }
+};
+
 const getFeedPosts = async (req, res) => {
   try {
     await ensureFeedTables();
@@ -665,7 +699,10 @@ const getFeedPosts = async (req, res) => {
     const ownerFilterParams = showOnlyMine ? [userId] : [];
     const blockedFilterSql = showOnlyMine ? '' : ' AND COALESCE(p.is_blocked, 0) = 0';
 
-    const requestedSpace = String(req.query.space || '').trim();
+    const rawSpace = req.query.space;
+    const requestedSpace = String(
+      Array.isArray(rawSpace) ? rawSpace[0] : rawSpace ?? '',
+    ).trim();
     const applySpaceFilter = Boolean(requestedSpace && FEED_POSTING_SPACES.has(requestedSpace));
     const spaceSql = applySpaceFilter ? ' AND p.posting_space = ?' : '';
 
@@ -1262,6 +1299,11 @@ const getFeedCommentReportsList = async (req, res) => {
     if (!orgId) {
       return res.status(400).json({ status: 'error', message: 'Organization context missing in token.' });
     }
+    const rawSpace = req.query.space;
+    const requestedSpace = String(Array.isArray(rawSpace) ? rawSpace[0] : rawSpace ?? '').trim();
+    const applySpaceFilter = Boolean(requestedSpace && FEED_POSTING_SPACES.has(requestedSpace));
+    const spaceSql = applySpaceFilter ? ' AND p.posting_space = ?' : '';
+    const queryParams = applySpaceFilter ? [orgId, requestedSpace] : [orgId];
     const [rows] = await db.query(
       `SELECT r.*,
         p.heading AS post_heading,
@@ -1271,10 +1313,10 @@ const getFeedCommentReportsList = async (req, res) => {
        FROM member_feed_comment_reports r
        INNER JOIN member_feed_posts p ON p.id = r.post_id AND p.org_id = r.org_id
        INNER JOIN member_feed_comments c ON c.id = r.comment_id AND c.org_id = r.org_id AND c.post_id = r.post_id
-       WHERE r.org_id = ?
+       WHERE r.org_id = ?${spaceSql}
        ORDER BY r.created_at DESC, r.id DESC
        LIMIT 200`,
-      [orgId],
+      queryParams,
     );
 
     const data = rows.map((row) => ({
@@ -1353,6 +1395,11 @@ const getFeedPostReports = async (req, res) => {
     if (!orgId) {
       return res.status(400).json({ status: 'error', message: 'Organization context missing in token.' });
     }
+    const rawSpace = req.query.space;
+    const requestedSpace = String(Array.isArray(rawSpace) ? rawSpace[0] : rawSpace ?? '').trim();
+    const applySpaceFilter = Boolean(requestedSpace && FEED_POSTING_SPACES.has(requestedSpace));
+    const spaceSql = applySpaceFilter ? ' AND p.posting_space = ?' : '';
+    const queryParams = applySpaceFilter ? [orgId, requestedSpace] : [orgId];
     const [rows] = await db.query(
       `SELECT r.*,
         p.heading AS post_heading,
@@ -1365,10 +1412,10 @@ const getFeedPostReports = async (req, res) => {
        FROM member_feed_reports r
        INNER JOIN member_feed_posts p
          ON p.id = r.post_id AND p.org_id = r.org_id
-       WHERE r.org_id = ?
+       WHERE r.org_id = ?${spaceSql}
        ORDER BY r.created_at DESC, r.id DESC
        LIMIT 100`,
-      [orgId],
+      queryParams,
     );
 
     return res.json({
@@ -1482,6 +1529,7 @@ module.exports = {
   streamFeedVariantMedia,
   streamFeedPostMedia,
   getFeedPosts,
+  getFeedSpaceSummary,
   createFeedPost,
   toggleFeedPostLike,
   createFeedPostComment,

@@ -33,6 +33,7 @@ router.get('/media/posts/:postId', feedController.streamFeedPostMedia);
 router.get('/media/:attachmentId', feedController.streamFeedAttachmentMedia);
 
 router.use(verifyToken);
+router.get('/summary', feedController.getFeedSpaceSummary);
 router.get('/', feedController.getFeedPosts);
 router.get('/reports/comments', feedController.getFeedCommentReportsList);
 router.get('/reports', feedController.getFeedPostReports);

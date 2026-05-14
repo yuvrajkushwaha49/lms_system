@@ -9,7 +9,6 @@ import {
   FiCalendar,
   FiChevronDown,
   FiChevronRight,
-  FiCompass,
   FiFileText,
   FiGrid,
   FiHelpCircle,
@@ -19,8 +18,10 @@ import {
   FiMenu,
   FiMessageCircle,
   FiMessageSquare,
+  FiSearch,
   FiShoppingBag,
   FiUser,
+  FiUsers,
   FiVideo,
 } from "react-icons/fi";
 import {
@@ -33,9 +34,45 @@ import {
 
 const MONTHLY_CHALLENGE_ROW_EMOJIS = ["📱", "💼", "🎯", "📊", "✨", "📲"];
 
-const STORAGE_KEY = "student_dashboard_sidebar_collapsed";
+const COMMUNITY_NAV_ITEMS = [
+  {
+    key: "sell",
+    label: "Sell It Community",
+    path: "/dashboard/student-community",
+    badgeKey: "sell-it-community",
+    icon: "arrow",
+  },
+  {
+    key: "dir",
+    label: "Member Directory",
+    path: "/dashboard/student-members",
+    badgeKey: null,
+    icon: "search",
+  },
+  {
+    key: "ref",
+    label: "Referral Partners",
+    path: "/dashboard/student-community/referral-partners",
+    badgeKey: "referral-partners",
+    icon: "🤝",
+  },
+  {
+    key: "list",
+    label: "Community Listings",
+    path: "/dashboard/student-community/listings",
+    badgeKey: "community-listings",
+    icon: "🏠",
+  },
+  {
+    key: "wow",
+    label: "Wall of Wins",
+    path: "/dashboard/student-wall-of-wins",
+    badgeKey: "wallOfWins",
+    icon: "🏆",
+  },
+];
 
-const feedNavItem = { label: "Feed", short: "FD", path: "/dashboard/student-community", icon: FiCompass };
+const STORAGE_KEY = "student_dashboard_sidebar_collapsed";
 
 const studentNavItems = [
   // { label: "Dashboard", short: "DB", path: "/dashboard/student-dashboard" },
@@ -97,6 +134,8 @@ export default function StudentDashboardSectionPage({
   const [activeMessageTab, setActiveMessageTab] = useState("inbox");
   const [starterMenuOpen, setStarterMenuOpen] = useState(false);
   const [welcomeMenuOpen, setWelcomeMenuOpen] = useState(false);
+  const [communityMenuOpen, setCommunityMenuOpen] = useState(false);
+  const [communitySummary, setCommunitySummary] = useState({ feedBySpace: {}, wallOfWins: 0 });
   const [monthlyChallengesMenuOpen, setMonthlyChallengesMenuOpen] = useState(false);
   const [monthlySidebar, setMonthlySidebar] = useState({
     loading: false,
@@ -170,6 +209,8 @@ export default function StudentDashboardSectionPage({
     if (path === "/dashboard/student-course" && isOwningManhattanCourseDetail) return false;
     return pathname === path || pathname.startsWith(`${path}/`);
   };
+  const isCommunityRouteActive = COMMUNITY_NAV_ITEMS.some((item) => linkIsActive(item.path));
+  const showCommunityMenu = communityMenuOpen || isCommunityRouteActive;
   const showMonthlyChallengesMenu = monthlyChallengesMenuOpen;
   const isMonthlyChallengesNavActive = linkIsActive(STUDENT_MONTHLY_CHALLENGES_PATH);
   const isStarterRouteActive = starterNavItems.some((item) => linkIsActive(item.path));
@@ -180,12 +221,14 @@ export default function StudentDashboardSectionPage({
     ? "owning-manhattan"
     : pathname.startsWith("/dashboard/student-course") ||
         pathname.startsWith(STUDENT_MONTHLY_CHALLENGES_PATH)
-    ? "courses"
-    : pathname.startsWith("/dashboard/student-workshops")
-      ? "events"
-      : pathname.startsWith("/dashboard/student-community")
-        ? "leaderboard"
-        : "home";
+      ? "courses"
+      : pathname.startsWith("/dashboard/student-workshops")
+        ? "events"
+        : pathname.startsWith("/dashboard/student-community") ||
+            pathname.startsWith("/dashboard/student-members") ||
+            pathname.startsWith("/dashboard/student-wall-of-wins")
+          ? "leaderboard"
+          : "home";
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const userInitial =
     String(user?.name || "S")
@@ -210,6 +253,39 @@ export default function StudentDashboardSectionPage({
       setMonthlyChallengesMenuOpen(true);
     }
   }, [isMonthlyChallengesRoute]);
+
+  useEffect(() => {
+    if (isCommunityRouteActive) {
+      setCommunityMenuOpen(true);
+    }
+  }, [isCommunityRouteActive]);
+
+  useEffect(() => {
+    if (!communityMenuOpen && !isCommunityRouteActive) return undefined;
+    const token = localStorage.getItem("token");
+    if (!token) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${apiBaseUrl}/api/feed/summary`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const payload = await res.json();
+        if (!res.ok || payload.status !== "success") return;
+        if (!cancelled) {
+          setCommunitySummary({
+            feedBySpace: payload.data?.feedBySpace || {},
+            wallOfWins: Number(payload.data?.wallOfWins) || 0,
+          });
+        }
+      } catch {
+        if (!cancelled) setCommunitySummary({ feedBySpace: {}, wallOfWins: 0 });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [communityMenuOpen, isCommunityRouteActive, apiBaseUrl]);
 
   const SidebarLinkLabel = ({ icon: Icon, label, short, collapsed: isCollapsed }) => (
     <>
@@ -287,18 +363,6 @@ export default function StudentDashboardSectionPage({
             <FiMenu />
           </button>
         </div>
-
-        <nav className="lms-sidebar-nav">
-          <NavLink
-            to={feedNavItem.path}
-            title={collapsed ? feedNavItem.label : undefined}
-            className={() =>
-              `lms-nav-link ${collapsed ? "lms-nav-link-collapsed" : ""} ${linkIsActive(feedNavItem.path) ? "active" : ""}`
-            }
-          >
-            <SidebarLinkLabel {...feedNavItem} collapsed={collapsed} />
-          </NavLink>
-        </nav>
 
         <div className={`student-starter-panel ${collapsed ? "collapsed" : ""}`}>
           {collapsed ? (
@@ -532,6 +596,78 @@ export default function StudentDashboardSectionPage({
         </div>
 
         <nav className="lms-sidebar-nav">
+          <div className={`student-starter-nav student-starter-nav-community ${collapsed ? "collapsed" : ""}`}>
+            <button
+              type="button"
+              className={`lms-nav-link lms-nav-link-button student-starter-title ${isCommunityRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
+              onClick={() => setCommunityMenuOpen((prev) => !prev)}
+              title={collapsed ? "Community" : undefined}
+              aria-expanded={showCommunityMenu}
+            >
+              {collapsed ? (
+                <>
+                  <span className="lms-nav-icon-wrap" aria-hidden="true">
+                    <FiUsers className="lms-nav-icon" />
+                  </span>
+                  <span className="lms-nav-short">CM</span>
+                </>
+              ) : (
+                <>
+                  <span className="lms-nav-link-main">
+                    <span className="lms-nav-icon-wrap" aria-hidden="true">
+                      <FiUsers className="lms-nav-icon" />
+                    </span>
+                    <span>Community</span>
+                  </span>
+                  <span>{showCommunityMenu ? "▾" : "▸"}</span>
+                </>
+              )}
+            </button>
+            {showCommunityMenu && (
+              <div className="student-starter-menu">
+                {COMMUNITY_NAV_ITEMS.map((item) => {
+                  const badgeCount =
+                    item.badgeKey === "wallOfWins"
+                      ? communitySummary.wallOfWins
+                      : item.badgeKey != null
+                        ? communitySummary.feedBySpace[item.badgeKey] ?? null
+                        : null;
+                  const showBadge = badgeCount != null && !Number.isNaN(Number(badgeCount));
+                  return (
+                    <NavLink
+                      key={item.key}
+                      to={item.path}
+                      title={collapsed ? item.label : undefined}
+                      className={() =>
+                        `student-starter-link student-starter-link-community ${linkIsActive(item.path) ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`
+                      }
+                    >
+                      <span className="student-starter-icon" aria-hidden="true">
+                        {item.icon === "arrow" ? (
+                          <span className="community-sidebar-ico-sell">➤</span>
+                        ) : item.icon === "search" ? (
+                          <FiSearch className="community-sidebar-fi" />
+                        ) : (
+                          item.icon
+                        )}
+                      </span>
+                      {!collapsed && (
+                        <>
+                          <span className="flex-grow-1 text-truncate" style={{ minWidth: 0 }}>
+                            {item.label}
+                          </span>
+                          {showBadge ? (
+                            <span className="student-community-sidebar-count">{badgeCount}</span>
+                          ) : null}
+                        </>
+                      )}
+                      {collapsed && <span className="visually-hidden">{item.label}</span>}
+                    </NavLink>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           <div className={`student-starter-nav student-starter-nav-monthly ${collapsed ? "collapsed" : ""}`}>
             <button
               type="button"

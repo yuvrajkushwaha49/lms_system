@@ -32,9 +32,15 @@ import DocumentCenterManagementPage from './pages/admin/DocumentCenterManagement
 import TrainerCoursePage from './pages/trainer/TrainerCoursePage';
 import TrainerCourseDetailPage from './pages/trainer/TrainerCourseDetailPage';
 import TrainerCourseVideoDetailPage from './pages/trainer/TrainerCourseVideoDetailPage';
-import StudentCommunityFeedPage from './pages/student/StudentCommunityFeedPage';
+import StudentCommunityHubPage from './pages/student/StudentCommunityHubPage';
+import StudentCommunityReferralPartnersPage from './pages/student/StudentCommunityReferralPartnersPage';
+import StudentCommunityListingsPage from './pages/student/StudentCommunityListingsPage';
 import TrainerCommunityFeedPage from './pages/trainer/TrainerCommunityFeedPage';
 import SuperAdminCommunityFeedPage from './pages/admin/SuperAdminCommunityFeedPage';
+import AdminCommunityHubPage from './pages/admin/AdminCommunityHubPage';
+import AdminCommunityReferralPartnersPage from './pages/admin/AdminCommunityReferralPartnersPage';
+import AdminCommunityListingsPage from './pages/admin/AdminCommunityListingsPage';
+import AdminSellItCommunityReportsPage from './pages/admin/AdminSellItCommunityReportsPage';
 import SuperAdminFeedReportsPage from './pages/admin/SuperAdminFeedReportsPage';
 import SuperAdminFeedReportDetailPage from './pages/admin/SuperAdminFeedReportDetailPage';
 import SuperAdminFeedByMembersPage from './pages/admin/SuperAdminFeedByMembersPage';
@@ -94,7 +100,12 @@ function App() {
           <Route path="/dashboard/student-members" element={<StudentMembersPage />} />
           <Route path="/dashboard/student-account-settings" element={<StudentAccountSettingsPage />} />
           <Route path="/dashboard/student-messages" element={<StudentMessagesPage />} />
-          <Route path="/dashboard/student-community" element={<StudentCommunityFeedPage />} />
+          <Route
+            path="/dashboard/student-community/referral-partners"
+            element={<StudentCommunityReferralPartnersPage />}
+          />
+          <Route path="/dashboard/student-community/listings" element={<StudentCommunityListingsPage />} />
+          <Route path="/dashboard/student-community" element={<StudentCommunityHubPage />} />
           <Route path="/dashboard/student-dashboard" element={<StudentDashboard />} />
           <Route path="/dashboard/user-management/:userId" element={<UserDetailPage />} />
           <Route path="/dashboard/user-management" element={<UserManagementPage />} />
@@ -135,6 +146,15 @@ function App() {
           <Route path="/dashboard/trainer-course" element={<TrainerCoursePage />} />
           <Route path="/dashboard/trainer-course/:courseId" element={<TrainerCourseDetailPage />} />
           <Route path="/dashboard/workshop-management" element={<WorkshopManagementPage />} />
+          <Route
+            path="/dashboard/admin-community/referral-partners"
+            element={<AdminCommunityReferralPartnersPage />}
+          />
+          <Route path="/dashboard/admin-community/listings" element={<AdminCommunityListingsPage />} />
+          <Route path="/dashboard/admin-community/reports/:reportId" element={<SuperAdminFeedReportDetailPage />} />
+          <Route path="/dashboard/admin-community/reports" element={<AdminSellItCommunityReportsPage />} />
+          <Route path="/dashboard/admin-community/recent" element={<AdminCommunityHubPage />} />
+          <Route path="/dashboard/admin-community" element={<Navigate to="/dashboard/admin-community/recent" replace />} />
           <Route path="/dashboard/feed-management" element={<Navigate to="/dashboard/feed-management/recent" replace />} />
           <Route path="/dashboard/feed-management/recent" element={<SuperAdminCommunityFeedPage />} />
           <Route path="/dashboard/feed-management/reports" element={<SuperAdminFeedReportsPage />} />

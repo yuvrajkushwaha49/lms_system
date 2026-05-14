@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
+import { isDmBlockedMemberId } from "../../utils/blockedDmMembers";
 
 export default function StudentMessagesPage() {
   const [searchParams] = useSearchParams();
@@ -37,14 +38,17 @@ export default function StudentMessagesPage() {
         throw new Error(payload.message || "Unable to fetch conversations.");
       }
       const rows = Array.isArray(payload.data) ? payload.data : [];
-      setConversations(rows);
-      if (!activeConversationId && rows.length) {
-        setActiveConversationId(Number(rows[0].id));
-      }
+      const filtered = rows.filter((c) => !isDmBlockedMemberId(c.participant_id));
+      setConversations(filtered);
+      setActiveConversationId((prev) => {
+        if (filtered.length === 0) return null;
+        if (prev && filtered.some((c) => Number(c.id) === Number(prev))) return prev;
+        return Number(filtered[0].id);
+      });
     } catch (fetchError) {
       setError(fetchError.message || "Unable to fetch conversations.");
     }
-  }, [activeConversationId, apiBaseUrl]);
+  }, [apiBaseUrl]);
 
   const ensureConversation = useCallback(async (participantId) => {
     const token = localStorage.getItem("token");
@@ -90,8 +94,20 @@ export default function StudentMessagesPage() {
   }, [fetchConversations]);
 
   useEffect(() => {
+    const onBlockUpdated = () => {
+      fetchConversations();
+    };
+    window.addEventListener("lms-dm-block-updated", onBlockUpdated);
+    return () => window.removeEventListener("lms-dm-block-updated", onBlockUpdated);
+  }, [fetchConversations]);
+
+  useEffect(() => {
     const initialize = async () => {
       if (Number.isNaN(memberId)) return;
+      if (isDmBlockedMemberId(memberId)) {
+        setError("You have blocked direct messages from this member.");
+        return;
+      }
       try {
         const conversation = await ensureConversation(memberId);
         if (conversation?.id) {

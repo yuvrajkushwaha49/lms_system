@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import DashboardSectionPage from "./DashboardSectionPage";
 
 const formatReportDate = (value) => {
@@ -16,7 +16,27 @@ const TABS = [
   { id: "course-comments", label: "Course comments" },
 ];
 
-export default function SuperAdminFeedReportsPage() {
+export default function SuperAdminFeedReportsPage({
+  pageTitle = "Feed Reports",
+  heading = "Reports",
+  intro = "Review community moderation: feed posts, comments on the feed, Sell It Snacks, and courses.",
+  postingSpaceFilter = "",
+} = {}) {
+  const { pathname } = useLocation();
+  const reportDetailBasePath = useMemo(() => {
+    if (pathname.startsWith("/dashboard/admin-community/reports")) {
+      return "/dashboard/admin-community/reports";
+    }
+    return "/dashboard/feed-management/reports";
+  }, [pathname]);
+
+  const visibleTabs = useMemo(() => {
+    if (postingSpaceFilter) {
+      return TABS.filter((tab) => tab.id === "posts" || tab.id === "feed-comments");
+    }
+    return TABS;
+  }, [postingSpaceFilter]);
+
   const [activeTab, setActiveTab] = useState("posts");
   const [postReports, setPostReports] = useState([]);
   const [postSummary, setPostSummary] = useState({ pending: 0, reviewed: 0, resolved: 0, total: 0 });
@@ -48,6 +68,16 @@ export default function SuperAdminFeedReportsPage() {
     () => (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(/\/$/, ""),
     [],
   );
+
+  const spaceQuery = postingSpaceFilter
+    ? `?space=${encodeURIComponent(postingSpaceFilter)}`
+    : "";
+
+  useEffect(() => {
+    if (!visibleTabs.some((tab) => tab.id === activeTab)) {
+      setActiveTab(visibleTabs[0]?.id || "posts");
+    }
+  }, [visibleTabs, activeTab]);
 
   const currentSummary = useMemo(() => {
     if (activeTab === "posts") return postSummary;
@@ -81,7 +111,7 @@ export default function SuperAdminFeedReportsPage() {
       setIsLoading(true);
       setError("");
       if (activeTab === "posts") {
-        const response = await fetch(`${apiBaseUrl}/api/feed/reports`, {
+        const response = await fetch(`${apiBaseUrl}/api/feed/reports${spaceQuery}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const payload = await response.json();
@@ -93,7 +123,7 @@ export default function SuperAdminFeedReportsPage() {
         return;
       }
       if (activeTab === "feed-comments") {
-        const response = await fetch(`${apiBaseUrl}/api/feed/reports/comments`, {
+        const response = await fetch(`${apiBaseUrl}/api/feed/reports/comments${spaceQuery}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const payload = await response.json();
@@ -130,7 +160,7 @@ export default function SuperAdminFeedReportsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeTab, apiBaseUrl]);
+  }, [activeTab, apiBaseUrl, postingSpaceFilter]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(fetchTabData, 0);
@@ -148,23 +178,25 @@ export default function SuperAdminFeedReportsPage() {
 
   const sectionDescription =
     activeTab === "posts"
-      ? "Latest reports submitted on feed posts."
+      ? postingSpaceFilter
+        ? "Latest reports on Sell It Community feed posts only."
+        : "Latest reports submitted on feed posts."
       : activeTab === "feed-comments"
-        ? "Reports on community feed comments."
+        ? postingSpaceFilter
+          ? "Reports on comments for Sell It Community posts only."
+          : "Reports on community feed comments."
         : activeTab === "snack-comments"
           ? "Reports on Sell It Snacks comments."
           : "Reports on course video comments.";
 
   return (
-    <DashboardSectionPage title="Feed Reports">
+    <DashboardSectionPage title={pageTitle}>
       <div className="container-fluid px-0" style={{ maxWidth: 1200 }}>
         <div className="lms-card p-4 p-md-5 mb-3">
-          <h1 className="h3 fw-bold mb-2">Reports</h1>
-          <p className="text-muted mb-3">
-            Review community moderation: feed posts, comments on the feed, Sell It Snacks, and courses.
-          </p>
+          <h1 className="h3 fw-bold mb-2">{heading}</h1>
+          <p className="text-muted mb-3">{intro}</p>
           <div className="d-flex flex-wrap gap-2" role="tablist" aria-label="Report sections">
-            {TABS.map((tab) => (
+            {visibleTabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
@@ -197,7 +229,7 @@ export default function SuperAdminFeedReportsPage() {
           <div className="d-flex justify-content-between align-items-center gap-3 mb-3">
             <div>
               <h2 className="h5 fw-semibold mb-1">
-                {TABS.find((t) => t.id === activeTab)?.label || "Reports"}
+                {visibleTabs.find((t) => t.id === activeTab)?.label || "Reports"}
               </h2>
               <p className="text-muted mb-0">{sectionDescription}</p>
             </div>
@@ -239,7 +271,7 @@ export default function SuperAdminFeedReportsPage() {
                       </td>
                       <td>{formatReportDate(report.created_at)}</td>
                       <td className="text-end">
-                        <Link to={`/dashboard/feed-management/reports/${report.id}`} className="btn btn-sm btn-outline-primary">
+                        <Link to={`${reportDetailBasePath}/${report.id}`} className="btn btn-sm btn-outline-primary">
                           View
                         </Link>
                       </td>

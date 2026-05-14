@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import DashboardSectionPage from "./DashboardSectionPage";
 
 const formatDateTime = (value) => {
@@ -57,7 +57,11 @@ const renderPostAttachment = (attachment) => {
 };
 
 export default function SuperAdminFeedReportDetailPage() {
+  const { pathname } = useLocation();
   const { reportId } = useParams();
+  const reportsListPath = pathname.startsWith("/dashboard/admin-community/reports")
+    ? "/dashboard/admin-community/reports"
+    : "/dashboard/feed-management/reports";
   const [report, setReport] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isBlocking, setIsBlocking] = useState(false);
@@ -134,7 +138,7 @@ export default function SuperAdminFeedReportDetailPage() {
             <h1 className="h3 fw-bold mb-1">Report Detail</h1>
             <p className="text-muted mb-0">Review the reported post and take moderation action.</p>
           </div>
-          <Link to="/dashboard/feed-management/reports" className="btn btn-outline-secondary btn-sm">
+          <Link to={reportsListPath} className="btn btn-outline-secondary btn-sm">
             Back to reports
           </Link>
         </div>

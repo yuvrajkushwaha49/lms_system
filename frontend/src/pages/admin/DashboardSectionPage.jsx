@@ -14,6 +14,7 @@ import {
   FiLayers,
   FiLogOut,
   FiMenu,
+  FiMessageCircle,
   FiShoppingBag,
   FiUserCheck,
   FiUsers,
@@ -30,11 +31,26 @@ const navItems = [
   { label: 'Monthly Challenges', short: 'MC', path: '/dashboard/monthly-challenges-management', icon: FiCalendar },
   { label: 'Sell It Snacks', short: 'SS', path: '/dashboard/sell-it-snacks-management', icon: FiShoppingBag },
   { label: 'Workshop Management', short: 'WS', path: '/dashboard/workshop-management', icon: FiGrid },
+  { label: 'Community', short: 'CM', path: '/dashboard/admin-community', icon: FiMessageCircle },
   { label: 'Feed Management', short: 'FD', path: '/dashboard/feed-management', icon: FiLayers },
   { label: 'FAQs Management', short: 'FQ', path: '/dashboard/faqs-management', icon: FiHelpCircle },
   { label: 'News Management', short: 'NW', path: '/dashboard/news-management', icon: FiFileText },
   { label: 'Partner Management', short: 'PR', path: '/dashboard/partner-management', icon: FiBriefcase },
   { label: 'Document Center', short: 'DC', path: '/dashboard/document-center-management', icon: FiFolder },
+];
+
+const communityAdminLinks = [
+  {
+    type: 'group',
+    key: 'sell-it-community',
+    label: 'Sell It Community',
+    children: [
+      { label: 'Recently Sell It Community', path: '/dashboard/admin-community/recent' },
+      { label: 'Reports', path: '/dashboard/admin-community/reports' },
+    ],
+  },
+  { type: 'link', label: 'Referral Partners', path: '/dashboard/admin-community/referral-partners' },
+  { type: 'link', label: 'Community Listings', path: '/dashboard/admin-community/listings' },
 ];
 
 const feedManagementLinks = [
@@ -49,7 +65,7 @@ const welcomeAdminLinks = [
   { label: 'Meet + Greet', path: '/dashboard/welcome-admin/meet-greet' },
   { label: 'Ask Ryan Anything', path: '/dashboard/welcome-admin/ask-ryan' },
   { label: 'Owning Manhattan', path: '/dashboard/course-management?type=owning-manhattan' },
-  { label: 'Community Input', path: '/dashboard/feed-management/recent' },
+  { label: 'Community Input', path: '/dashboard/admin-community/recent' },
 ];
 
 function SidebarLinkLabel({ icon: Icon, label, short, collapsed }) {
@@ -71,6 +87,7 @@ export default function DashboardSectionPage({ title, children }) {
   );
   const [courseMenuOpen, setCourseMenuOpen] = useState(false);
   const [feedMenuOpen, setFeedMenuOpen] = useState(false);
+  const [communityMenuOpen, setCommunityMenuOpen] = useState(false);
   const [welcomeMenuOpen, setWelcomeMenuOpen] = useState(false);
   const activeCourseTypeParam = new URLSearchParams(search).get('type') || '';
   const omAdminReturnPath =
@@ -95,6 +112,9 @@ export default function DashboardSectionPage({ title, children }) {
 
   const welcomeLinkIsActive = (toPath) => {
     const [path, queryPart] = toPath.split('?');
+    if (path === '/dashboard/admin-community/recent' && pathname.startsWith('/dashboard/admin-community')) {
+      return true;
+    }
     if (pathname !== path) return false;
     if (!queryPart) return true;
     const needed = new URLSearchParams(queryPart);
@@ -108,8 +128,10 @@ export default function DashboardSectionPage({ title, children }) {
     pathname.startsWith('/dashboard/course-management') &&
     activeCourseTypeParam !== 'owning-manhattan' &&
     !isOwningManhattanAdminVideoRoute;
+  const isCommunityAdminRouteActive = pathname.startsWith('/dashboard/admin-community');
   const isFeedRouteActive = pathname.startsWith('/dashboard/feed-management');
   const showCourseMenu = courseMenuOpen || isCourseRouteActive;
+  const showCommunityMenu = communityMenuOpen || isCommunityAdminRouteActive;
   const showFeedMenu = feedMenuOpen || isFeedRouteActive;
   const showWelcomeMenu = welcomeMenuOpen || isWelcomeAdminRouteActive;
 
@@ -120,6 +142,20 @@ export default function DashboardSectionPage({ title, children }) {
   useEffect(() => {
     if (isWelcomeAdminRouteActive) setWelcomeMenuOpen(true);
   }, [isWelcomeAdminRouteActive]);
+
+  useEffect(() => {
+    if (isCommunityAdminRouteActive) setCommunityMenuOpen(true);
+  }, [isCommunityAdminRouteActive]);
+
+  const communityChildIsActive = (childPath) => {
+    if (childPath === '/dashboard/admin-community/reports') {
+      return (
+        pathname === childPath ||
+        /^\/dashboard\/admin-community\/reports\/[^/]+$/.test(pathname)
+      );
+    }
+    return pathname === childPath;
+  };
 
   const linkIsActive = (path) => {
     if (path === '/dashboard/user-management') {
@@ -197,20 +233,6 @@ export default function DashboardSectionPage({ title, children }) {
                     const omWelcomeActive =
                       link.path.includes('type=owning-manhattan') && isOwningManhattanCourseAdmin;
                     const welcomeActive = welcomeLinkIsActive(link.path) || omWelcomeActive;
-                    const isCommunityInput = link.label === 'Community Input';
-                    if (isCommunityInput) {
-                      return (
-                        <span
-                          key={link.path}
-                          className="lms-nav-sublink lms-nav-sublink-disabled"
-                          title="Coming soon"
-                          aria-disabled="true"
-                        >
-                          {link.label}
-                          <span className="lms-nav-soon-badge">Coming soon</span>
-                        </span>
-                      );
-                    }
                     return (
                       <Link
                         key={link.path}
@@ -277,6 +299,73 @@ export default function DashboardSectionPage({ title, children }) {
                       >
                         Chapter Wise Course
                       </Link>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            if (item.path === '/dashboard/admin-community') {
+              if (collapsed) {
+                return (
+                  <NavLink
+                    key={item.path}
+                    to="/dashboard/admin-community/recent"
+                    title={item.label}
+                    className={() =>
+                      `lms-nav-link lms-nav-link-collapsed ${isCommunityAdminRouteActive ? 'active' : ''}`
+                    }
+                  >
+                    <SidebarLinkLabel {...item} collapsed />
+                  </NavLink>
+                );
+              }
+              return (
+                <div key={item.path} className="lms-nav-group">
+                  <button
+                    type="button"
+                    className={`lms-nav-link lms-nav-link-button ${isCommunityAdminRouteActive ? 'active' : ''}`}
+                    onClick={() => setCommunityMenuOpen((prev) => !prev)}
+                    aria-expanded={showCommunityMenu}
+                  >
+                    <span className="lms-nav-link-main">
+                      <SidebarLinkLabel {...item} />
+                    </span>
+                    <span className="lms-nav-chevron" aria-hidden="true">
+                      {showCommunityMenu ? <FiChevronDown /> : <FiChevronRight />}
+                    </span>
+                  </button>
+                  {showCommunityMenu && (
+                    <div className="lms-nav-submenu">
+                      {communityAdminLinks.map((entry) => {
+                        if (entry.type === 'group' && entry.children) {
+                          return (
+                            <div key={entry.key} className="lms-nav-submenu-group">
+                              <div className="lms-nav-submenu-label">{entry.label}</div>
+                              {entry.children.map((child) => (
+                                <Link
+                                  key={child.path}
+                                  to={child.path}
+                                  className={`lms-nav-sublink lms-nav-sublink-nested ${
+                                    communityChildIsActive(child.path) ? 'active' : ''
+                                  }`}
+                                >
+                                  {child.label}
+                                </Link>
+                              ))}
+                            </div>
+                          );
+                        }
+                        return (
+                          <Link
+                            key={entry.path}
+                            to={entry.path}
+                            className={`lms-nav-sublink ${pathname === entry.path ? 'active' : ''}`}
+                          >
+                            {entry.label}
+                          </Link>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
