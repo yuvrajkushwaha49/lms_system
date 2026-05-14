@@ -3066,6 +3066,7 @@ body {
 
 .admin-mcm-row-actions {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem;
 }
@@ -3119,6 +3120,25 @@ body {
 
 .admin-mcm-btn-reset:disabled {
   opacity: 0.45;
+}
+
+.admin-mcm-back-link {
+  color: #0a5dea;
+  font-weight: 600;
+}
+
+.admin-mcm-back-link:hover {
+  color: #1d4ed8;
+}
+
+.admin-mcm-detail-week .admin-mcm-detail-week-head {
+  margin-bottom: 0;
+}
+
+.admin-mcm-detail-table-wrap {
+  margin-left: 0;
+  margin-right: 0;
+  border-top: 1px solid #eef2f7;
 }
 
 .admin-video-player-wrap {

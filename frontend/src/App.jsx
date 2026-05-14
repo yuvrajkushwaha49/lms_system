@@ -54,6 +54,7 @@ import StudentCoursesByMonthPage from './pages/student/StudentCoursesByMonthPage
 import TrainerAskRyanPage from './pages/trainer/TrainerAskRyanPage';
 import AdminAskRyanManagementPage from './pages/admin/AdminAskRyanManagementPage';
 import AdminMonthlyChallengesManagementPage from './pages/admin/AdminMonthlyChallengesManagementPage';
+import AdminMonthlyChallengeDetailPage from './pages/admin/AdminMonthlyChallengeDetailPage';
 
 function App() {
   return (
@@ -147,6 +148,10 @@ function App() {
           <Route path="/dashboard/welcome-admin/:section" element={<AdminWelcomeNavPlaceholderPage />} />
           <Route path="/dashboard/ask-ryan-management" element={<AdminAskRyanManagementPage />} />
           <Route path="/dashboard/monthly-challenges-management" element={<AdminMonthlyChallengesManagementPage />} />
+          <Route
+            path="/dashboard/monthly-challenges-management/:monthKey"
+            element={<AdminMonthlyChallengeDetailPage />}
+          />
           <Route path="/dashboard/partner-management" element={<PartnerManagementPage />} />
           <Route path="/register" element={<Register />} />
           <Route

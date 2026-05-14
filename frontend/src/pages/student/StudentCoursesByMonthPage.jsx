@@ -307,7 +307,7 @@ export default function StudentCoursesByMonthPage() {
             <h1 className="h4 fw-bold text-white mb-2">Monthly challenges</h1>
             <p className="text-white-50 small mb-0 student-monthly-hero-copy">
               Pick a challenge month from the <strong className="text-white">sidebar</strong> under Monthly
-              Challenges. Courses are grouped by upload week (7-day buckets). Titles can be customized in admin.
+              Challenges. Courses are grouped by week (admins can move or hide courses for each month). Titles can be customized in admin.
             </p>
           </div>
 

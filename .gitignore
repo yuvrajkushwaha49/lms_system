@@ -7,3 +7,12 @@ coverage/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+backend/uploads
+backend/uploads/*
+node_modules
+.env
+uploads
+backend/uploads
+dist
+build
+*.mp4

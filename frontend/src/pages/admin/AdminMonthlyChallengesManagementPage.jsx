@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FiCalendar, FiPlus, FiRotateCcw } from 'react-icons/fi';
 import DashboardSectionPage from './DashboardSectionPage';
 
@@ -282,6 +282,12 @@ export default function AdminMonthlyChallengesManagementPage() {
                           </td>
                           <td className="admin-mcm-td-actions">
                             <div className="admin-mcm-row-actions">
+                              <Link
+                                to={`/dashboard/monthly-challenges-management/${encodeURIComponent(mk)}`}
+                                className="btn btn-sm btn-outline-secondary"
+                              >
+                                Weeks &amp; courses
+                              </Link>
                               <button
                                 type="button"
                                 className="btn btn-sm admin-mcm-btn-save"
