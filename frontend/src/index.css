@@ -1,20 +1,42 @@
-body {
-  margin: 0;
-  min-height: 100vh;
-  font-family:
+:root {
+  --app-font-family:
+    InterVariable,
     system-ui,
-    -apple-system,
+    "Apple Color Emoji",
+    "Segoe UI Emoji",
+    "Segoe UI Symbol",
     "Segoe UI",
     Roboto,
-    "Helvetica Neue",
+    Helvetica,
     Arial,
     sans-serif;
+  --bs-body-font-family: var(--app-font-family);
+}
+
+html,
+body,
+#root {
+  min-height: 100vh;
+}
+
+html,
+body {
+  font-family: var(--app-font-family);
+}
+
+body {
+  margin: 0;
+  font-family:
+    var(--app-font-family);
   font-weight: 400;
   background: #f3f4fa;
 }
 
-#root {
-  min-height: 100vh;
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
 .login-pattern,
@@ -225,7 +247,7 @@ body {
   line-height: 1;
   font-weight: 800;
   letter-spacing: -0.03em;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: inherit;
 }
 
 .login-form-head p {
@@ -672,6 +694,8 @@ body {
 .lms-sidebar {
   width: 296px;
   min-width: 296px;
+  margin: 24px 0px 0px 20px;
+  border-radius: 20px;
   flex: 0 0 296px;
   padding: 22px 16px 18px;
   gap: 12px;
@@ -680,7 +704,7 @@ body {
     padding 0.25s ease;
   background: #ffffff !important;
   color: #111827 !important;
-  box-shadow: inset -1px 0 0 #e5e7eb;
+  box-shadow: 0px 0 12px #e5e7eb;
 }
 
 .lms-sidebar-collapsed {
@@ -966,12 +990,53 @@ body {
 }
 
 .student-starter-panel {
-  padding: 4px 2px 16px;
-  border-bottom: 1px solid #e5e7eb;
+  padding: 4px 2px 18px;
+
 }
 
 .student-starter-panel.collapsed {
   padding: 0 0 14px;
+}
+
+.student-sidebar-feed {
+  padding: 50px 2px 34px;
+}
+
+.student-sidebar-feed.collapsed {
+  padding: 4px 0 14px;
+}
+
+.student-sidebar-feed-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 11px 18px;
+  border-radius: 14px;
+  text-decoration: none;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #5a6ce8 0%, #5168ea 100%);
+}
+
+.student-sidebar-feed-link:hover,
+.student-sidebar-feed-link.active {
+  color: #ffffff;
+}
+
+.student-sidebar-feed.collapsed .student-sidebar-feed-link {
+  justify-content: center;
+  padding-inline: 12px;
+}
+
+.student-sidebar-feed-icon {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .student-starter-panel-head {
@@ -989,8 +1054,9 @@ body {
 
 .student-starter-panel-title {
   color: #0f172a;
-  font-size: 0.98rem;
-  font-weight: 700;
+  font-size: .875rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .student-starter-panel-more {
@@ -1009,19 +1075,18 @@ body {
 .student-starter-panel-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0px;
 }
 
 .student-starter-panel-link {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 44px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  color: #0f172a;
+  padding: 10px 14px;
+  border-radius: 14px;
+  color: #545861;
   text-decoration: none;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   font-weight: 500;
   border: 1px solid transparent;
 }
@@ -1032,10 +1097,10 @@ body {
 }
 
 .student-starter-panel-link.active {
-  background: linear-gradient(90deg, #5b6ee8 0%, #5168ea 100%);
-  border-color: #5168ea;
-  color: #fff;
-  box-shadow: 0 10px 22px rgba(81, 104, 234, 0.22);
+  background: #eef2f7;
+  border-color: transparent;
+  color: #0f172a;
+  box-shadow: none;
 }
 
 .student-starter-panel-link-disabled {
@@ -1056,25 +1121,26 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #8b5cf6;
+  color: #5b6ee8;
   flex-shrink: 0;
 }
 
 .student-starter-panel-link.active .student-starter-panel-icon {
-  color: #fff;
+  color: #5b6ee8;
 }
 
 .student-starter-panel-label {
   flex: 1;
   min-width: 0;
+  white-space: nowrap;
 }
 
 .student-starter-panel-badge {
-  padding: 2px 5px;
-  border-radius: 4px;
+  padding: 3px 6px;
+  border-radius: 5px;
   background: #dbeafe;
   color: #2563eb;
-  font-size: 0.58rem;
+  font-size: 0.56rem;
   font-weight: 800;
   letter-spacing: 0.06em;
 }
@@ -1088,6 +1154,10 @@ body {
   font-size: 0.82rem;
   text-align: center;
   background: #fff;
+}
+
+.lms-sidebar-nav > .student-starter-nav:nth-last-of-type(-n + 2) {
+  display: none;
 }
 
 /* Learning Center — shared student + admin sidebar */
