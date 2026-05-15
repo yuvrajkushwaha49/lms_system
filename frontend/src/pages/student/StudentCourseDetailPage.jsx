@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
 import CommentReportReasonModal from "../../components/CommentReportReasonModal";
@@ -76,14 +78,7 @@ export default function StudentCourseDetailPage() {
   const resumeSeekRef = useRef(null);
   const omCinemaBootstrappedRef = useRef(false);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(
-        /\/$/,
-        "",
-      ),
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   const sessionUser = useMemo(() => {
     try {

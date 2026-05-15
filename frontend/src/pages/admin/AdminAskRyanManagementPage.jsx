@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { useNavigate } from "react-router-dom";
 import DashboardSectionPage from "./DashboardSectionPage";
 
@@ -16,7 +18,7 @@ export default function AdminAskRyanManagementPage() {
   const [saving, setSaving] = useState(false);
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(/\/$/, ""),
+    () => getApiBaseUrl(),
     [],
   );
 

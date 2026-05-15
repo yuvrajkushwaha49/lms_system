@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { Link, useNavigate } from "react-router-dom";
 import logo from "../../assets/logo.png";
 import mobilePreview from "../../assets/mobl_1.png";
@@ -20,9 +22,7 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const apiBaseUrl = (
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:5003"
-  ).replace(/\/$/, "");
+  const apiBaseUrl = getApiBaseUrl();
 
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });

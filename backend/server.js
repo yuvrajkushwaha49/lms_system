@@ -41,6 +41,7 @@ const welcomeVideoRoutes = require('./routes/welcomeVideo.routes');
 const startHereStepsRoutes = require('./routes/startHereSteps.routes');
 const askRyanRoutes = require('./routes/askRyan.routes');
 const monthlyChallengeMonthsRoutes = require('./routes/monthlyChallengeMonths.routes');
+const documentCenterRoutes = require('./routes/documentCenter.routes');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -58,6 +59,7 @@ app.use('/api/welcome-video', welcomeVideoRoutes);
 app.use('/api/start-here-steps', startHereStepsRoutes);
 app.use('/api/ask-ryan', askRyanRoutes);
 app.use('/api/monthly-challenge-months', monthlyChallengeMonthsRoutes);
+app.use('/api/document-center', documentCenterRoutes);
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { useNavigate, useSearchParams } from "react-router-dom";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
 import { resolvePublicMediaUrl } from "../../utils/mediaUrl";
@@ -71,7 +73,7 @@ export default function StudentCoursesByMonthPage() {
   const [scheduleLoaded, setScheduleLoaded] = useState(false);
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(/\/$/, ""),
+    () => getApiBaseUrl(),
     [],
   );
 

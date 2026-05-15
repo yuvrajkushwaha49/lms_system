@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { useNavigate } from "react-router-dom";
 import StartHereSixSteps from "./StartHereSixSteps";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
@@ -11,7 +13,7 @@ export default function StudentStartHerePage() {
   const [hasCourse, setHasCourse] = useState(true);
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(/\/$/, ""),
+    () => getApiBaseUrl(),
     [],
   );
 

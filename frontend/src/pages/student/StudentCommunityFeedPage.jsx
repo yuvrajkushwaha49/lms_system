@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { createPortal } from "react-dom";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import {
@@ -648,14 +650,7 @@ export default function StudentCommunityFeedPage({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const apiBaseUrl = useMemo(
-    () =>
-      (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(
-        /\/$/,
-        "",
-      ),
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
   const currentUser = useMemo(
     () => JSON.parse(localStorage.getItem("user") || "{}"),
     [],

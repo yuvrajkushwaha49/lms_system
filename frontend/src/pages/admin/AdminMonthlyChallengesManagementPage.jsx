@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { Link, useNavigate } from 'react-router-dom';
 import { FiCalendar, FiPlus, FiRotateCcw } from 'react-icons/fi';
 import DashboardSectionPage from './DashboardSectionPage';
@@ -16,7 +18,7 @@ export default function AdminMonthlyChallengesManagementPage() {
   const [notice, setNotice] = useState('');
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5003').replace(/\/$/, ''),
+    () => getApiBaseUrl(),
     [],
   );
 

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import DashboardSectionPage from "./DashboardSectionPage";
 import { SNACK_CATEGORIES } from "../../constants/snackCategories";
 
@@ -27,7 +29,7 @@ export default function AdminSellItSnacksPage() {
   const [notice, setNotice] = useState("");
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(/\/$/, ""),
+    () => getApiBaseUrl(),
     [],
   );
 

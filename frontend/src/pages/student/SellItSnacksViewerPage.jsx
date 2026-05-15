@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { useNavigate } from "react-router-dom";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
 import { SNACK_CATEGORIES } from "../../constants/snackCategories";
@@ -26,14 +28,7 @@ export default function SellItSnacksViewerPage({
   const [error, setError] = useState("");
   const sortMenuRef = useRef(null);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(
-        /\/$/,
-        "",
-      ),
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   const fetchSnacks = useCallback(async () => {
     const token = localStorage.getItem("token");

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   FiChevronDown,
@@ -69,7 +71,7 @@ export default function StudentMembersPage() {
   const fetchInFlightRef = useRef(false);
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(/\/$/, ""),
+    () => getApiBaseUrl(),
     [],
   );
 

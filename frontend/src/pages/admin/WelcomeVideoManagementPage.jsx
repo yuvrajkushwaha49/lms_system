@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { useNavigate } from "react-router-dom";
 import { FiFilm, FiImage, FiUpload, FiVideo } from "react-icons/fi";
 import DashboardSectionPage from "./DashboardSectionPage";
@@ -35,7 +37,7 @@ export default function WelcomeVideoManagementPage() {
   const [notice, setNotice] = useState("");
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(/\/$/, ""),
+    () => getApiBaseUrl(),
     [],
   );
 

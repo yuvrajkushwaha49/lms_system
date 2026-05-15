@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { FiHeart, FiMessageCircle } from "react-icons/fi";
 import { FaHeart } from "react-icons/fa";
 import { FiX } from "react-icons/fi";
@@ -26,14 +28,7 @@ export default function StudentWallOfWinsPage() {
   const hasMoreRef = useRef(true);
   const commentInputRef = useRef(null);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(
-        /\/$/,
-        "",
-      ),
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   const fetchPage = useCallback(
     async (reset = false) => {

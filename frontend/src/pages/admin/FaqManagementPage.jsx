@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { useNavigate } from "react-router-dom";
 import { FiEdit2, FiHelpCircle, FiPlus, FiSearch, FiX } from "react-icons/fi";
 import DashboardSectionPage from "./DashboardSectionPage";
@@ -24,7 +26,7 @@ export default function FaqManagementPage() {
   const [expandedById, setExpandedById] = useState({});
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(/\/$/, ""),
+    () => getApiBaseUrl(),
     [],
   );
 

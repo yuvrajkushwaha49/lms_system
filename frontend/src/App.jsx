@@ -29,6 +29,9 @@ import WorkshopManagementPage from './pages/admin/WorkshopManagementPage';
 import NewsManagementPage from './pages/admin/NewsManagementPage';
 import PartnerManagementPage from './pages/admin/PartnerManagementPage';
 import DocumentCenterManagementPage from './pages/admin/DocumentCenterManagementPage';
+import DocumentCenterItemDetailPageRoute from './pages/admin/DocumentCenterItemDetailPageRoute';
+import StudentDocumentCenterPage from './pages/student/StudentDocumentCenterPage';
+import StudentDocumentCenterDetailPage from './pages/student/StudentDocumentCenterDetailPage';
 import TrainerCoursePage from './pages/trainer/TrainerCoursePage';
 import TrainerCourseDetailPage from './pages/trainer/TrainerCourseDetailPage';
 import TrainerCourseVideoDetailPage from './pages/trainer/TrainerCourseVideoDetailPage';
@@ -97,6 +100,8 @@ function App() {
             path="/dashboard/student-faqs"
             element={<StudentFaqsPage />}
           />
+          <Route path="/dashboard/student-document-center" element={<StudentDocumentCenterPage />} />
+          <Route path="/dashboard/student-document-center/:itemId" element={<StudentDocumentCenterDetailPage />} />
           <Route path="/dashboard/student-members" element={<StudentMembersPage />} />
           <Route path="/dashboard/student-account-settings" element={<StudentAccountSettingsPage />} />
           <Route path="/dashboard/student-messages" element={<StudentMessagesPage />} />
@@ -177,6 +182,10 @@ function App() {
           <Route
             path="/dashboard/document-center-management"
             element={<DocumentCenterManagementPage />}
+          />
+          <Route
+            path="/dashboard/document-center-management/:itemId"
+            element={<DocumentCenterItemDetailPageRoute />}
           />
         </Routes>
       </Router>

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import TrainerDashboardSectionPage from './TrainerDashboardSectionPage';
 import CommunityVideoPlayer from '../../components/CommunityVideoPlayer.jsx';
@@ -21,7 +23,7 @@ export default function TrainerCourseDetailPage() {
   const [activeVideo, setActiveVideo] = useState(null);
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5003').replace(/\/$/, ''),
+    () => getApiBaseUrl(),
     [],
   );
 

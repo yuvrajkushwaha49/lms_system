@@ -1,4 +1,6 @@
 import { useCallback, useEffect, Fragment, useMemo, useRef, useState } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { Link, useParams } from "react-router-dom";
 import CommunityVideoPlayer from "../../components/CommunityVideoPlayer";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
@@ -135,7 +137,7 @@ export default function SellItSnackDetailPage({
   const suggestionsScrollRef = useRef(null);
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(/\/$/, ""),
+    () => getApiBaseUrl(),
     [],
   );
 

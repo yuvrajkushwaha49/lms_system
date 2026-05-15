@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { FiHeart, FiImage, FiMessageCircle, FiPlus, FiRefreshCw, FiUploadCloud } from "react-icons/fi";
 import { Link } from "react-router-dom";
 import DashboardSectionPage from "./DashboardSectionPage";
@@ -22,7 +24,7 @@ export default function SuperAdminWallOfWinsPage() {
   const fileInputRef = useRef(null);
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(/\/$/, ""),
+    () => getApiBaseUrl(),
     [],
   );
 

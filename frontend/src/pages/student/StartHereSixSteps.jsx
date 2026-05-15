@@ -1,4 +1,6 @@
 import { createElement, useCallback, useEffect, useMemo, useState } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import {
   FiCalendar,
   FiCheck,
@@ -52,7 +54,7 @@ export default function StartHereSixSteps({ variant = "student", onPickCourse })
   const paths = variant === "trainer" ? TRAINER_PATHS : STUDENT_PATHS;
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(/\/$/, ""),
+    () => getApiBaseUrl(),
     [],
   );
 

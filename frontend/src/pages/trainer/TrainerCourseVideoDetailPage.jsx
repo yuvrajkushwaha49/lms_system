@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { Link, useNavigate, useParams } from "react-router-dom";
 import DashboardSectionPage from "../admin/DashboardSectionPage";
 import CommunityVideoPlayer from "../../components/CommunityVideoPlayer.jsx";
@@ -36,14 +38,7 @@ export default function TrainerCourseVideoDetailPage() {
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
 
-  const apiBaseUrl = useMemo(
-    () =>
-      (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(
-        /\/$/,
-        "",
-      ),
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   useEffect(() => {
     const token = localStorage.getItem("token");

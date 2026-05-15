@@ -1,11 +1,11 @@
 import DashboardSectionPage from "./DashboardSectionPage";
-import DocumentCenterTemplatesContent from "../../components/DocumentCenterTemplatesContent";
+import DocumentCenterItemDetailPage from "../../components/DocumentCenterItemDetailPage";
 
-export default function DocumentCenterManagementPage() {
+export default function DocumentCenterItemDetailPageRoute() {
   return (
     <DashboardSectionPage title="Documents & Templates">
       <div className="container-fluid px-0 doc-center-shell">
-        <DocumentCenterTemplatesContent variant="admin" />
+        <DocumentCenterItemDetailPage variant="admin" />
       </div>
     </DashboardSectionPage>
   );

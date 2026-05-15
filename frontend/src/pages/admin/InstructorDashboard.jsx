@@ -1,4 +1,6 @@
 import logo from '../../assets/logo.png';
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { useEffect, useMemo, useState } from 'react';
 
 const sidebarItems = [
@@ -31,7 +33,7 @@ export default function InstructorDashboard() {
   const [error, setError] = useState('');
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000').replace(/\/$/, ''),
+    () => getApiBaseUrl(),
     [],
   );
 

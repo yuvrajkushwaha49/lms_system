@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import logo from "../../assets/logo.png";
 import {
   FiAward,
   FiBell,
   FiBookmark,
-  FiBriefcase,
   FiCalendar,
   FiChevronDown,
   FiChevronRight,
-  FiFileText,
   FiGrid,
   FiHelpCircle,
   FiHome,
@@ -22,7 +22,6 @@ import {
   FiShoppingBag,
   FiUser,
   FiUsers,
-  FiVideo,
 } from "react-icons/fi";
 import {
   buildMonthsMetaFromCourses,
@@ -31,6 +30,7 @@ import {
   labelsArrayToMap,
   STUDENT_MONTHLY_CHALLENGES_PATH,
 } from "../../utils/studentMonthlyChallengeMeta";
+import LearningCenterSidebarSection from "../../components/LearningCenterSidebarSection";
 
 const MONTHLY_CHALLENGE_ROW_EMOJIS = ["📱", "💼", "🎯", "📊", "✨", "📲"];
 
@@ -75,18 +75,9 @@ const COMMUNITY_NAV_ITEMS = [
 const STORAGE_KEY = "student_dashboard_sidebar_collapsed";
 
 const studentNavItems = [
-  // { label: "Dashboard", short: "DB", path: "/dashboard/student-dashboard" },
-  // { label: "My Courses", short: "CR", path: "/dashboard/student-course" },
-  { label: "Workshops", short: "WS", path: "/dashboard/student-workshops", icon: FiVideo },
   { label: "Gallery", short: "GL", path: "/dashboard/student-gallery", icon: FiImage },
   { label: "Messages", short: "MS", path: "/dashboard/student-message", icon: FiMessageSquare },
   { label: "Bookmarks", short: "BM", path: "/dashboard/student-bookmarks", icon: FiBookmark },
-  {
-    label: "Document Center",
-    short: "DC",
-    path: "/dashboard/student-document-center",
-    icon: FiFileText,
-  },
 ];
 
 const welcomeNavItems = [
@@ -144,7 +135,7 @@ export default function StudentDashboardSectionPage({
   });
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(/\/$/, ""),
+    () => getApiBaseUrl(),
     [],
   );
 
@@ -737,6 +728,7 @@ export default function StudentDashboardSectionPage({
               </div>
             )}
           </div>
+          <LearningCenterSidebarSection variant="student" collapsed={collapsed} />
           {studentNavItems.map((item) => (
             <NavLink
               key={item.path}

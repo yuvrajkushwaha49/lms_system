@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { Link, useParams } from "react-router-dom";
 import StudentDashboardSectionPage from "../student/StudentDashboardSectionPage";
 import DashboardSectionPage from "./DashboardSectionPage";
@@ -20,7 +22,7 @@ export default function WallOfWinsDetailPage({
   const suggestionsBoxRef = useRef(null);
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || "http://localhost:5003").replace(/\/$/, ""),
+    () => getApiBaseUrl(),
     [],
   );
 

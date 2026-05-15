@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { useNavigate, useLocation } from 'react-router-dom';
 import StudentDashboardSectionPage from './StudentDashboardSectionPage';
+import SignatureCoursePreviewModal from '../../components/SignatureCoursePreviewModal';
 import { resolvePublicMediaUrl } from '../../utils/mediaUrl';
 
 const COURSE_PAGE_SIZE = 8;
@@ -11,18 +14,33 @@ const isOwningManhattanCatalogCourse = (course) =>
     .replace(/\s+/g, '')
     .toLowerCase() === 'owningmanhattan';
 
+const isShortCourse = (course) => {
+  const courseType = String(course?.course_type || '').toLowerCase();
+  const recordedType = String(course?.recorded_type || '').toLowerCase();
+  return courseType.includes('short') || recordedType.includes('short');
+};
+
+/** Signature / long-form: recorded programs only (excludes shorts, live workshops, Owning Manhattan). */
+const isLongVideoSignatureCourse = (course) => {
+  if (isOwningManhattanCatalogCourse(course)) return false;
+  if (isShortCourse(course)) return false;
+  return String(course?.delivery_mode || 'Recorded').toLowerCase() !== 'live';
+};
+
 export default function StudentPanel() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const owningManhattanOnly = pathname.includes('student-owning-manhattan');
   const [courses, setCourses] = useState([]);
   const [courseFirstVideoThumbMap, setCourseFirstVideoThumbMap] = useState({});
+  const [courseFirstLessonVideoMap, setCourseFirstLessonVideoMap] = useState({});
   const [courseProgressPercentMap, setCourseProgressPercentMap] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [headerSearch, setHeaderSearch] = useState('');
   const [visibleCourseCount, setVisibleCourseCount] = useState(COURSE_PAGE_SIZE);
+  const [previewCourse, setPreviewCourse] = useState(null);
   const [bookmarkedCourseIds, setBookmarkedCourseIds] = useState(() => {
     try {
       const raw = localStorage.getItem('student_bookmarked_course_ids');
@@ -34,7 +52,7 @@ export default function StudentPanel() {
   });
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5003').replace(/\/$/, ''),
+    () => getApiBaseUrl(),
     [],
   );
 
@@ -69,9 +87,11 @@ export default function StudentPanel() {
               });
               const videoPayload = await videoResponse.json();
               if (!videoResponse.ok || videoPayload.status !== 'success') {
-                return [String(course.id), { thumb: '', progress: 0 }];
+                return [String(course.id), { thumb: '', progress: 0, firstVideo: null }];
               }
               const courseVideos = videoPayload.data || [];
+              const firstPlayableVideo =
+                courseVideos.find((v) => String(v.content_type || 'video').toLowerCase() === 'video') || null;
               const thumbVideo =
                 courseVideos.find((v) => v.thumbnail_url || v.thumbnail_data_url) || courseVideos[0] || null;
               const firstThumb = thumbVideo?.thumbnail_url || thumbVideo?.thumbnail_data_url || '';
@@ -87,19 +107,22 @@ export default function StudentPanel() {
                   progressPercent = Math.round((completedCount / courseVideos.length) * 100);
                 }
               }
-              return [String(course.id), { thumb: firstThumb, progress: progressPercent }];
+              return [String(course.id), { thumb: firstThumb, progress: progressPercent, firstVideo: firstPlayableVideo }];
             } catch {
-              return [String(course.id), { thumb: '', progress: 0 }];
+              return [String(course.id), { thumb: '', progress: 0, firstVideo: null }];
             }
           }),
         );
         const nextThumbMap = {};
         const nextProgressMap = {};
+        const nextFirstLessonMap = {};
         courseMetaEntries.forEach(([courseKey, meta]) => {
           nextThumbMap[courseKey] = meta?.thumb || '';
           nextProgressMap[courseKey] = Number(meta?.progress || 0);
+          nextFirstLessonMap[courseKey] = meta?.firstVideo ?? null;
         });
         setCourseFirstVideoThumbMap(nextThumbMap);
+        setCourseFirstLessonVideoMap(nextFirstLessonMap);
         setCourseProgressPercentMap(nextProgressMap);
       } catch (fetchError) {
         setError(fetchError.message);
@@ -133,20 +156,14 @@ export default function StudentPanel() {
     if (owningManhattanOnly) setActiveTab('all');
   }, [owningManhattanOnly]);
 
+  useEffect(() => {
+    if (!owningManhattanOnly && activeTab === 'short') setActiveTab('all');
+  }, [owningManhattanOnly, activeTab]);
+
   const catalogCourses = useMemo(() => {
-    if (!owningManhattanOnly) return courses;
-    return courses.filter((course) => isOwningManhattanCatalogCourse(course));
+    if (owningManhattanOnly) return courses.filter((course) => isOwningManhattanCatalogCourse(course));
+    return courses.filter((course) => isLongVideoSignatureCourse(course));
   }, [courses, owningManhattanOnly]);
-  const isShortCourse = (course) => {
-    const courseType = String(course?.course_type || '').toLowerCase();
-    const recordedType = String(course?.recorded_type || '').toLowerCase();
-    return courseType.includes('short') || recordedType.includes('short');
-  };
-  const shortCoursesCount = catalogCourses.filter((course) => isShortCourse(course)).length;
-  const liveCount = catalogCourses.filter((course) => String(course?.delivery_mode || '').toLowerCase() === 'live').length;
-  const recordedCount = catalogCourses.filter(
-    (course) => String(course?.delivery_mode || '').toLowerCase() !== 'live',
-  ).length;
 
   const savedMyCourseIds = (() => {
     try {
@@ -169,13 +186,10 @@ export default function StudentPanel() {
   );
 
   const displayedCourses = useMemo(() => {
-    const shortCourses = catalogCourses.filter((course) => isShortCourse(course));
     const baseCourses = owningManhattanOnly
       ? catalogCourses
       : activeTab === 'my'
-      ? myCourses
-      : activeTab === 'short'
-        ? shortCourses
+        ? myCourses
         : activeTab === 'bookmarks'
           ? bookmarkedCourses
           : catalogCourses;
@@ -187,7 +201,7 @@ export default function StudentPanel() {
       const mode = String(course.delivery_mode || '').toLowerCase();
       return title.includes(query) || description.includes(query) || mode.includes(query);
     });
-  }, [activeTab, catalogCourses, myCourses, headerSearch, bookmarkedCourseIds, owningManhattanOnly]);
+  }, [activeTab, catalogCourses, myCourses, bookmarkedCourses, headerSearch, owningManhattanOnly]);
 
   const visibleCourses = useMemo(
     () => displayedCourses.slice(0, visibleCourseCount),
@@ -239,9 +253,17 @@ export default function StudentPanel() {
     }
   };
 
+  const navigateToStudentCourse = (course) => {
+    navigate(
+      owningManhattanOnly
+        ? `/dashboard/student-course/${course.id}?from=owning-manhattan&view=player`
+        : `/dashboard/student-course/${course.id}`,
+    );
+  };
+
   return (
     <StudentDashboardSectionPage
-      title={owningManhattanOnly ? 'Owning Manhattan' : 'Student Panel'}
+      title={owningManhattanOnly ? 'Owning Manhattan' : 'Signature Courses'}
       topHeaderSearchValue={headerSearch}
       onTopHeaderSearchChange={(event) => setHeaderSearch(event.target.value)}
       bookmarkLessons={bookmarkedCourses}
@@ -286,9 +308,11 @@ export default function StudentPanel() {
 
         <div className="lms-card p-0 overflow-hidden">
           <div className="d-flex justify-content-between align-items-center p-3 border-bottom">
-            <h5 className="mb-0">{owningManhattanOnly ? 'Owning Manhattan' : 'Courses'}</h5>
+            <h5 className="mb-0">{owningManhattanOnly ? 'Owning Manhattan' : 'Signature Courses'}</h5>
             <div className="small text-muted">
-              {liveCount} Live • {recordedCount} Recorded • {shortCoursesCount} Short Courses
+              {owningManhattanOnly
+                ? `${catalogCourses.length} programs`
+                : `${catalogCourses.length} long-form video program${catalogCourses.length === 1 ? '' : 's'}`}
             </div>
           </div>
           {!owningManhattanOnly && (
@@ -310,13 +334,6 @@ export default function StudentPanel() {
               </button>
               <button
                 type="button"
-                className={`btn btn-sm ${activeTab === 'short' ? 'btn-primary' : 'btn-outline-secondary'}`}
-                onClick={() => setActiveTab('short')}
-              >
-                Short courses
-              </button>
-              <button
-                type="button"
                 className={`btn btn-sm ${activeTab === 'bookmarks' ? 'btn-primary' : 'btn-outline-secondary'}`}
                 onClick={() => setActiveTab('bookmarks')}
               >
@@ -332,9 +349,7 @@ export default function StudentPanel() {
               <div className="text-center py-5 text-muted">
                 {activeTab === 'my'
                   ? 'No courses in My Courses yet.'
-                  : activeTab === 'short'
-                    ? 'No short courses available.'
-                    : activeTab === 'bookmarks'
+                  : activeTab === 'bookmarks'
                       ? 'No bookmarked courses yet.'
                       : owningManhattanOnly
                         ? 'No Owning Manhattan courses yet.'
@@ -356,11 +371,7 @@ export default function StudentPanel() {
                         type="button"
                         className="border rounded-4 p-3 h-100 bg-white text-start w-100 student-course-card position-relative"
                         onClick={() =>
-                          navigate(
-                            owningManhattanOnly
-                              ? `/dashboard/student-course/${course.id}?from=owning-manhattan&view=player`
-                              : `/dashboard/student-course/${course.id}`,
-                          )
+                          owningManhattanOnly ? navigateToStudentCourse(course) : setPreviewCourse(course)
                         }
                       >
                         <span
@@ -427,6 +438,28 @@ export default function StudentPanel() {
           </div>
         </div>
       </div>
+
+      {!owningManhattanOnly && (
+        <SignatureCoursePreviewModal
+          open={Boolean(previewCourse)}
+          course={previewCourse}
+          firstVideo={
+            previewCourse ? courseFirstLessonVideoMap[String(previewCourse.id)] || null : null
+          }
+          heroImageUrl={
+            previewCourse ? courseFirstVideoThumbMap[String(previewCourse.id)] || previewCourse.thumbnail_url || '' : ''
+          }
+          apiBaseUrl={apiBaseUrl}
+          isBookmarked={previewCourse ? bookmarkedCourseIds.includes(String(previewCourse.id)) : false}
+          onClose={() => setPreviewCourse(null)}
+          onStartCourse={() => {
+            if (!previewCourse) return;
+            navigateToStudentCourse(previewCourse);
+            setPreviewCourse(null);
+          }}
+          onToggleBookmark={(courseId) => toggleBookmarkCourse(courseId)}
+        />
+      )}
     </StudentDashboardSectionPage>
   );
 }

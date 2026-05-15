@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
-  FiBookOpen,
   FiBriefcase,
   FiCalendar,
   FiChevronDown,
   FiChevronRight,
   FiFileText,
-  FiFolder,
   FiGrid,
   FiHeart,
   FiHelpCircle,
@@ -15,11 +13,11 @@ import {
   FiLogOut,
   FiMenu,
   FiMessageCircle,
-  FiShoppingBag,
   FiUserCheck,
   FiUsers,
 } from 'react-icons/fi';
 import logo from '../../assets/logo.png';
+import LearningCenterSidebarSection from '../../components/LearningCenterSidebarSection';
 
 const STORAGE_KEY = 'dashboard_sidebar_collapsed';
 
@@ -27,16 +25,13 @@ const navItems = [
   { label: 'User Management', short: 'UM', path: '/dashboard/user-management', icon: FiUsers },
   { label: 'Members Management', short: 'MB', path: '/dashboard/members-management', icon: FiUserCheck },
   { label: 'Trainer Management', short: 'TR', path: '/dashboard/trainer-management', icon: FiBriefcase },
-  { label: 'Course Management', short: 'CR', path: '/dashboard/course-management', icon: FiBookOpen },
   { label: 'Monthly Challenges', short: 'MC', path: '/dashboard/monthly-challenges-management', icon: FiCalendar },
-  { label: 'Sell It Snacks', short: 'SS', path: '/dashboard/sell-it-snacks-management', icon: FiShoppingBag },
   { label: 'Workshop Management', short: 'WS', path: '/dashboard/workshop-management', icon: FiGrid },
   { label: 'Community', short: 'CM', path: '/dashboard/admin-community', icon: FiMessageCircle },
   { label: 'Feed Management', short: 'FD', path: '/dashboard/feed-management', icon: FiLayers },
   { label: 'FAQs Management', short: 'FQ', path: '/dashboard/faqs-management', icon: FiHelpCircle },
   { label: 'News Management', short: 'NW', path: '/dashboard/news-management', icon: FiFileText },
   { label: 'Partner Management', short: 'PR', path: '/dashboard/partner-management', icon: FiBriefcase },
-  { label: 'Document Center', short: 'DC', path: '/dashboard/document-center-management', icon: FiFolder },
 ];
 
 const communityAdminLinks = [
@@ -85,7 +80,6 @@ export default function DashboardSectionPage({ title, children }) {
   const [collapsed, setCollapsed] = useState(() =>
     typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) === '1' : false,
   );
-  const [courseMenuOpen, setCourseMenuOpen] = useState(false);
   const [feedMenuOpen, setFeedMenuOpen] = useState(false);
   const [communityMenuOpen, setCommunityMenuOpen] = useState(false);
   const [welcomeMenuOpen, setWelcomeMenuOpen] = useState(false);
@@ -124,13 +118,8 @@ export default function DashboardSectionPage({ title, children }) {
     }
     return true;
   };
-  const isCourseRouteActive =
-    pathname.startsWith('/dashboard/course-management') &&
-    activeCourseTypeParam !== 'owning-manhattan' &&
-    !isOwningManhattanAdminVideoRoute;
   const isCommunityAdminRouteActive = pathname.startsWith('/dashboard/admin-community');
   const isFeedRouteActive = pathname.startsWith('/dashboard/feed-management');
-  const showCourseMenu = courseMenuOpen || isCourseRouteActive;
   const showCommunityMenu = communityMenuOpen || isCommunityAdminRouteActive;
   const showFeedMenu = feedMenuOpen || isFeedRouteActive;
   const showWelcomeMenu = welcomeMenuOpen || isWelcomeAdminRouteActive;
@@ -247,64 +236,8 @@ export default function DashboardSectionPage({ title, children }) {
               )}
             </div>
           )}
+          <LearningCenterSidebarSection variant="admin" collapsed={collapsed} />
           {navItems.map((item) => {
-            if (item.path === '/dashboard/course-management') {
-              if (collapsed) {
-                return (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    title={item.label}
-                    className={() => `lms-nav-link lms-nav-link-collapsed ${isCourseRouteActive ? 'active' : ''}`}
-                  >
-                    <SidebarLinkLabel {...item} collapsed />
-                  </NavLink>
-                );
-              }
-              return (
-                <div key={item.path} className="lms-nav-group">
-                  <button
-                    type="button"
-                    className={`lms-nav-link lms-nav-link-button ${isCourseRouteActive ? 'active' : ''}`}
-                    onClick={() => setCourseMenuOpen((prev) => !prev)}
-                    aria-expanded={showCourseMenu}
-                  >
-                    <span className="lms-nav-link-main">
-                      <SidebarLinkLabel {...item} />
-                    </span>
-                    <span className="lms-nav-chevron" aria-hidden="true">
-                      {showCourseMenu ? <FiChevronDown /> : <FiChevronRight />}
-                    </span>
-                  </button>
-                  {showCourseMenu && (
-                    <div className="lms-nav-submenu">
-                      <Link
-                        to="/dashboard/course-management?type=short-courses"
-                        className={`lms-nav-sublink ${
-                          pathname === '/dashboard/course-management' && activeCourseTypeParam === 'short-courses'
-                            ? 'active'
-                            : ''
-                        }`}
-                      >
-                        Short Courses
-                      </Link>
-                      <Link
-                        to="/dashboard/course-management?type=chapter-wise-course"
-                        className={`lms-nav-sublink ${
-                          pathname === '/dashboard/course-management'
-                          && (activeCourseTypeParam === 'chapter-wise-topic-wise' || activeCourseTypeParam === 'chapter-wise-course')
-                            ? 'active'
-                            : ''
-                        }`}
-                      >
-                        Chapter Wise Course
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              );
-            }
-
             if (item.path === '/dashboard/admin-community') {
               if (collapsed) {
                 return (

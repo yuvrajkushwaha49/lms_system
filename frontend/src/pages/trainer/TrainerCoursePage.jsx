@@ -1,4 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
+import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+
 import { useNavigate, useLocation } from 'react-router-dom';
 import TrainerDashboardSectionPage from './TrainerDashboardSectionPage';
 
@@ -21,7 +23,7 @@ export default function TrainerCoursePage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const apiBaseUrl = useMemo(
-    () => (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5003').replace(/\/$/, ''),
+    () => getApiBaseUrl(),
     [],
   );
 
