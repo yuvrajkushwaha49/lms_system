@@ -4,6 +4,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import logo from "../../assets/logo.png";
 import {
+  FiArrowUpRight,
   FiAward,
   FiBell,
   FiBookmark,
@@ -11,13 +12,10 @@ import {
   FiChevronDown,
   FiChevronRight,
   FiGrid,
-  FiHelpCircle,
   FiHome,
-  FiImage,
-  FiLogOut,
+  FiLayers,
   FiMenu,
   FiMessageCircle,
-  FiMessageSquare,
   FiSearch,
   FiShoppingBag,
   FiUser,
@@ -74,11 +72,7 @@ const COMMUNITY_NAV_ITEMS = [
 
 const STORAGE_KEY = "student_dashboard_sidebar_collapsed";
 
-const studentNavItems = [
-  { label: "Gallery", short: "GL", path: "/dashboard/student-gallery", icon: FiImage },
-  { label: "Messages", short: "MS", path: "/dashboard/student-message", icon: FiMessageSquare },
-  { label: "Bookmarks", short: "BM", path: "/dashboard/student-bookmarks", icon: FiBookmark },
-];
+const studentNavItems = [];
 
 const welcomeNavItems = [
   { label: "Start Here", icon: "🆕", short: "SH", path: "/dashboard/student-start-here", badge: "NEW" },
@@ -89,7 +83,6 @@ const welcomeNavItems = [
 ];
 
 const starterNavItems = [
-  { label: "Start Here", icon: "🆕", short: "SH", path: "/dashboard/student-start-here", badge: "NEW" },
   { label: "Live Workshops", icon: "🎬", short: "LW", path: "/dashboard/student-live-workshops" },
   { label: "Business Builder", icon: "🏛", short: "BB", path: "/dashboard/student-course" },
   { label: "Sell It Snacks", icon: "🍿", short: "SS", path: "/dashboard/student-sell-it-snacks" },
@@ -217,8 +210,8 @@ export default function StudentDashboardSectionPage({
       : pathname.startsWith("/dashboard/student-workshops")
         ? "events"
         : pathname.startsWith("/dashboard/student-community") ||
-          pathname.startsWith("/dashboard/student-members") ||
-          pathname.startsWith("/dashboard/student-wall-of-wins")
+            pathname.startsWith("/dashboard/student-members") ||
+            pathname.startsWith("/dashboard/student-wall-of-wins")
           ? "leaderboard"
           : "home";
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -380,124 +373,23 @@ export default function StudentDashboardSectionPage({
 
   return (
     <div className="d-flex min-vh-100">
-   
-      <main className="flex-grow-1 p-3 p-sm-4 position-relative">
-        <div className="student-panel-top-header mb-4">
-          <img src={logo} alt="Workians" className="student-topbar-logo" />
-          <div className="student-panel-top-nav">
-            {topHeaderLinks.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                className={`student-top-nav-link ${activeTopHeaderKey === item.key ? "active" : ""}`}
-                onClick={() => navigate(item.path)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-          <div className="student-panel-top-actions">
-            <div className="student-search-chip">
-              <input
-                type="search"
-                value={
-                  typeof onTopHeaderSearchChange === "function"
-                    ? (topHeaderSearchValue ?? "")
-                    : undefined
-                }
-                onChange={onTopHeaderSearchChange}
-                readOnly={typeof onTopHeaderSearchChange !== "function"}
-                placeholder="Search..."
-                className="student-search-input"
-                aria-label="Search"
-              />
-            </div>
-            <button
-              type="button"
-              className="student-icon-btn"
-              aria-label="Notifications"
-            >
-              <FiBell />
-            </button>
-
-            <button
-              type="button"
-              className="student-icon-btn"
-              aria-label="Messages"
-              onClick={() => setShowMessagePanel((prev) => !prev)}
-            >
-              <FiMessageCircle />
-            </button>
-
-            <button
-              type="button"
-              className="student-icon-btn"
-              aria-label="Bookmarks"
-              onClick={() => setShowBookmarkPanel((prev) => !prev)}
-            >
-              <FiBookmark />
-            </button>
-
-            <button
-              type="button"
-              className="student-avatar-btn"
-              aria-label="Profile"
-            >
-              {userInitial ? userInitial : <FiUser />}
-            </button>
-          </div>
-        </div>
-        <div className="d-flex">
-             <aside
+      <aside
         className={`d-none d-lg-flex flex-column text-white lms-bg-purple lms-sidebar ${collapsed ? "lms-sidebar-collapsed" : ""}`}
       >
-
-        <div className={`student-sidebar-feed ${collapsed ? "collapsed" : ""}`}>
-          <NavLink
-            to="/dashboard/student-community"
-            title="Feed"
-            className={`student-sidebar-feed-link ${linkIsActive("/dashboard/student-community") ? "active" : ""}`}
+        <div className="lms-sidebar-top">
+          <div className={`lms-sidebar-brand ${collapsed ? "is-collapsed" : ""}`}>
+            <img src={logo} alt="Workians" className="lms-sidebar-logo" />
+          </div>
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            className="lms-sidebar-toggle"
+            title={collapsed ? "Expand menu" : "Minimize menu"}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Minimize sidebar"}
           >
-            <span className="student-sidebar-feed-icon" aria-hidden="true">
-              <FiGrid />
-            </span>
-            {!collapsed && <span>Feed</span>}
-            {collapsed && <span className="visually-hidden">Feed</span>}
-          </NavLink>
-        </div>
-
-        <div className={`student-starter-panel ${collapsed ? "collapsed" : ""}`}>
-          {collapsed ? (
-            <NavLink
-              to="/dashboard/student-start-here"
-              title="Sell It Starter"
-              className={`lms-nav-link lms-nav-link-collapsed ${isStarterRouteActive ? "active" : ""}`}
-            >
-              <span className="lms-nav-icon-wrap" aria-hidden="true">
-                <FiGrid className="lms-nav-icon" />
-              </span>
-              <span className="lms-nav-short">SI</span>
-            </NavLink>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="student-starter-panel-head"
-                onClick={() => setStarterMenuOpen((prev) => !prev)}
-                aria-expanded={showStarterMenu}
-              >
-                <span className="student-starter-panel-title">Sell It Starter</span>
-                <span className="student-starter-panel-more" aria-hidden="true">
-                  {showStarterMenu ? <FiChevronDown /> : <FiChevronRight />}
-                </span>
-              </button>
-              {showStarterMenu && (
-                <div className="student-starter-panel-list">
-                  {starterNavItems.map((item) => renderPanelLink(item, "starter-panel"))}
-                </div>
-              )}
-            </>
-          )}
+            <FiMenu />
+          </button>
         </div>
 
         <div className={`student-starter-panel ${collapsed ? "collapsed" : ""}`}>
@@ -527,7 +419,87 @@ export default function StudentDashboardSectionPage({
               </button>
               {showWelcomeMenu && (
                 <div className="student-starter-panel-list">
-                  {welcomeNavItems.map((item) => renderPanelLink(item, "welcome-panel"))}
+                  {welcomeNavItems.map((item) => {
+                    const isCommunityInput = item.label === "Community Input";
+                    if (isCommunityInput) {
+                      return (
+                        <button
+                          key={`welcome-panel-${item.path}`}
+                          type="button"
+                          className="student-starter-panel-link student-starter-panel-link-disabled"
+                          title="Coming soon"
+                          disabled
+                        >
+                          <span className="student-starter-panel-icon" aria-hidden="true">
+                            {item.icon}
+                          </span>
+                          <span className="student-starter-panel-label">{item.label}</span>
+                          <span className="student-starter-soon-badge">Coming soon</span>
+                        </button>
+                      );
+                    }
+                    return (
+                      <NavLink
+                        key={`welcome-panel-${item.path}`}
+                        to={item.path}
+                        className={`student-starter-panel-link ${linkIsActive(item.path) ? "active" : ""}`}
+                      >
+                        <span className="student-starter-panel-icon" aria-hidden="true">
+                          {item.icon}
+                        </span>
+                        <span className="student-starter-panel-label">{item.label}</span>
+                        {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className={`student-starter-panel ${collapsed ? "collapsed" : ""}`}>
+          {collapsed ? (
+            <NavLink
+              to="/dashboard/student-start-here"
+              title="Sell It Starter"
+              className={`lms-nav-link lms-nav-link-collapsed ${isStarterRouteActive ? "active" : ""}`}
+            >
+              <span className="lms-nav-icon-wrap" aria-hidden="true">
+                <FiGrid className="lms-nav-icon" />
+              </span>
+              <span className="lms-nav-short">SI</span>
+            </NavLink>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="student-starter-panel-head"
+                onClick={() => setStarterMenuOpen((prev) => !prev)}
+                aria-expanded={showStarterMenu}
+              >
+                <span className="student-starter-panel-title">Sell It Starter</span>
+                <span className="student-starter-panel-more" aria-hidden="true">
+                  {showStarterMenu ? <FiChevronDown /> : <FiChevronRight />}
+                </span>
+              </button>
+              {showStarterMenu && (
+                <div className="student-starter-panel-list">
+                  {starterNavItems.map((item) => {
+                    return (
+                      <NavLink
+                        key={`starter-panel-${item.label}`}
+                        to={item.path}
+                        className={`student-starter-panel-link ${linkIsActive(item.path) ? "active" : ""}`}
+                      >
+                        <span className="student-starter-panel-icon" aria-hidden="true">
+                          {item.icon}
+                        </span>
+                        <span className="student-starter-panel-label">{item.label}</span>
+                        {item.label === "Sell It Snacks" && <span className="student-starter-panel-count">1</span>}
+                      </NavLink>
+                    );
+                  })}
                 </div>
               )}
             </>
@@ -643,7 +615,12 @@ export default function StudentDashboardSectionPage({
                   }
                 >
                   <span className="student-starter-icon" aria-hidden="true">{item.icon}</span>
-                  {!collapsed && <span>{item.label}</span>}
+                  {!collapsed && (
+                    <>
+                      <span>{item.label}</span>
+                      {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
+                    </>
+                  )}
                   {collapsed && <span className="visually-hidden">{item.label}</span>}
                 </NavLink>
               ))}
@@ -793,7 +770,29 @@ export default function StudentDashboardSectionPage({
               </div>
             )}
           </div>
+          <NavLink
+            to="/dashboard/student-live-workshops"
+            title={collapsed ? "Join Us LIVE" : undefined}
+            className={() =>
+              `lms-nav-link student-sidebar-live-link ${collapsed ? "lms-nav-link-collapsed" : ""} ${linkIsActive("/dashboard/student-live-workshops") ? "active" : ""}`
+            }
+          >
+            <SidebarLinkLabel icon={FiAward} label="Join Us LIVE" short="LV" collapsed={collapsed} />
+          </NavLink>
           <LearningCenterSidebarSection variant="student" collapsed={collapsed} />
+          {!collapsed && (
+            <div className="student-sidebar-links-group">
+              <div className="student-sidebar-links-label">Links</div>
+              <button
+                type="button"
+                className="student-sidebar-links-item"
+                onClick={() => navigate("/dashboard/student-faqs")}
+              >
+                <FiArrowUpRight className="student-sidebar-links-icon" aria-hidden="true" />
+                <span>Contact Us</span>
+              </button>
+            </div>
+          )}
           {studentNavItems.map((item) => (
             <NavLink
               key={item.path}
@@ -919,7 +918,12 @@ export default function StudentDashboardSectionPage({
                     }
                   >
                     <span className="student-starter-icon" aria-hidden="true">{item.icon}</span>
-                    {!collapsed && <span>{item.label}</span>}
+                    {!collapsed && (
+                      <>
+                        <span>{item.label}</span>
+                        {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
+                      </>
+                    )}
                     {collapsed && <span className="visually-hidden">{item.label}</span>}
                   </NavLink>
                 ))}
@@ -1123,4 +1127,3 @@ export default function StudentDashboardSectionPage({
     </div>
   );
 }
-

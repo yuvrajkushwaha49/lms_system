@@ -94,16 +94,17 @@ const ADMIN_ITEMS = [
 
 export default function LearningCenterSidebarSection({ variant, collapsed }) {
   const { pathname, search } = useLocation();
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(variant === "admin");
   const [moreOpen, setMoreOpen] = useState(false);
   const moreWrapRef = useRef(null);
 
   const items = variant === "admin" ? ADMIN_ITEMS : STUDENT_ITEMS;
   const helpTo = variant === "admin" ? "/dashboard/faqs-management" : "/dashboard/student-faqs";
+  const anyActive = anyLearningActive(variant, pathname, search);
 
   useEffect(() => {
-    if (anyLearningActive(variant, pathname, search)) setOpen(true);
-  }, [variant, pathname, search]);
+    if (anyActive) setOpen(true);
+  }, [anyActive]);
 
   useEffect(() => {
     if (!moreOpen) return undefined;
@@ -137,7 +138,6 @@ export default function LearningCenterSidebarSection({ variant, collapsed }) {
   };
 
   if (collapsed) {
-    const anyActive = anyLearningActive(variant, pathname, search);
     return (
       <div className="lms-learning-center lms-learning-center--collapsed">
         <NavLink
@@ -156,7 +156,7 @@ export default function LearningCenterSidebarSection({ variant, collapsed }) {
 
   return (
     <div className="lms-learning-center">
-      <div className="lms-learning-center-head">
+      <div className={`lms-learning-center-head ${anyActive ? "is-active" : ""}`}>
         <button
           type="button"
           className="lms-learning-center-title-btn"

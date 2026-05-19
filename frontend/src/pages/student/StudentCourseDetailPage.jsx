@@ -38,16 +38,21 @@ const resolveCommentAuthorName = (comment) =>
     comment?.user_name || comment?.userName || comment?.name || "Unknown User",
   ).trim() || "Unknown User";
 
-export default function StudentCourseDetailPage() {
-  const { courseId } = useParams();
+export default function StudentCourseDetailPage({ courseIdOverride = null, backPathOverride = null }) {
+  const { courseId: routeCourseId } = useParams();
+  const courseId = courseIdOverride != null ? String(courseIdOverride) : routeCourseId;
   const navigate = useNavigate();
   const { search } = useLocation();
   const omSearchParams = useMemo(() => new URLSearchParams(search), [search]);
   const fromOwningManhattan = omSearchParams.get("from") === "owning-manhattan";
-  const omCinemaMode = fromOwningManhattan && omSearchParams.get("view") === "player";
+  const fromStartHereStarter = omSearchParams.get("from") === "start-here";
+  const autoOpenPlayerMode =
+    (fromOwningManhattan || fromStartHereStarter) && omSearchParams.get("view") === "player";
   const coursesListPath = fromOwningManhattan
     ? "/dashboard/student-owning-manhattan"
-    : "/dashboard/student-course";
+    : backPathOverride || fromStartHereStarter
+      ? (backPathOverride || "/dashboard/start-here-starter")
+      : "/dashboard/student-course";
   const [course, setCourse] = useState(null);
   const [videos, setVideos] = useState([]);
   const [activeVideoId, setActiveVideoId] = useState(null);
@@ -251,7 +256,7 @@ export default function StudentCourseDetailPage() {
   }, [courseId]);
 
   useEffect(() => {
-    if (!omCinemaMode || isLoading || videos.length === 0 || error) return undefined;
+    if (!autoOpenPlayerMode || isLoading || videos.length === 0 || error) return undefined;
     if (omCinemaBootstrappedRef.current) return undefined;
     const timer = window.setTimeout(() => {
       if (omCinemaBootstrappedRef.current) return;
@@ -292,7 +297,7 @@ export default function StudentCourseDetailPage() {
     }, 220);
     return () => window.clearTimeout(timer);
   }, [
-    omCinemaMode,
+    autoOpenPlayerMode,
     isLoading,
     videos,
     error,
@@ -991,7 +996,7 @@ export default function StudentCourseDetailPage() {
           Number(selected?.duration_seconds || 0),
         );
       }
-      if (omCinemaMode) {
+      if (autoOpenPlayerMode) {
         navigate(coursesListPath);
       }
       return;
@@ -1116,7 +1121,7 @@ export default function StudentCourseDetailPage() {
     );
   };
 
-  if (omCinemaMode) {
+  if (autoOpenPlayerMode) {
     const snackStyleCardShadow = { boxShadow: "0 10px 28px rgba(15,23,42,0.08)" };
     const snackStyleHeaderBg = { background: "linear-gradient(180deg,#f8fbff,#ffffff)" };
     const renderOmCinemaPlayer = () => {
@@ -1350,7 +1355,7 @@ export default function StudentCourseDetailPage() {
               to={coursesListPath}
               className="btn btn-outline-secondary btn-sm"
             >
-              {fromOwningManhattan ? "Back to Owning Manhattan" : "Back to Courses"}
+              {fromOwningManhattan ? "Back to Owning Manhattan" : fromStartHereStarter ? "Back to Start Here" : "Back to Courses"}
             </Link>
           </div>
         </div>
@@ -1959,4 +1964,3 @@ export default function StudentCourseDetailPage() {
     </StudentDashboardSectionPage>
   );
 }
-
