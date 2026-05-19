@@ -27,10 +27,13 @@ const isLongVideoSignatureCourse = (course) => {
   return String(course?.delivery_mode || 'Recorded').toLowerCase() !== 'live';
 };
 
-export default function StudentPanel() {
+export default function StudentPanel({ variant = 'signature' }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const owningManhattanOnly = pathname.includes('student-owning-manhattan');
+  const owningManhattanOnly =
+    variant === 'owning-manhattan' || pathname.includes('student-owning-manhattan');
+  const startHereStarterMode =
+    variant === 'start-here-starter' || pathname.includes('student-start-here-starter');
   const [courses, setCourses] = useState([]);
   const [courseFirstVideoThumbMap, setCourseFirstVideoThumbMap] = useState({});
   const [courseFirstLessonVideoMap, setCourseFirstLessonVideoMap] = useState({});
@@ -188,6 +191,8 @@ export default function StudentPanel() {
   const displayedCourses = useMemo(() => {
     const baseCourses = owningManhattanOnly
       ? catalogCourses
+      : startHereStarterMode
+        ? catalogCourses
       : activeTab === 'my'
         ? myCourses
         : activeTab === 'bookmarks'
@@ -201,7 +206,7 @@ export default function StudentPanel() {
       const mode = String(course.delivery_mode || '').toLowerCase();
       return title.includes(query) || description.includes(query) || mode.includes(query);
     });
-  }, [activeTab, catalogCourses, myCourses, bookmarkedCourses, headerSearch, owningManhattanOnly]);
+  }, [activeTab, catalogCourses, myCourses, bookmarkedCourses, headerSearch, owningManhattanOnly, startHereStarterMode]);
 
   const visibleCourses = useMemo(
     () => displayedCourses.slice(0, visibleCourseCount),
@@ -257,13 +262,21 @@ export default function StudentPanel() {
     navigate(
       owningManhattanOnly
         ? `/dashboard/student-course/${course.id}?from=owning-manhattan&view=player`
-        : `/dashboard/student-course/${course.id}`,
+        : startHereStarterMode
+          ? `/dashboard/student-course/${course.id}?from=start-here&view=player`
+          : `/dashboard/student-course/${course.id}`,
     );
   };
 
   return (
     <StudentDashboardSectionPage
-      title={owningManhattanOnly ? 'Owning Manhattan' : 'Signature Courses'}
+      title={
+        owningManhattanOnly
+          ? 'Owning Manhattan'
+          : startHereStarterMode
+            ? 'Start Here'
+            : 'Signature Courses'
+      }
       topHeaderSearchValue={headerSearch}
       onTopHeaderSearchChange={(event) => setHeaderSearch(event.target.value)}
       bookmarkLessons={bookmarkedCourses}
@@ -308,14 +321,22 @@ export default function StudentPanel() {
 
         <div className="lms-card p-0 overflow-hidden">
           <div className="d-flex justify-content-between align-items-center p-3 border-bottom">
-            <h5 className="mb-0">{owningManhattanOnly ? 'Owning Manhattan' : 'Signature Courses'}</h5>
+            <h5 className="mb-0">
+              {owningManhattanOnly
+                ? 'Owning Manhattan'
+                : startHereStarterMode
+                  ? 'Start Here'
+                  : 'Signature Courses'}
+            </h5>
             <div className="small text-muted">
               {owningManhattanOnly
                 ? `${catalogCourses.length} programs`
-                : `${catalogCourses.length} long-form video program${catalogCourses.length === 1 ? '' : 's'}`}
+                : startHereStarterMode
+                  ? `${catalogCourses.length} starter course${catalogCourses.length === 1 ? '' : 's'}`
+                  : `${catalogCourses.length} long-form video program${catalogCourses.length === 1 ? '' : 's'}`}
             </div>
           </div>
-          {!owningManhattanOnly && (
+          {!owningManhattanOnly && !startHereStarterMode && (
           <div className="px-3 pb-3 pt-2 border-bottom">
             <div className="btn-group student-filter-tabs" role="group" aria-label="Course filter tabs">
               <button
@@ -371,7 +392,9 @@ export default function StudentPanel() {
                         type="button"
                         className="border rounded-4 p-3 h-100 bg-white text-start w-100 student-course-card position-relative"
                         onClick={() =>
-                          owningManhattanOnly ? navigateToStudentCourse(course) : setPreviewCourse(course)
+                          owningManhattanOnly || startHereStarterMode
+                            ? navigateToStudentCourse(course)
+                            : setPreviewCourse(course)
                         }
                       >
                         <span
@@ -439,7 +462,7 @@ export default function StudentPanel() {
         </div>
       </div>
 
-      {!owningManhattanOnly && (
+      {!owningManhattanOnly && !startHereStarterMode && (
         <SignatureCoursePreviewModal
           open={Boolean(previewCourse)}
           course={previewCourse}
@@ -463,4 +486,3 @@ export default function StudentPanel() {
     </StudentDashboardSectionPage>
   );
 }
-

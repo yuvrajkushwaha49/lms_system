@@ -58,6 +58,20 @@ const sortOptions = [
 const COMMENTS_PAGE_SIZE = 7;
 const FEED_PAGE_SIZE = 7;
 const FEED_BOOKMARKS_STORAGE_KEY = "student_community_feed_bookmarks";
+const UPCOMING_EVENTS = [
+  { month: "MAY", day: "20", title: "LIVE with Ryan Serhant", time: "12:30 - 1:00 AM IST" },
+  { month: "MAY", day: "22", title: "AI Academy: Build Your 'Balls Up' System", time: "12:30 - 1:00 AM IST" },
+  { month: "MAY", day: "22", title: "AI Academy: Build Your 'Balls Up' System", time: "12:30 - 1:00 AM IST" },
+  { month: "MAY", day: "26", title: "Build the Pipeline Part 3: Negotiation + Closer", time: "10:30 - 11:00 PM IST" },
+  { month: "JUN", day: "17", title: "LIVE with Ryan Serhant", time: "12:30 - 1:00 AM IST" },
+];
+const TRENDING_POSTS = [
+  { initials: "EP", title: "G' Day from Coastal San Diego", author: "Etienne Pieterse", tone: "berry" },
+  { initials: "GP", title: "Anyone interested in a weekly 30-min AI meetup?", author: "Glen Primak", tone: "sand" },
+  { initials: "SO", title: "Your Los Angeles Architectural Agent", author: "Stefany Gonzalez", tone: "amber" },
+  { initials: "JF", title: "Your Sell It profile is about to get more work for you.", author: "Julie Fantechi", tone: "rose" },
+  { initials: "KA", title: "Let's connect on instagram", author: "Kat Azimi", tone: "slate" },
+];
 
 /** Spaces shown in Create post → "Posting in" (UI; server post body unchanged). */
 const POSTING_SPACES = [
@@ -568,6 +582,8 @@ export default function StudentCommunityFeedPage({
   memberProfileMessagesPath = "/dashboard/student-messages",
 }) {
   const location = useLocation();
+  const showFeedInsightsRail = location.pathname === "/dashboard/feed";
+  const effectiveShowMembersRail = showMembersRail && !showFeedInsightsRail;
   const [searchParams, setSearchParams] = useSearchParams();
   const DashboardSection = SectionComponent;
   const fileInputRef = useRef(null);
@@ -663,7 +679,7 @@ export default function StudentCommunityFeedPage({
   }, [feedSpaceFilter, feedVariant]);
 
   useEffect(() => {
-    if (!showMembersRail) {
+    if (!effectiveShowMembersRail) {
       setRailMembers([]);
       return undefined;
     }
@@ -686,7 +702,7 @@ export default function StudentCommunityFeedPage({
     return () => {
       cancelled = true;
     };
-  }, [showMembersRail, apiBaseUrl]);
+  }, [effectiveShowMembersRail, apiBaseUrl]);
 
   const clearMemberPopoverTimer = useCallback(() => {
     if (memberPopoverCloseTimer.current) {
@@ -1785,7 +1801,7 @@ export default function StudentCommunityFeedPage({
 
         <div
           className={`student-community-layout${
-            processingPosts.length > 0 || showMembersRail
+            processingPosts.length > 0 || effectiveShowMembersRail || showFeedInsightsRail
               ? ""
               : " student-community-layout--no-rail"
           }`}
@@ -2187,9 +2203,9 @@ export default function StudentCommunityFeedPage({
             )}
           </section>
 
-          {processingPosts.length > 0 || showMembersRail ? (
+          {processingPosts.length > 0 || effectiveShowMembersRail || showFeedInsightsRail ? (
             <aside className="student-community-right-rail">
-              {showMembersRail && (
+              {effectiveShowMembersRail && (
                 <div className="lms-card student-community-side-card student-community-members-card">
                   <h2>Members</h2>
                   <ul className="list-unstyled mb-0 student-community-members-list">
@@ -2234,6 +2250,47 @@ export default function StudentCommunityFeedPage({
                     {membersRailCtaLabel}
                   </Link>
                 </div>
+              )}
+              {showFeedInsightsRail && (
+                <>
+                  <div className="lms-card student-community-side-card student-community-events-card">
+                    <h2>Upcoming events</h2>
+                    <div className="student-community-events-list">
+                      {UPCOMING_EVENTS.map((event, index) => (
+                        <div
+                          key={`${event.month}-${event.day}-${index}`}
+                          className="student-community-event-row"
+                        >
+                          <div className="student-community-event-date">
+                            <strong>{event.day}</strong>
+                            <span>{event.month}</span>
+                          </div>
+                          <div className="student-community-event-copy">
+                            <h3>{event.title}</h3>
+                            <p>{event.time}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="lms-card student-community-side-card student-community-trending-card">
+                    <h2>Trending posts</h2>
+                    <div className="student-community-trending-list">
+                      {TRENDING_POSTS.map((post) => (
+                        <div key={`${post.initials}-${post.title}`} className="student-community-trending-row">
+                          <span className={`student-community-trending-avatar tone-${post.tone}`}>
+                            {post.initials}
+                          </span>
+                          <div className="student-community-trending-copy">
+                            <h3>{post.title}</h3>
+                            <p>{post.author}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
               {processingPosts.length > 0 && (
                 <div className="lms-card student-community-side-card">
@@ -2792,7 +2849,7 @@ export default function StudentCommunityFeedPage({
             <FiMessageCircle />
           </Link>
         ) : null}
-        {showMembersRail && memberHoverPopover && typeof document !== "undefined"
+        {effectiveShowMembersRail && memberHoverPopover && typeof document !== "undefined"
           ? createPortal(
               (() => {
                 const { member, rect, listIndex } = memberHoverPopover;

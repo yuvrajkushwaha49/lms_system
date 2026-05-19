@@ -1090,13 +1090,18 @@ body {
   background: #fff;
 }
 
+.student-sidebar-feed-link,
+.student-sidebar-live-link {
+  margin: 2px 0;
+}
+
 /* Learning Center — shared student + admin sidebar */
 .lms-learning-center {
-  margin: 8px 6px 14px;
-  padding: 10px 8px 12px;
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.1);
+  margin: 10px 0 14px;
+  padding: 0;
+  border-radius: 18px;
+  background: transparent;
+  box-shadow: none;
 }
 
 .lms-learning-center--collapsed {
@@ -1111,8 +1116,16 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 10px;
-  padding: 0 2px;
+  margin-bottom: 0;
+  padding: 6px 10px;
+  border: 2px solid #d1d5db;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.lms-learning-center-head.is-active {
+  border-color: #9ca3af;
+  background: #eef2f7;
 }
 
 .lms-learning-center-title-btn {
@@ -1131,7 +1144,7 @@ body {
 }
 
 .lms-learning-center-title-text {
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
@@ -1148,12 +1161,12 @@ body {
 }
 
 .lms-learning-center-more-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  color: #64748b;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  color: #334155;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1161,8 +1174,7 @@ body {
 }
 
 .lms-learning-center-more-btn:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.16);
 }
 
 .lms-learning-center-more-menu {
@@ -1195,6 +1207,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  margin-top: 8px;
+  padding-left: 8px;
 }
 
 .lms-learning-center-item {
@@ -1267,6 +1281,36 @@ body {
   flex: 1;
   min-width: 0;
   line-height: 1.25;
+}
+
+.student-sidebar-links-group {
+  margin-top: 6px;
+  padding: 10px 8px 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+.student-sidebar-links-label {
+  margin-bottom: 8px;
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.student-sidebar-links-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.student-sidebar-links-icon {
+  color: #475569;
+  font-size: 0.95rem;
 }
 
 .student-starter-nav-top {
@@ -6420,6 +6464,103 @@ video.student-community-media {
   color: #2563eb;
   font-size: 0.76rem;
   font-weight: 500;
+}
+
+.student-community-events-list,
+.student-community-trending-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.student-community-event-row,
+.student-community-trending-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.student-community-event-date {
+  width: 50px;
+  min-width: 50px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  text-align: center;
+  padding: 8px 4px;
+}
+
+.student-community-event-date strong {
+  display: block;
+  color: #0f172a;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.student-community-event-date span {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.student-community-event-copy,
+.student-community-trending-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.student-community-event-copy h3,
+.student-community-trending-copy h3 {
+  margin: 0 0 4px;
+  color: #111827;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.student-community-event-copy p,
+.student-community-trending-copy p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.student-community-trending-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.76rem;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.student-community-trending-avatar.tone-berry {
+  background: #be185d;
+}
+
+.student-community-trending-avatar.tone-sand {
+  background: #92400e;
+}
+
+.student-community-trending-avatar.tone-amber {
+  background: #b45309;
+}
+
+.student-community-trending-avatar.tone-rose {
+  background: #e11d48;
+}
+
+.student-community-trending-avatar.tone-slate {
+  background: #475569;
 }
 
 .student-community-processing-post.failed p {

@@ -8,6 +8,7 @@ import StudentPanel from './pages/student/StudentPanel';
 import StudentCourseDetailPage from './pages/student/StudentCourseDetailPage';
 import StudentDashboard from './pages/student/SutdentDashboard';
 import StudentStartHerePage from './pages/student/StudentStartHerePage';
+import StudentStartHereStarterPage from './pages/student/StudentStartHereStarterPage';
 import StudentStarterPlaceholderPage from './pages/student/StudentStarterPlaceholderPage';
 import StudentMeetGreetPage from './pages/student/StudentMeetGreetPage';
 import StudentFaqsPage from './pages/student/StudentFaqsPage';
@@ -77,6 +78,8 @@ function App() {
           <Route path="/dashboard/student-course" element={<StudentPanel />} />
           <Route path="/dashboard/student-course/:courseId" element={<StudentCourseDetailPage />} />
           <Route path="/dashboard/student-start-here" element={<StudentStartHerePage />} />
+          <Route path="/dashboard/start-here-starter" element={<StudentStartHereStarterPage />} />
+          <Route path="/dashboard/student-start-here-starter" element={<Navigate to="/dashboard/start-here-starter" replace />} />
           <Route path="/dashboard/student-welcome-family" element={<WelcomeSellItFamilyPage />} />
           <Route path="/dashboard/student-meet-greet" element={<StudentMeetGreetPage />} />
           <Route path="/dashboard/student-ask-ryan" element={<StudentAskRyanPage />} />
@@ -105,6 +108,7 @@ function App() {
           <Route path="/dashboard/student-members" element={<StudentMembersPage />} />
           <Route path="/dashboard/student-account-settings" element={<StudentAccountSettingsPage />} />
           <Route path="/dashboard/student-messages" element={<StudentMessagesPage />} />
+          <Route path="/dashboard/feed" element={<StudentCommunityHubPage />} />
           <Route
             path="/dashboard/student-community/referral-partners"
             element={<StudentCommunityReferralPartnersPage />}

@@ -4,6 +4,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import logo from "../../assets/logo.png";
 import {
+  FiArrowUpRight,
   FiAward,
   FiBell,
   FiBookmark,
@@ -11,13 +12,10 @@ import {
   FiChevronDown,
   FiChevronRight,
   FiGrid,
-  FiHelpCircle,
   FiHome,
-  FiImage,
-  FiLogOut,
+  FiLayers,
   FiMenu,
   FiMessageCircle,
-  FiMessageSquare,
   FiSearch,
   FiShoppingBag,
   FiUser,
@@ -74,11 +72,7 @@ const COMMUNITY_NAV_ITEMS = [
 
 const STORAGE_KEY = "student_dashboard_sidebar_collapsed";
 
-const studentNavItems = [
-  { label: "Gallery", short: "GL", path: "/dashboard/student-gallery", icon: FiImage },
-  { label: "Messages", short: "MS", path: "/dashboard/student-message", icon: FiMessageSquare },
-  { label: "Bookmarks", short: "BM", path: "/dashboard/student-bookmarks", icon: FiBookmark },
-];
+const studentNavItems = [];
 
 const welcomeNavItems = [
   { label: "Start Here", icon: "🆕", short: "SH", path: "/dashboard/student-start-here" },
@@ -89,6 +83,7 @@ const welcomeNavItems = [
 ];
 
 const starterNavItems = [
+  { label: "Start Here", icon: "🆕", short: "SH", path: "/dashboard/start-here-starter" },
   { label: "Live Workshops", icon: "🎬", short: "LW", path: "/dashboard/student-live-workshops" },
   { label: "Sell It Snacks", icon: "🍿", short: "SS", path: "/dashboard/student-sell-it-snacks" },
   { label: "Wall of Wins", icon: "🏆", short: "WW", path: "/dashboard/student-wall-of-wins" },
@@ -215,7 +210,8 @@ export default function StudentDashboardSectionPage({
       ? "courses"
       : pathname.startsWith("/dashboard/student-workshops")
         ? "events"
-        : pathname.startsWith("/dashboard/student-community") ||
+        : pathname.startsWith("/dashboard/feed") ||
+            pathname.startsWith("/dashboard/student-community") ||
             pathname.startsWith("/dashboard/student-members") ||
             pathname.startsWith("/dashboard/student-wall-of-wins")
           ? "leaderboard"
@@ -355,6 +351,16 @@ export default function StudentDashboardSectionPage({
           </button>
         </div>
 
+        <NavLink
+          to="/dashboard/feed"
+          title={collapsed ? "Feed" : undefined}
+          className={() =>
+            `lms-nav-link student-sidebar-feed-link ${collapsed ? "lms-nav-link-collapsed" : ""} ${linkIsActive("/dashboard/feed") ? "active" : ""}`
+          }
+        >
+          <SidebarLinkLabel icon={FiLayers} label="Feed" short="FD" collapsed={collapsed} />
+        </NavLink>
+
         <div className={`student-starter-panel ${collapsed ? "collapsed" : ""}`}>
           {collapsed ? (
             <NavLink
@@ -459,6 +465,7 @@ export default function StudentDashboardSectionPage({
                           {item.icon}
                         </span>
                         <span className="student-starter-panel-label">{item.label}</span>
+                        {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
                         {item.label === "Sell It Snacks" && <span className="student-starter-panel-count">1</span>}
                       </NavLink>
                     );
@@ -578,7 +585,12 @@ export default function StudentDashboardSectionPage({
                   }
                 >
                   <span className="student-starter-icon" aria-hidden="true">{item.icon}</span>
-                  {!collapsed && <span>{item.label}</span>}
+                  {!collapsed && (
+                    <>
+                      <span>{item.label}</span>
+                      {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
+                    </>
+                  )}
                   {collapsed && <span className="visually-hidden">{item.label}</span>}
                 </NavLink>
               ))}
@@ -728,7 +740,29 @@ export default function StudentDashboardSectionPage({
               </div>
             )}
           </div>
+          <NavLink
+            to="/dashboard/student-live-workshops"
+            title={collapsed ? "Join Us LIVE" : undefined}
+            className={() =>
+              `lms-nav-link student-sidebar-live-link ${collapsed ? "lms-nav-link-collapsed" : ""} ${linkIsActive("/dashboard/student-live-workshops") ? "active" : ""}`
+            }
+          >
+            <SidebarLinkLabel icon={FiAward} label="Join Us LIVE" short="LV" collapsed={collapsed} />
+          </NavLink>
           <LearningCenterSidebarSection variant="student" collapsed={collapsed} />
+          {!collapsed && (
+            <div className="student-sidebar-links-group">
+              <div className="student-sidebar-links-label">Links</div>
+              <button
+                type="button"
+                className="student-sidebar-links-item"
+                onClick={() => navigate("/dashboard/student-faqs")}
+              >
+                <FiArrowUpRight className="student-sidebar-links-icon" aria-hidden="true" />
+                <span>Contact Us</span>
+              </button>
+            </div>
+          )}
           {studentNavItems.map((item) => (
             <NavLink
               key={item.path}
@@ -854,7 +888,12 @@ export default function StudentDashboardSectionPage({
                     }
                   >
                     <span className="student-starter-icon" aria-hidden="true">{item.icon}</span>
-                    {!collapsed && <span>{item.label}</span>}
+                    {!collapsed && (
+                      <>
+                        <span>{item.label}</span>
+                        {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
+                      </>
+                    )}
                     {collapsed && <span className="visually-hidden">{item.label}</span>}
                   </NavLink>
                 ))}
@@ -1120,4 +1159,3 @@ export default function StudentDashboardSectionPage({
     </div>
   );
 }
-
