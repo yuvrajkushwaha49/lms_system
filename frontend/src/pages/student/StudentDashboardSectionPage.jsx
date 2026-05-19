@@ -599,7 +599,7 @@ export default function StudentDashboardSectionPage({
                   </span>
                   <span>Sell It Starter</span>
                 </span>
-                <span>{showStarterMenu ? "â–¾" : "â–¸"}</span>
+                <span>{showStarterMenu ? "▾" : "▸"}</span>
               </>
             )}
           </button>
@@ -1122,8 +1122,7 @@ export default function StudentDashboardSectionPage({
           </div>
         )}
           </div>
-      </main>
-
+      </div>
     </div>
   );
 }
