@@ -100,7 +100,6 @@ const starterNavItems = [
 const topHeaderLinks = [
   { key: "home", label: "Home", path: "/dashboard/student-dashboard" },
   { key: "courses", label: "Courses", path: "/dashboard/student-course" },
-  { key: "owning-manhattan", label: "Owning Manhattan", path: "/dashboard/student-owning-manhattan" },
   { key: "events", label: "Events", path: "/dashboard/student-workshops" },
 ];
 
@@ -213,13 +212,13 @@ export default function StudentDashboardSectionPage({
   const activeTopHeaderKey = pathname.startsWith("/dashboard/student-owning-manhattan") || isOwningManhattanCourseDetail
     ? "owning-manhattan"
     : pathname.startsWith("/dashboard/student-course") ||
-        pathname.startsWith(STUDENT_MONTHLY_CHALLENGES_PATH)
+      pathname.startsWith(STUDENT_MONTHLY_CHALLENGES_PATH)
       ? "courses"
       : pathname.startsWith("/dashboard/student-workshops")
         ? "events"
         : pathname.startsWith("/dashboard/student-community") ||
-            pathname.startsWith("/dashboard/student-members") ||
-            pathname.startsWith("/dashboard/student-wall-of-wins")
+          pathname.startsWith("/dashboard/student-members") ||
+          pathname.startsWith("/dashboard/student-wall-of-wins")
           ? "leaderboard"
           : "home";
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -381,24 +380,77 @@ export default function StudentDashboardSectionPage({
 
   return (
     <div className="d-flex min-vh-100">
-      <aside
+   
+      <main className="flex-grow-1 p-3 p-sm-4 position-relative">
+        <div className="student-panel-top-header mb-4">
+          <img src={logo} alt="Workians" className="student-topbar-logo" />
+          <div className="student-panel-top-nav">
+            {topHeaderLinks.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className={`student-top-nav-link ${activeTopHeaderKey === item.key ? "active" : ""}`}
+                onClick={() => navigate(item.path)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <div className="student-panel-top-actions">
+            <div className="student-search-chip">
+              <input
+                type="search"
+                value={
+                  typeof onTopHeaderSearchChange === "function"
+                    ? (topHeaderSearchValue ?? "")
+                    : undefined
+                }
+                onChange={onTopHeaderSearchChange}
+                readOnly={typeof onTopHeaderSearchChange !== "function"}
+                placeholder="Search..."
+                className="student-search-input"
+                aria-label="Search"
+              />
+            </div>
+            <button
+              type="button"
+              className="student-icon-btn"
+              aria-label="Notifications"
+            >
+              <FiBell />
+            </button>
+
+            <button
+              type="button"
+              className="student-icon-btn"
+              aria-label="Messages"
+              onClick={() => setShowMessagePanel((prev) => !prev)}
+            >
+              <FiMessageCircle />
+            </button>
+
+            <button
+              type="button"
+              className="student-icon-btn"
+              aria-label="Bookmarks"
+              onClick={() => setShowBookmarkPanel((prev) => !prev)}
+            >
+              <FiBookmark />
+            </button>
+
+            <button
+              type="button"
+              className="student-avatar-btn"
+              aria-label="Profile"
+            >
+              {userInitial ? userInitial : <FiUser />}
+            </button>
+          </div>
+        </div>
+        <div className="d-flex">
+             <aside
         className={`d-none d-lg-flex flex-column text-white lms-bg-purple lms-sidebar ${collapsed ? "lms-sidebar-collapsed" : ""}`}
       >
-        <div className="lms-sidebar-top">
-          <div className={`lms-sidebar-brand ${collapsed ? "is-collapsed" : ""}`}>
-            <img src={logo} alt="Workians" className="lms-sidebar-logo" />
-          </div>
-          <button
-            type="button"
-            onClick={() => setCollapsed((c) => !c)}
-            className="lms-sidebar-toggle"
-            title={collapsed ? "Expand menu" : "Minimize menu"}
-            aria-expanded={!collapsed}
-            aria-label={collapsed ? "Expand sidebar" : "Minimize sidebar"}
-          >
-            <FiMenu />
-          </button>
-        </div>
 
         <div className={`student-sidebar-feed ${collapsed ? "collapsed" : ""}`}>
           <NavLink
@@ -898,71 +950,7 @@ export default function StudentDashboardSectionPage({
         </div>
       </aside>
 
-      <main className="flex-grow-1 p-3 p-sm-4 position-relative">
-        <div className="student-panel-top-header mb-4">
-          <div className="student-panel-top-nav">
-            {topHeaderLinks.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                className={`student-top-nav-link ${activeTopHeaderKey === item.key ? "active" : ""}`}
-                onClick={() => navigate(item.path)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-          <div className="student-panel-top-actions">
-            <div className="student-search-chip">
-              <input
-                type="search"
-                value={
-                  typeof onTopHeaderSearchChange === "function"
-                    ? (topHeaderSearchValue ?? "")
-                    : undefined
-                }
-                onChange={onTopHeaderSearchChange}
-                readOnly={typeof onTopHeaderSearchChange !== "function"}
-                placeholder="Search..."
-                className="student-search-input"
-                aria-label="Search"
-              />
-            </div>
-            <button
-              type="button"
-              className="student-icon-btn"
-              aria-label="Notifications"
-            >
-              <FiBell />
-            </button>
-
-            <button
-              type="button"
-              className="student-icon-btn"
-              aria-label="Messages"
-              onClick={() => setShowMessagePanel((prev) => !prev)}
-            >
-              <FiMessageCircle />
-            </button>
-
-            <button
-              type="button"
-              className="student-icon-btn"
-              aria-label="Bookmarks"
-              onClick={() => setShowBookmarkPanel((prev) => !prev)}
-            >
-              <FiBookmark />
-            </button>
-
-            <button
-              type="button"
-              className="student-avatar-btn"
-              aria-label="Profile"
-            >
-              {userInitial ? userInitial : <FiUser />}
-            </button>
-          </div>
-        </div>
+      
         {showMessagePanel && (
           <>
             <button
@@ -1129,7 +1117,9 @@ export default function StudentDashboardSectionPage({
             </div>
           </div>
         )}
+          </div>
       </main>
+
     </div>
   );
 }

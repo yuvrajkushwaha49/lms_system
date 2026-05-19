@@ -694,7 +694,6 @@ textarea {
 .lms-sidebar {
   width: 296px;
   min-width: 296px;
-  margin: 24px 0px 0px 20px;
   border-radius: 20px;
   flex: 0 0 296px;
   padding: 22px 16px 18px;
@@ -998,9 +997,6 @@ textarea {
   padding: 0 0 14px;
 }
 
-.student-sidebar-feed {
-  padding: 50px 2px 34px;
-}
 
 .student-sidebar-feed.collapsed {
   padding: 4px 0 14px;
@@ -1010,6 +1006,8 @@ textarea {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-top: 10px;
+  margin-bottom: 10px;
   min-height: 44px;
   padding: 11px 18px;
   border-radius: 14px;
@@ -4270,7 +4268,7 @@ video.student-community-media {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin: -8px -8px 18px;
+  margin: 0px 0px 18px;
   padding: 0 0 14px;
   border-bottom: 1px solid #e6e9f1;
 }
@@ -4979,8 +4977,8 @@ video.student-community-media {
 }
 
 .student-community-page {
-  max-width: 1060px;
-  margin: 0 auto;
+     width: 100%;
+    margin-left: 29px;
 }
 
 .student-community-layout {
@@ -7411,14 +7409,13 @@ video.student-community-media {
 }
 
 .student-panel-top-header {
-  background: linear-gradient(90deg, #3f64e0, #4f74ec);
+  background:  #453ea7;
   border-radius: 18px;
-  padding: 14px 18px;
-  display: flex;
-  justify-content: space-between;
+  padding: 16px 18px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 16px;
-  flex-wrap: wrap;
   box-shadow: 0 14px 30px rgba(63, 100, 224, 0.28);
 }
 
@@ -7427,6 +7424,15 @@ video.student-community-media {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  justify-content: center;
+}
+
+.student-topbar-logo {
+  width: 135px;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  margin-right: 8px;
 }
 
 .student-top-nav-link {
@@ -7468,6 +7474,7 @@ video.student-community-media {
   display: flex;
   align-items: center;
   gap: 10px;
+  justify-self: end;
 }
 
 .student-search-chip {
@@ -7810,10 +7817,21 @@ video.student-community-media {
 
   .student-panel-top-header {
     padding: 12px;
+    grid-template-columns: 1fr;
   }
 
   .student-search-chip {
     min-width: 120px;
+  }
+
+  .student-topbar-logo,
+  .student-panel-top-nav,
+  .student-panel-top-actions {
+    justify-self: start;
+  }
+
+  .student-panel-top-nav {
+    justify-content: flex-start;
   }
 
   .student-search-input {
@@ -10081,8 +10099,8 @@ video.student-community-media {
 
 /* Student Start Here — page shell */
 .student-start-here-page {
-  max-width: 1120px;
-  margin: 0 auto;
+
+  margin-left: 30px;
   padding-bottom: 2.5rem;
 }
 
@@ -10278,7 +10296,6 @@ video.student-community-media {
 
 /* Start Here — 6 step cards */
 .start-here-steps-section {
-  max-width: 1040px;
   margin: 2rem auto 0;
   padding: 0;
 }
