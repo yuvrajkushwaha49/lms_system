@@ -1122,7 +1122,6 @@ export default function StudentDashboardSectionPage({
           </div>
         )}
           </div>
-      </div>
-    </div>
+
   );
 }
