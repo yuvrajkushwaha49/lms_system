@@ -1,10 +1,14 @@
 import { useCallback, useMemo, useState } from "react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 
+
 import { useNavigate } from "react-router-dom";
 import StartHereSixSteps from "./StartHereSixSteps";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
 import WelcomeFamilyVideoInner from "./WelcomeFamilyVideoInner";
+
+
+import sellitStarterImage from "../../assets/Membership Welcome.png";
 
 export default function StudentStartHerePage() {
   const navigate = useNavigate();
@@ -83,19 +87,9 @@ export default function StudentStartHerePage() {
   return (
     <StudentDashboardSectionPage title="Start Here">
       <div className="student-start-here-page container-fluid px-0 student-panel-page">
-        <header className="student-start-here-hero">
-          <span className="student-start-here-hero-badge">Sell It Starter</span>
-          <h1 className="student-start-here-hero-title">Start Here</h1>
-          <p className="student-start-here-hero-lede">
-            Watch the welcome message, complete the quick checklist below, then jump back into your course where you left off.
-          </p>
-          <ul className="student-start-here-hero-pills" aria-label="What you will do on this page">
-            <li>Welcome video</li>
-            <li>Six starter steps</li>
-            <li>Continue learning</li>
-          </ul>
-        </header>
-
+        <div className="student-community-filters">
+                      <img src={sellitStarterImage} alt="Filters" />
+                    </div>
         {error && <div className="alert alert-danger student-start-here-alert mb-3">{error}</div>}
 
         <div className="student-start-here-welcome-slot">

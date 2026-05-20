@@ -8,7 +8,7 @@ export default function StudentCommunityHubPage() {
 
   return (
     <StudentCommunityFeedPage
-      title="Sell It Community"
+      title="Feed"
       feedVariant="communityHub"
       feedSpaceFilter="sell-it-community"
       storageKey="student_community_sell_it_feed_bookmarks"

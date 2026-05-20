@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
 import { SNACK_CATEGORIES } from "../../constants/snackCategories";
 import { resolvePublicMediaUrl } from "../../utils/mediaUrl";
+import sellitStarterImage from "../../assets/feed.png";
 
 export default function SellItSnacksViewerPage({
   SectionComponent = StudentDashboardSectionPage,
@@ -165,16 +166,11 @@ export default function SellItSnacksViewerPage({
           </div>
         </div>
 
-        <div className="sell-snacks-hero">
-          <div>
-            <h2>Your Inside Look At Membership</h2>
-            <p>
-              Join weekly to experience the insights and expertise from the
-              community.
-            </p>
-          </div>
-        </div>
-
+        
+          <div className="student-community-filters">
+                    <img src={sellitStarterImage} alt="Filters" />
+                  </div>
+       
         {error && <div className="alert alert-danger py-2">{error}</div>}
 
         <div className="sell-snacks-tabs">

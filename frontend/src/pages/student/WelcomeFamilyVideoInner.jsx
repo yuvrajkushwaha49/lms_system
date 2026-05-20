@@ -77,7 +77,7 @@ export default function WelcomeFamilyVideoInner({ showHero = true }) {
   }, [data.body_text]);
 
   return (
-    <div className="container-fluid px-0 welcome-family-page" style={{ maxWidth: 1040 }}>
+    <div className="container-fluid px-0 welcome-family-page" >
       {showHero && (
         <section className="welcome-family-hero mb-4">
           <div className="welcome-family-hero-left">

@@ -12,5 +12,5 @@ export function getApiBaseUrl() {
   const raw = import.meta.env.VITE_API_BASE_URL;
   const s = raw == null ? "" : String(raw).trim();
   if (s) return s.replace(/\/$/, "");
-  return "http://localhost:5003";
+  return "http://localhost:5173";
 }

@@ -84,7 +84,7 @@ const welcomeNavItems = [
 
 const starterNavItems = [
   { label: "Start Here", icon: "🆕", short: "SH", path: "/dashboard/start-here-starter" },
-  { label: "Live Workshops", icon: "🎬", short: "LW", path: "/dashboard/student-live-workshops" },
+  // { label: "Live Workshops", icon: "🎬", short: "LW", path: "/dashboard/student-live-workshops" },
   { label: "Sell It Snacks", icon: "🍿", short: "SS", path: "/dashboard/student-sell-it-snacks" },
   { label: "Wall of Wins", icon: "🏆", short: "WW", path: "/dashboard/student-wall-of-wins" },
   { label: "FAQs", icon: "❓", short: "FAQ", path: "/dashboard/student-faqs" },
@@ -109,20 +109,16 @@ export default function StudentDashboardSectionPage({
 }) {
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(() =>
-    typeof window !== "undefined"
-      ? localStorage.getItem(STORAGE_KEY) === "1"
-      : false,
-  );
+  const [collapsed, setCollapsed] = useState(false);
   const [showBookmarkPanel, setShowBookmarkPanel] = useState(false);
   const [activeBookmarkTab, setActiveBookmarkTab] = useState("posts");
   const [showMessagePanel, setShowMessagePanel] = useState(false);
   const [activeMessageTab, setActiveMessageTab] = useState("inbox");
-  const [starterMenuOpen, setStarterMenuOpen] = useState(false);
-  const [welcomeMenuOpen, setWelcomeMenuOpen] = useState(false);
-  const [communityMenuOpen, setCommunityMenuOpen] = useState(false);
+  const [starterMenuOpen, setStarterMenuOpen] = useState(true);
+  const [welcomeMenuOpen, setWelcomeMenuOpen] = useState(true);
+  const [communityMenuOpen, setCommunityMenuOpen] = useState(true);
   const [communitySummary, setCommunitySummary] = useState({ feedBySpace: {}, wallOfWins: 0 });
-  const [monthlyChallengesMenuOpen, setMonthlyChallengesMenuOpen] = useState(false);
+  const [monthlyChallengesMenuOpen, setMonthlyChallengesMenuOpen] = useState(true);
   const [monthlySidebar, setMonthlySidebar] = useState({
     loading: false,
     meta: [],
@@ -341,16 +337,18 @@ export default function StudentDashboardSectionPage({
           </div>
           <button
             type="button"
-            onClick={() => setCollapsed((c) => !c)}
+            onClick={() => {}}
             className="lms-sidebar-toggle"
-            title={collapsed ? "Expand menu" : "Minimize menu"}
-            aria-expanded={!collapsed}
-            aria-label={collapsed ? "Expand sidebar" : "Minimize sidebar"}
+            disabled
+            title="Sidebar always expanded"
+            aria-expanded={true}
+            aria-label="Sidebar always expanded"
           >
             <FiMenu />
           </button>
         </div>
 
+<div className="side-bars">
         <NavLink
           to="/dashboard/feed"
           title={collapsed ? "Feed" : undefined}
@@ -360,6 +358,56 @@ export default function StudentDashboardSectionPage({
         >
           <SidebarLinkLabel icon={FiLayers} label="Feed" short="FD" collapsed={collapsed} />
         </NavLink>
+
+
+         <div className={`student-starter-panel ${collapsed ? "collapsed" : ""}`}>
+          {collapsed ? (
+            <NavLink
+              to="/dashboard/student-start-here"
+              title="Sell It Starter"
+              className={`lms-nav-link lms-nav-link-collapsed ${isStarterRouteActive ? "active" : ""}`}
+            >
+              <span className="lms-nav-icon-wrap" aria-hidden="true">
+                <FiGrid className="lms-nav-icon" />
+              </span>
+              <span className="lms-nav-short">SI</span>
+            </NavLink>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="student-starter-panel-head"
+                onClick={() => setStarterMenuOpen((prev) => !prev)}
+                aria-expanded={showStarterMenu}
+              >
+                <span className="student-starter-panel-title">Sell It Starter</span>
+                <span className="student-starter-panel-more" aria-hidden="true">
+                  {showStarterMenu ? <FiChevronDown /> : <FiChevronRight />}
+                </span>
+              </button>
+              {showStarterMenu && (
+                <div className="student-starter-panel-list">
+                  {starterNavItems.map((item) => {
+                    return (
+                      <NavLink
+                        key={`starter-panel-${item.label}`}
+                        to={item.path}
+                        className={`student-starter-panel-link ${linkIsActive(item.path) ? "active" : ""}`}
+                      >
+                        <span className="student-starter-panel-icon" aria-hidden="true">
+                          {item.icon}
+                        </span>
+                        <span className="student-starter-panel-label">{item.label}</span>
+                        {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
+                        {item.label === "Sell It Snacks" && <span className="student-starter-panel-count">1</span>}
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
         <div className={`student-starter-panel ${collapsed ? "collapsed" : ""}`}>
           {collapsed ? (
@@ -427,61 +475,14 @@ export default function StudentDashboardSectionPage({
           )}
         </div>
 
-        <div className={`student-starter-panel ${collapsed ? "collapsed" : ""}`}>
-          {collapsed ? (
-            <NavLink
-              to="/dashboard/student-start-here"
-              title="Sell It Starter"
-              className={`lms-nav-link lms-nav-link-collapsed ${isStarterRouteActive ? "active" : ""}`}
-            >
-              <span className="lms-nav-icon-wrap" aria-hidden="true">
-                <FiGrid className="lms-nav-icon" />
-              </span>
-              <span className="lms-nav-short">SI</span>
-            </NavLink>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="student-starter-panel-head"
-                onClick={() => setStarterMenuOpen((prev) => !prev)}
-                aria-expanded={showStarterMenu}
-              >
-                <span className="student-starter-panel-title">Sell It Starter</span>
-                <span className="student-starter-panel-more" aria-hidden="true">
-                  {showStarterMenu ? <FiChevronDown /> : <FiChevronRight />}
-                </span>
-              </button>
-              {showStarterMenu && (
-                <div className="student-starter-panel-list">
-                  {starterNavItems.map((item) => {
-                    return (
-                      <NavLink
-                        key={`starter-panel-${item.label}`}
-                        to={item.path}
-                        className={`student-starter-panel-link ${linkIsActive(item.path) ? "active" : ""}`}
-                      >
-                        <span className="student-starter-panel-icon" aria-hidden="true">
-                          {item.icon}
-                        </span>
-                        <span className="student-starter-panel-label">{item.label}</span>
-                        {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
-                        {item.label === "Sell It Snacks" && <span className="student-starter-panel-count">1</span>}
-                      </NavLink>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          )}
-        </div>
+       
 
         <div className={`student-starter-nav student-starter-nav-top ${collapsed ? "collapsed" : ""}`}>
           <button
             type="button"
             className={`lms-nav-link lms-nav-link-button student-starter-title ${isWelcomeRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
             onClick={() => setWelcomeMenuOpen((prev) => !prev)}
-            title={collapsed ? "Welcome" : undefined}
+            title="Welcome!"
             aria-expanded={showWelcomeMenu}
           >
             {collapsed ? (
@@ -551,7 +552,7 @@ export default function StudentDashboardSectionPage({
             type="button"
             className={`lms-nav-link lms-nav-link-button student-starter-title ${isStarterRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
             onClick={() => setStarterMenuOpen((prev) => !prev)}
-            title={collapsed ? "Sell It Starter" : undefined}
+            title="Sell It Starter"
             aria-expanded={showStarterMenu}
           >
             {collapsed ? (
@@ -569,7 +570,7 @@ export default function StudentDashboardSectionPage({
                   </span>
                   <span>Sell It Starter</span>
                 </span>
-                <span>{showStarterMenu ? "â–¾" : "â–¸"}</span>
+                <span>{showStarterMenu ? "▾" : "▸"}</span>
               </>
             )}
           </button>
@@ -604,7 +605,7 @@ export default function StudentDashboardSectionPage({
               type="button"
               className={`lms-nav-link lms-nav-link-button student-starter-title ${isCommunityRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
               onClick={() => setCommunityMenuOpen((prev) => !prev)}
-              title={collapsed ? "Community" : undefined}
+              title="Community"
               aria-expanded={showCommunityMenu}
             >
               {collapsed ? (
@@ -676,7 +677,7 @@ export default function StudentDashboardSectionPage({
               type="button"
               className={`lms-nav-link lms-nav-link-button student-starter-title ${isMonthlyChallengesNavActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
               onClick={() => setMonthlyChallengesMenuOpen((prev) => !prev)}
-              title={collapsed ? "Monthly Challenges" : undefined}
+              title="Monthly Challenges"
               aria-expanded={showMonthlyChallengesMenu}
             >
               {collapsed ? (
@@ -780,7 +781,7 @@ export default function StudentDashboardSectionPage({
               type="button"
               className={`lms-nav-link lms-nav-link-button student-starter-title ${isWelcomeRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
               onClick={() => setWelcomeMenuOpen((prev) => !prev)}
-              title={collapsed ? "Welcome" : undefined}
+              title="Welcome!"
               aria-expanded={showWelcomeMenu}
             >
               {collapsed ? (
@@ -854,7 +855,7 @@ export default function StudentDashboardSectionPage({
               type="button"
               className={`lms-nav-link lms-nav-link-button student-starter-title ${isStarterRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
               onClick={() => setStarterMenuOpen((prev) => !prev)}
-              title={collapsed ? "Sell It Starter" : undefined}
+              title="Sell It Starter"
               aria-expanded={showStarterMenu}
             >
               {collapsed ? (
@@ -901,6 +902,7 @@ export default function StudentDashboardSectionPage({
             )}
           </div>
         </nav>
+        </div>
 
         {!collapsed && (
           <div className="lms-sidebar-card">
@@ -912,7 +914,7 @@ export default function StudentDashboardSectionPage({
           </div>
         )}
 
-        <div className="lms-sidebar-footer">
+        {/* <div className="lms-sidebar-footer">
           <button
             type="button"
             onClick={handleLogout}
@@ -921,7 +923,7 @@ export default function StudentDashboardSectionPage({
           >
             {collapsed ? "⎋" : "Logout"}
           </button>
-        </div>
+        </div> */}
       </aside>
 
       <main className="flex-grow-1 p-3 p-sm-4 position-relative">

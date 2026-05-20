@@ -6,6 +6,7 @@ import { FaHeart } from "react-icons/fa";
 import { FiX } from "react-icons/fi";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
+import wallofwins from "../../assets/Wall of Wins.png";
 
 const PAGE_SIZE = 18;
 
@@ -323,21 +324,9 @@ export default function StudentWallOfWinsPage() {
           </div>
         </div>
 
-        <div className="wall-of-wins-banner">
-          <div className="wall-of-wins-banner-copy">
-            <span className="wall-of-wins-badge">MEMBERSHIP</span>
-            <h2>THIS IS WHAT WINNING LOOKS LIKE</h2>
-            <p>Think big, act bold. These wins are proof it works.</p>
-          </div>
-          <div
-            className="wall-of-wins-banner-image"
-            style={{
-              background: entries[0]?.image_url
-                ? `url(${entries[0].image_url}) center/cover no-repeat`
-                : "linear-gradient(140deg,#dbeafe,#f1f5f9)",
-            }}
-          />
-        </div>
+      <div className="student-community-filters">
+                <img src={wallofwins} alt="Filters" />
+              </div>
 
         {error && (
           <div className="alert alert-danger py-2" role="alert">

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+import sellitStarterImage from "../../assets/Sell It Starter FAQ Cover Image.png";
+
 
 import {
   FiBookmark,
@@ -178,7 +180,7 @@ export default function StudentFaqsPage() {
 
   return (
     <StudentDashboardSectionPage title="FAQs">
-      <div className="container-fluid px-0 student-faq-page-wrap" style={{ maxWidth: 1100 }}>
+      <div className="container-fluid px-0 student-faq-page-wrap">
         <section className="student-faq-top-strip">
           <div className="student-faq-top-left">
             <span className="student-faq-top-qmark">?</span>
@@ -203,23 +205,9 @@ export default function StudentFaqsPage() {
           </div>
         </section>
 
-        <section className="student-faq-hero">
-          <div className="student-faq-hero-copy">
-            <p className="student-faq-kicker mb-2">Sell It Starter</p>
-            <h1 className="student-faq-title mb-3">
-              FREQUENTLY ASKED
-              <br />
-              <span>QUESTIONS</span>
-            </h1>
-            <p className="student-faq-subtitle mb-0">
-              Everything you need to know about becoming a member and what&apos;s waiting for you inside.
-            </p>
-          </div>
-          <div className="student-faq-hero-media" aria-hidden="true">
-            <div className="student-faq-hero-glow" />
-          </div>
-        </section>
-
+     <div className="student-community-filters">
+               <img src={sellitStarterImage} alt="Filters" />
+             </div>
         <section className="student-faq-list-card">
           {error && <div className="alert alert-danger py-2">{error}</div>}
           {isLoading ? (

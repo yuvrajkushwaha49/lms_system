@@ -45,6 +45,7 @@ import CommunityVideoPlayer from "../../components/CommunityVideoPlayer";
 import CommentReportReasonModal from "../../components/CommentReportReasonModal";
 import MemberProfileModal from "../../components/MemberProfileModal";
 import { REPORT_REASONS } from "../../constants/reportReasons";
+import sellitStarterImage from "../../assets/feed.png";
 
 const sortOptions = [
   "For you",
@@ -86,7 +87,7 @@ const POSTING_SPACES = [
     id: "sell-it-community",
     top: "Community",
     emoji: "",
-    title: "Sell It Community",
+    title: "Feed",
     search: "community sell it",
   },
   {
@@ -423,13 +424,13 @@ const renderMedia = (post, onImageClick) => {
       ? post.attachments
       : post.media_url
         ? [
-            {
-              media_url: post.media_url,
-              media_type: post.media_type,
-              media_name: post.media_name,
-              media_mime: post.media_mime,
-            },
-          ]
+          {
+            media_url: post.media_url,
+            media_type: post.media_type,
+            media_name: post.media_name,
+            media_mime: post.media_mime,
+          },
+        ]
         : [];
   if (!attachments.length) return null;
   if (attachments.length > 1) {
@@ -570,7 +571,7 @@ export default function StudentCommunityFeedPage({
   title = "Feed",
   storageKey = FEED_BOOKMARKS_STORAGE_KEY,
   roleBadge = "Member",
-  postingContext = "Sell It Community",
+  postingContext = "Feed",
   showMyFeedFilter = true,
   feedVariant = "default",
   feedSpaceFilter = "",
@@ -1191,10 +1192,10 @@ export default function StudentCommunityFeedPage({
         prev.map((post) =>
           String(post.id) === String(postId)
             ? {
-                ...post,
-                is_liked: payload.data.is_liked,
-                likes_count: payload.data.likes_count,
-              }
+              ...post,
+              is_liked: payload.data.is_liked,
+              likes_count: payload.data.likes_count,
+            }
             : post,
         ),
       );
@@ -1325,18 +1326,18 @@ export default function StudentCommunityFeedPage({
         prev.map((post) =>
           String(post.id) === String(postId)
             ? {
-                ...post,
-                comments: updateCommentInList(
-                  post.comments || [],
-                  commentId,
-                  (comment) => ({
-                    ...comment,
-                    likes_count: payload.data.likes_count,
-                    dislikes_count: payload.data.dislikes_count,
-                    current_user_reaction: payload.data.current_user_reaction,
-                  }),
-                ),
-              }
+              ...post,
+              comments: updateCommentInList(
+                post.comments || [],
+                commentId,
+                (comment) => ({
+                  ...comment,
+                  likes_count: payload.data.likes_count,
+                  dislikes_count: payload.data.dislikes_count,
+                  current_user_reaction: payload.data.current_user_reaction,
+                }),
+              ),
+            }
             : post,
         ),
       );
@@ -1379,10 +1380,10 @@ export default function StudentCommunityFeedPage({
         prev.map((post) =>
           String(post.id) === String(postId)
             ? {
-                ...post,
-                comments_count: payload.data.comments_count,
-                comments: [...(post.comments || []), payload.data.comment],
-              }
+              ...post,
+              comments_count: payload.data.comments_count,
+              comments: [...(post.comments || []), payload.data.comment],
+            }
             : post,
         ),
       );
@@ -1778,17 +1779,7 @@ export default function StudentCommunityFeedPage({
                 </div>
               )}
             </div>
-            {showMyFeedFilter && (
-              <button
-                type="button"
-                className={`student-community-my-feed ${feedScope === "mine" ? "active" : ""}`}
-                onClick={() =>
-                  setFeedScope((prev) => (prev === "mine" ? "all" : "mine"))
-                }
-              >
-                {feedScope === "mine" ? "All Feed" : "My Feed"}
-              </button>
-            )}
+
             <button
               type="button"
               className="student-community-new-post"
@@ -1798,65 +1789,17 @@ export default function StudentCommunityFeedPage({
             </button>
           </div>
         </div>
-
+        <div className="student-community-filters">
+          <img src={sellitStarterImage} alt="Filters" />
+        </div>
         <div
-          className={`student-community-layout${
-            processingPosts.length > 0 || effectiveShowMembersRail || showFeedInsightsRail
-              ? ""
-              : " student-community-layout--no-rail"
-          }`}
+          className={`student-community-layout${processingPosts.length > 0 || effectiveShowMembersRail || showFeedInsightsRail
+            ? ""
+            : " student-community-layout--no-rail"
+            }`}
         >
           <section className="student-community-main">
-            <div
-              className={`student-community-hero${
-                feedVariant === "meetGreet"
-                  ? " student-community-hero--meet-greet"
-                  : feedVariant === "communityHub"
-                    ? " student-community-hero--community-hub"
-                    : ""
-              }`}
-            >
-              {feedVariant === "communityHub" ? (
-                <div className="student-community-hero-hub-copy">
-                  <span className="student-community-hero-hub-badge">
-                    MEMBERSHIP
-                  </span>
-                  <p className="student-community-hero-hub-headline">
-                    YOUR SELL IT COMMUNITY HUB
-                  </p>
-                  <p className="student-community-hero-hub-lede">
-                    Your space to connect, share, and grow. Jump in, start a
-                    conversation, and build your network!
-                  </p>
-                </div>
-              ) : feedVariant === "meetGreet" ? (
-                <div className="student-community-hero-meet-copy">
-                  <span className="student-community-hero-meet-badge">
-                    MEMBERSHIP
-                  </span>
-                  <p className="student-community-hero-meet-headline">
-                    SAY HELLO &amp; GET CONNECTED
-                  </p>
-                  <p className="student-community-hero-meet-lede">
-                    Tell us about yourself—your background, passions, and what
-                    brought you to this community!
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <span>TAKE CARE OF THE</span>
-                  <span>
-                    WORK AND <strong>THE</strong>
-                  </span>
-                  <span>
-                    <strong>WORK WILL TAKE</strong>
-                  </span>
-                  <span>
-                    <strong>CARE OF YOU.</strong>
-                  </span>
-                </div>
-              )}
-            </div>
+
 
             <button
               type="button"
@@ -2409,25 +2352,25 @@ export default function StudentCommunityFeedPage({
                     </button>
                     {String(activePostMenuId) ===
                       `detail-${selectedPost.id}` && (
-                      <div className="student-community-post-menu detail">
-                        <button
-                          type="button"
-                          onClick={() => togglePostBookmark(selectedPost.id)}
-                        >
-                          <FiBookmark />
-                          {bookmarkedPostMap[String(selectedPost.id)]
-                            ? "Remove bookmark"
-                            : "Add to bookmark"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openReportPostModal(selectedPost)}
-                        >
-                          <FiFlag />
-                          Report
-                        </button>
-                      </div>
-                    )}
+                        <div className="student-community-post-menu detail">
+                          <button
+                            type="button"
+                            onClick={() => togglePostBookmark(selectedPost.id)}
+                          >
+                            <FiBookmark />
+                            {bookmarkedPostMap[String(selectedPost.id)]
+                              ? "Remove bookmark"
+                              : "Add to bookmark"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openReportPostModal(selectedPost)}
+                          >
+                            <FiFlag />
+                            Report
+                          </button>
+                        </div>
+                      )}
                   </div>
                   <button
                     type="button"
@@ -2851,86 +2794,86 @@ export default function StudentCommunityFeedPage({
         ) : null}
         {effectiveShowMembersRail && memberHoverPopover && typeof document !== "undefined"
           ? createPortal(
-              (() => {
-                const { member, rect, listIndex } = memberHoverPopover;
-                const gap = 14;
-                const w = MEMBER_HOVER_CARD_WIDTH;
-                let left = rect.left - gap - w;
-                if (left < 12) left = rect.right + gap;
-                const maxLeft = window.innerWidth - w - 12;
-                if (left > maxLeft) left = Math.max(12, maxLeft);
-                const top = rect.top + rect.height / 2;
-                const tier = resolveMemberStatusTier(member, listIndex);
-                const tagline = buildMemberHoverTagline(member);
-                return (
-                  <div
-                    key={String(member.id ?? member.email)}
-                    className="student-community-member-hover-root"
-                    style={{
-                      position: "fixed",
-                      top,
-                      left,
-                      width: w,
-                      transform: "translateY(-50%)",
-                      zIndex: 12060,
-                    }}
-                    onMouseEnter={keepMemberPopoverOpen}
-                    onMouseLeave={scheduleCloseMemberPopover}
-                    role="dialog"
-                    aria-label={`${member.name || "Member"} profile preview`}
-                  >
-                    <div className="student-community-member-hover-card">
-                      <div className="student-community-member-hover-top">
-                        <div className="student-community-member-hover-copy">
-                          <div className="student-community-member-hover-name">
-                            {member.name || "Member"}
-                          </div>
-                          <p className="student-community-member-hover-tagline">
-                            {tagline}
-                          </p>
-                          <div
-                            className="student-community-member-hover-pill"
-                            aria-hidden
-                          >
-                            <FiAward className="student-community-member-hover-trophy" />
-                            <span className="student-community-member-hover-tier">
-                              {tier}
-                            </span>
-                            <span className="student-community-member-hover-pill-divider" />
-                            <span>Sell It status</span>
-                          </div>
+            (() => {
+              const { member, rect, listIndex } = memberHoverPopover;
+              const gap = 14;
+              const w = MEMBER_HOVER_CARD_WIDTH;
+              let left = rect.left - gap - w;
+              if (left < 12) left = rect.right + gap;
+              const maxLeft = window.innerWidth - w - 12;
+              if (left > maxLeft) left = Math.max(12, maxLeft);
+              const top = rect.top + rect.height / 2;
+              const tier = resolveMemberStatusTier(member, listIndex);
+              const tagline = buildMemberHoverTagline(member);
+              return (
+                <div
+                  key={String(member.id ?? member.email)}
+                  className="student-community-member-hover-root"
+                  style={{
+                    position: "fixed",
+                    top,
+                    left,
+                    width: w,
+                    transform: "translateY(-50%)",
+                    zIndex: 12060,
+                  }}
+                  onMouseEnter={keepMemberPopoverOpen}
+                  onMouseLeave={scheduleCloseMemberPopover}
+                  role="dialog"
+                  aria-label={`${member.name || "Member"} profile preview`}
+                >
+                  <div className="student-community-member-hover-card">
+                    <div className="student-community-member-hover-top">
+                      <div className="student-community-member-hover-copy">
+                        <div className="student-community-member-hover-name">
+                          {member.name || "Member"}
                         </div>
-                        <div className="student-community-member-hover-avatar-wrap">
-                          <div className="student-community-member-hover-avatar-ring">
-                            <span className="student-community-member-hover-avatar-letter">
-                              {getInitial(
-                                member.name || member.email || "M",
-                              )}
-                            </span>
-                          </div>
-                          <span className="student-community-member-hover-level-badge">
+                        <p className="student-community-member-hover-tagline">
+                          {tagline}
+                        </p>
+                        <div
+                          className="student-community-member-hover-pill"
+                          aria-hidden
+                        >
+                          <FiAward className="student-community-member-hover-trophy" />
+                          <span className="student-community-member-hover-tier">
                             {tier}
                           </span>
+                          <span className="student-community-member-hover-pill-divider" />
+                          <span>Sell It status</span>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="student-community-member-hover-profile-btn"
-                        onClick={() => {
-                          clearMemberPopoverTimer();
-                          setMemberHoverPopover(null);
-                          setMemberProfileModalUser(member);
-                        }}
-                      >
-                        <FiUser aria-hidden />
-                        <span>View profile</span>
-                      </button>
+                      <div className="student-community-member-hover-avatar-wrap">
+                        <div className="student-community-member-hover-avatar-ring">
+                          <span className="student-community-member-hover-avatar-letter">
+                            {getInitial(
+                              member.name || member.email || "M",
+                            )}
+                          </span>
+                        </div>
+                        <span className="student-community-member-hover-level-badge">
+                          {tier}
+                        </span>
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      className="student-community-member-hover-profile-btn"
+                      onClick={() => {
+                        clearMemberPopoverTimer();
+                        setMemberHoverPopover(null);
+                        setMemberProfileModalUser(member);
+                      }}
+                    >
+                      <FiUser aria-hidden />
+                      <span>View profile</span>
+                    </button>
                   </div>
-                );
-              })(),
-              document.body,
-            )
+                </div>
+              );
+            })(),
+            document.body,
+          )
           : null}
         <MemberProfileModal
           open={Boolean(memberProfileModalUser)}
