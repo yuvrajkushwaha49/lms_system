@@ -33,10 +33,18 @@ const ensureTables = async () => {
       org_id INT NOT NULL,
       question_id INT NOT NULL,
       user_id INT NOT NULL,
+      user_name VARCHAR(255) DEFAULT NULL,
+      avatar_data_url MEDIUMTEXT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       UNIQUE KEY uq_ask_ryan_like (org_id, question_id, user_id),
       INDEX idx_ask_ryan_like_q (question_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  );
+  await db.query(
+    'ALTER TABLE org_ask_ryan_likes ADD COLUMN IF NOT EXISTS user_name VARCHAR(255) DEFAULT NULL',
+  );
+  await db.query(
+    'ALTER TABLE org_ask_ryan_likes ADD COLUMN IF NOT EXISTS avatar_data_url MEDIUMTEXT NULL',
   );
 
   await db.query(
@@ -47,8 +55,26 @@ const ensureTables = async () => {
       user_id INT NOT NULL,
       user_name VARCHAR(255) DEFAULT NULL,
       comment_text TEXT NOT NULL,
+      parent_comment_id INT DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_ask_ryan_comment_q (question_id)
+      INDEX idx_ask_ryan_comment_q (question_id),
+      INDEX idx_ask_ryan_comment_parent (org_id, question_id, parent_comment_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  );
+  await db.query(
+    'ALTER TABLE org_ask_ryan_comments ADD COLUMN IF NOT EXISTS parent_comment_id INT DEFAULT NULL',
+  );
+
+  await db.query(
+    `CREATE TABLE IF NOT EXISTS org_ask_ryan_comment_likes (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      org_id INT NOT NULL,
+      question_id INT NOT NULL,
+      comment_id INT NOT NULL,
+      user_id INT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_ask_ryan_comment_like (org_id, comment_id, user_id),
+      INDEX idx_ask_ryan_comment_like_comment (org_id, question_id, comment_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
   );
 
@@ -122,7 +148,40 @@ const serializePublishedRow = (row, userId) => ({
   likes_count: Number(row.likes_count || 0),
   comments_count: Number(row.comments_count || 0),
   is_liked: Number(row.is_liked || 0) === 1,
+  recent_likers: Array.isArray(row.recent_likers) ? row.recent_likers : [],
 });
+
+const getQuestionLikeSummary = async (orgId, questionId, userId) => {
+  const [[countRow]] = await db.query(
+    `SELECT COUNT(*) AS c FROM org_ask_ryan_likes WHERE org_id = ? AND question_id = ?`,
+    [orgId, questionId],
+  );
+  const [[likedRow]] = await db.query(
+    `SELECT COUNT(*) AS c FROM org_ask_ryan_likes WHERE org_id = ? AND question_id = ? AND user_id = ?`,
+    [orgId, questionId, userId],
+  );
+  const [recentRows] = await db.query(
+    `SELECT
+        COALESCE(NULLIF(TRIM(l.user_name), ''), NULLIF(TRIM(u.name), ''), 'Member') AS user_name,
+        COALESCE(NULLIF(TRIM(l.avatar_data_url), ''), '') AS avatar_data_url
+     FROM org_ask_ryan_likes l
+     LEFT JOIN users u ON u.id = l.user_id
+     WHERE l.org_id = ? AND l.question_id = ?
+     ORDER BY l.id DESC
+     LIMIT 5`,
+    [orgId, questionId],
+  );
+
+  return {
+    likes_count: Number(countRow?.c || 0),
+    is_liked: Number(likedRow?.c || 0) > 0,
+    recent_likers: recentRows
+      .map((row) => ({
+        user_name: String(row.user_name || '').trim() || 'Member',
+        avatar_data_url: String(row.avatar_data_url || '').trim(),
+      })),
+  };
+};
 
 /** Student / member: submit a question */
 const submitQuestion = async (req, res) => {
@@ -195,9 +254,46 @@ const getPublished = async (req, res) => {
       [orgId],
     );
 
+    const likerMap = new Map();
+    if (rows.length > 0) {
+      const questionIds = rows.map((row) => Number(row.id)).filter((id) => Number.isFinite(id));
+      if (questionIds.length > 0) {
+        const placeholders = questionIds.map(() => '?').join(', ');
+        const [likerRows] = await db.query(
+          `SELECT question_id, user_name, avatar_data_url
+           FROM (
+             SELECT
+               l.question_id,
+               COALESCE(NULLIF(TRIM(l.user_name), ''), NULLIF(TRIM(u.name), ''), 'Member') AS user_name,
+               COALESCE(NULLIF(TRIM(l.avatar_data_url), ''), '') AS avatar_data_url,
+               ROW_NUMBER() OVER (PARTITION BY l.question_id ORDER BY l.id DESC) AS rn
+             FROM org_ask_ryan_likes l
+             LEFT JOIN users u ON u.id = l.user_id
+             WHERE l.org_id = ? AND l.question_id IN (${placeholders})
+           ) ranked
+           WHERE rn <= 5`,
+          [orgId, ...questionIds],
+        );
+        likerRows.forEach((row) => {
+          const key = String(row.question_id);
+          const current = likerMap.get(key) || [];
+          current.push({
+            user_name: String(row.user_name || '').trim() || 'Member',
+            avatar_data_url: String(row.avatar_data_url || '').trim(),
+          });
+          likerMap.set(key, current);
+        });
+      }
+    }
+
     return res.json({
       status: 'success',
-      data: rows.map((r) => serializePublishedRow(r, userId)),
+      data: rows.map((r) =>
+        serializePublishedRow({
+          ...r,
+          recent_likers: likerMap.get(String(r.id)) || [],
+        }, userId),
+      ),
       pagination: {
         limit,
         offset,
@@ -238,24 +334,25 @@ const toggleLike = async (req, res) => {
       await db.query('DELETE FROM org_ask_ryan_likes WHERE id = ? LIMIT 1', [existing[0].id]);
       isLiked = false;
     } else {
+      const userName = String(req.user?.name || '').trim() || null;
+      const avatarDataUrlRaw = String(req.body?.avatar_data_url || req.body?.avatarDataUrl || '').trim();
+      const avatarDataUrl = avatarDataUrlRaw.startsWith('data:image/') ? avatarDataUrlRaw : null;
       await db.query(
-        `INSERT INTO org_ask_ryan_likes (org_id, question_id, user_id) VALUES (?, ?, ?)`,
-        [orgId, questionId, userId],
+        `INSERT INTO org_ask_ryan_likes (org_id, question_id, user_id, user_name, avatar_data_url) VALUES (?, ?, ?, ?, ?)`,
+        [orgId, questionId, userId, userName, avatarDataUrl],
       );
       isLiked = true;
     }
 
-    const [[countRow]] = await db.query(
-      `SELECT COUNT(*) AS c FROM org_ask_ryan_likes WHERE org_id = ? AND question_id = ?`,
-      [orgId, questionId],
-    );
+    const likeSummary = await getQuestionLikeSummary(orgId, questionId, userId);
 
     return res.json({
       status: 'success',
       data: {
         question_id: questionId,
         is_liked: isLiked,
-        likes_count: Number(countRow?.c || 0),
+        likes_count: likeSummary.likes_count,
+        recent_likers: likeSummary.recent_likers,
       },
     });
   } catch (e) {
@@ -263,53 +360,7 @@ const toggleLike = async (req, res) => {
   }
 };
 
-const addComment = async (req, res) => {
-  try {
-    await ensureTables();
-    const orgId = resolveOrgId(req.user);
-    const userId = Number(req.user?.id);
-    const questionId = Number(req.params.questionId);
-    const commentText = String(req.body?.comment_text || req.body?.commentText || '').trim();
-    if (!orgId || !userId || Number.isNaN(questionId)) {
-      return res.status(400).json({ status: 'error', message: 'Invalid request.' });
-    }
-    if (!commentText) {
-      return res.status(400).json({ status: 'error', message: 'Comment cannot be empty.' });
-    }
-    if (commentText.length > 2000) {
-      return res.status(400).json({ status: 'error', message: 'Comment is too long.' });
-    }
-
-    const [qRows] = await db.query(
-      `SELECT id FROM org_ask_ryan_questions WHERE id = ? AND org_id = ? AND status = 'answered' LIMIT 1`,
-      [questionId, orgId],
-    );
-    if (!qRows.length) {
-      return res.status(404).json({ status: 'error', message: 'Response not found.' });
-    }
-
-    const userName = String(req.user?.name || '').trim() || null;
-    await db.query(
-      `INSERT INTO org_ask_ryan_comments (org_id, question_id, user_id, user_name, comment_text)
-       VALUES (?, ?, ?, ?, ?)`,
-      [orgId, questionId, userId, userName, commentText],
-    );
-
-    const [[countRow]] = await db.query(
-      `SELECT COUNT(*) AS c FROM org_ask_ryan_comments WHERE org_id = ? AND question_id = ?`,
-      [orgId, questionId],
-    );
-
-    return res.status(201).json({
-      status: 'success',
-      data: { comments_count: Number(countRow?.c || 0) },
-    });
-  } catch (e) {
-    return res.status(500).json({ status: 'error', message: e.message || 'Unable to add comment.' });
-  }
-};
-
-const getComments = async (req, res) => {
+const getQuestionLikes = async (req, res) => {
   try {
     await ensureTables();
     const orgId = resolveOrgId(req.user);
@@ -327,12 +378,140 @@ const getComments = async (req, res) => {
     }
 
     const [rows] = await db.query(
-      `SELECT id, user_name, comment_text, created_at
-       FROM org_ask_ryan_comments
-       WHERE org_id = ? AND question_id = ?
+      `SELECT
+          l.user_id,
+          COALESCE(NULLIF(TRIM(l.user_name), ''), NULLIF(TRIM(u.name), ''), 'Member') AS user_name,
+          COALESCE(NULLIF(TRIM(l.avatar_data_url), ''), '') AS avatar_data_url
+       FROM org_ask_ryan_likes l
+       LEFT JOIN users u ON u.id = l.user_id
+       WHERE l.org_id = ? AND l.question_id = ?
+       ORDER BY l.id DESC
+       LIMIT 200`,
+      [orgId, questionId],
+    );
+
+    return res.json({
+      status: 'success',
+      data: rows.map((row) => ({
+        user_id: Number(row.user_id),
+        user_name: String(row.user_name || '').trim() || 'Member',
+        avatar_data_url: String(row.avatar_data_url || '').trim(),
+      })),
+    });
+  } catch (e) {
+    return res.status(500).json({ status: 'error', message: e.message || 'Unable to load likes.' });
+  }
+};
+
+const addComment = async (req, res) => {
+  try {
+    await ensureTables();
+    const orgId = resolveOrgId(req.user);
+    const userId = Number(req.user?.id);
+    const questionId = Number(req.params.questionId);
+    const commentText = String(req.body?.comment_text || req.body?.commentText || '').trim();
+    const rawParentCommentId = req.body?.parent_comment_id ?? req.body?.parentCommentId ?? null;
+    const parentCommentId =
+      rawParentCommentId == null || rawParentCommentId === ''
+        ? null
+        : Number(rawParentCommentId);
+    if (!orgId || !userId || Number.isNaN(questionId)) {
+      return res.status(400).json({ status: 'error', message: 'Invalid request.' });
+    }
+    if (parentCommentId != null && Number.isNaN(parentCommentId)) {
+      return res.status(400).json({ status: 'error', message: 'Invalid parent comment.' });
+    }
+    if (!commentText) {
+      return res.status(400).json({ status: 'error', message: 'Comment cannot be empty.' });
+    }
+    if (commentText.length > 2000) {
+      return res.status(400).json({ status: 'error', message: 'Comment is too long.' });
+    }
+
+    const [qRows] = await db.query(
+      `SELECT id FROM org_ask_ryan_questions WHERE id = ? AND org_id = ? AND status = 'answered' LIMIT 1`,
+      [questionId, orgId],
+    );
+    if (!qRows.length) {
+      return res.status(404).json({ status: 'error', message: 'Response not found.' });
+    }
+
+    if (parentCommentId != null) {
+      const [parentRows] = await db.query(
+        `SELECT id FROM org_ask_ryan_comments
+         WHERE id = ? AND org_id = ? AND question_id = ?
+         LIMIT 1`,
+        [parentCommentId, orgId, questionId],
+      );
+      if (!parentRows.length) {
+        return res.status(404).json({ status: 'error', message: 'Parent comment not found.' });
+      }
+    }
+
+    const userName = String(req.user?.name || '').trim() || null;
+    await db.query(
+      `INSERT INTO org_ask_ryan_comments (org_id, question_id, user_id, user_name, comment_text, parent_comment_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [orgId, questionId, userId, userName, commentText, parentCommentId],
+    );
+
+    const [[countRow]] = await db.query(
+      `SELECT COUNT(*) AS c FROM org_ask_ryan_comments WHERE org_id = ? AND question_id = ?`,
+      [orgId, questionId],
+    );
+
+    return res.status(201).json({
+      status: 'success',
+      data: {
+        comments_count: Number(countRow?.c || 0),
+        parent_comment_id: parentCommentId,
+      },
+    });
+  } catch (e) {
+    return res.status(500).json({ status: 'error', message: e.message || 'Unable to add comment.' });
+  }
+};
+
+const getComments = async (req, res) => {
+  try {
+    await ensureTables();
+    const orgId = resolveOrgId(req.user);
+    const userId = Number(req.user?.id);
+    const questionId = Number(req.params.questionId);
+    if (!orgId || !userId || Number.isNaN(questionId)) {
+      return res.status(400).json({ status: 'error', message: 'Invalid request.' });
+    }
+
+    const [qRows] = await db.query(
+      `SELECT id FROM org_ask_ryan_questions WHERE id = ? AND org_id = ? AND status = 'answered' LIMIT 1`,
+      [questionId, orgId],
+    );
+    if (!qRows.length) {
+      return res.status(404).json({ status: 'error', message: 'Response not found.' });
+    }
+
+    const [rows] = await db.query(
+      `SELECT c.id, c.user_name, c.comment_text, c.created_at, c.parent_comment_id,
+              COALESCE(cl.likes_count, 0) AS likes_count,
+              COALESCE(ml.is_liked, 0) AS is_liked
+       FROM org_ask_ryan_comments c
+       LEFT JOIN (
+         SELECT org_id, question_id, comment_id, COUNT(*) AS likes_count
+         FROM org_ask_ryan_comment_likes
+         WHERE org_id = ? AND question_id = ?
+         GROUP BY org_id, question_id, comment_id
+       ) cl
+         ON cl.org_id = c.org_id AND cl.question_id = c.question_id AND cl.comment_id = c.id
+       LEFT JOIN (
+         SELECT org_id, question_id, comment_id, 1 AS is_liked
+         FROM org_ask_ryan_comment_likes
+         WHERE org_id = ? AND question_id = ? AND user_id = ?
+       ) ml
+         ON ml.org_id = c.org_id AND ml.question_id = c.question_id AND ml.comment_id = c.id
+       WHERE c.org_id = ? AND c.question_id = ?
        ORDER BY id ASC
        LIMIT 100`,
-      [orgId, questionId],
+      [orgId, questionId, orgId, questionId, userId, orgId, questionId],
     );
 
     return res.json({
@@ -342,10 +521,74 @@ const getComments = async (req, res) => {
         user_name: r.user_name || 'Member',
         comment_text: r.comment_text || '',
         created_at: r.created_at,
+        parent_comment_id: r.parent_comment_id == null ? null : Number(r.parent_comment_id),
+        likes_count: Number(r.likes_count || 0),
+        is_liked: Number(r.is_liked || 0) === 1,
       })),
     });
   } catch (e) {
     return res.status(500).json({ status: 'error', message: e.message || 'Unable to load comments.' });
+  }
+};
+
+const toggleCommentLike = async (req, res) => {
+  try {
+    await ensureTables();
+    const orgId = resolveOrgId(req.user);
+    const userId = Number(req.user?.id);
+    const questionId = Number(req.params.questionId);
+    const commentId = Number(req.params.commentId);
+    if (!orgId || !userId || Number.isNaN(questionId) || Number.isNaN(commentId)) {
+      return res.status(400).json({ status: 'error', message: 'Invalid request.' });
+    }
+
+    const [commentRows] = await db.query(
+      `SELECT id FROM org_ask_ryan_comments
+       WHERE id = ? AND org_id = ? AND question_id = ?
+       LIMIT 1`,
+      [commentId, orgId, questionId],
+    );
+    if (!commentRows.length) {
+      return res.status(404).json({ status: 'error', message: 'Comment not found.' });
+    }
+
+    const [existing] = await db.query(
+      `SELECT id FROM org_ask_ryan_comment_likes
+       WHERE org_id = ? AND question_id = ? AND comment_id = ? AND user_id = ?
+       LIMIT 1`,
+      [orgId, questionId, commentId, userId],
+    );
+
+    let isLiked;
+    if (existing.length) {
+      await db.query('DELETE FROM org_ask_ryan_comment_likes WHERE id = ? LIMIT 1', [existing[0].id]);
+      isLiked = false;
+    } else {
+      await db.query(
+        `INSERT INTO org_ask_ryan_comment_likes (org_id, question_id, comment_id, user_id)
+         VALUES (?, ?, ?, ?)`,
+        [orgId, questionId, commentId, userId],
+      );
+      isLiked = true;
+    }
+
+    const [[countRow]] = await db.query(
+      `SELECT COUNT(*) AS c FROM org_ask_ryan_comment_likes
+       WHERE org_id = ? AND question_id = ? AND comment_id = ?`,
+      [orgId, questionId, commentId],
+    );
+
+    return res.json({
+      status: 'success',
+      data: {
+        question_id: questionId,
+        comment_id: commentId,
+        is_liked: isLiked,
+        likes_count: Number(countRow?.c || 0),
+      },
+    });
+  } catch (e) {
+    return res.status(500).json({ status: 'error', message: e.message || 'Unable to update comment like.' });
   }
 };
 
@@ -529,6 +772,8 @@ module.exports = {
   submitQuestion,
   getPublished,
   toggleLike,
+  getQuestionLikes,
+  toggleCommentLike,
   addComment,
   getComments,
   getCommunityLike,

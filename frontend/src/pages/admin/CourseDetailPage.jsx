@@ -7,6 +7,14 @@ import CommunityVideoPlayer from '../../components/CommunityVideoPlayer.jsx';
 import CourseAdaptiveVideo from '../../components/CourseAdaptiveVideo.jsx';
 import { resolvePublicMediaUrl } from '../../utils/mediaUrl';
 
+const STANDARD_RECORDED_TYPE_OPTIONS = ['Chapter Wise/Topic Wise', 'Short Course'];
+const OWNING_MANHATTAN_RECORDED_TYPE_OPTIONS = ['Short Course', 'Podcast Episode'];
+
+const getRecordedTypeOptions = (courseType) =>
+  courseType === 'OwningManhattan'
+    ? OWNING_MANHATTAN_RECORDED_TYPE_OPTIONS
+    : STANDARD_RECORDED_TYPE_OPTIONS;
+
 const TRAINER_UPLOAD_PERMISSION_KEY = 'course_trainer_upload_permissions';
 
 const getStoredJson = (key, fallback) => {
@@ -502,7 +510,10 @@ export default function CourseDetailPage() {
       description: course?.description || '',
       price: String(course?.price ?? ''),
       deliveryMode: course?.delivery_mode || 'Recorded',
-      recordedType: isOmCatalog ? 'Short Courses' : course?.recorded_type || 'Chapter Wise/Topic Wise',
+      recordedType:
+        (isOmCatalog && course?.recorded_type === 'Short Courses'
+          ? 'Short Course'
+          : course?.recorded_type) || (isOmCatalog ? 'Short Course' : 'Chapter Wise/Topic Wise'),
       pricingType: course?.pricing_type || (Number(course?.price) === 0 ? 'Free for Members' : 'Paid'),
       courseType: catalogType,
     });
@@ -532,9 +543,7 @@ export default function CourseDetailPage() {
           delivery_mode: courseForm.deliveryMode,
           recorded_type:
             courseForm.deliveryMode === 'Recorded'
-              ? courseForm.courseType === 'OwningManhattan'
-                ? 'Short Courses'
-                : courseForm.recordedType || 'Chapter Wise/Topic Wise'
+              ? courseForm.recordedType || 'Chapter Wise/Topic Wise'
               : null,
           pricing_type: courseForm.pricingType,
           free_for_members: courseForm.pricingType === 'Free for Members',
@@ -553,9 +562,7 @@ export default function CourseDetailPage() {
         delivery_mode: courseForm.deliveryMode,
         recorded_type:
           courseForm.deliveryMode === 'Recorded'
-            ? courseForm.courseType === 'OwningManhattan'
-              ? 'Short Courses'
-              : courseForm.recordedType || 'Chapter Wise/Topic Wise'
+            ? courseForm.recordedType || 'Chapter Wise/Topic Wise'
             : null,
         pricing_type: courseForm.pricingType,
         course_type: courseForm.courseType,
@@ -730,7 +737,18 @@ export default function CourseDetailPage() {
           ) : (
             <>
               <p className="text-uppercase small mb-1 text-light">Course Overview</p>
-              <h1 className="h2 fw-bold mb-1">{course?.title || 'Course Detail'}</h1>
+              <div className="d-flex flex-column flex-md-row align-items-md-center gap-2 mb-1">
+                <h1 className="h2 fw-bold mb-0">{course?.title || 'Course Detail'}</h1>
+                {canManageVideos && (
+                  <button
+                    type="button"
+                    className="btn btn-light btn-sm align-self-start"
+                    onClick={openCourseEditModal}
+                  >
+                    Edit Title
+                  </button>
+                )}
+              </div>
               <p className="mb-2 text-light">{course?.description || '-'}</p>
               <div className="d-flex flex-wrap gap-2 mb-3">
                 <span className="badge bg-light text-dark px-3 py-2">Mode: {course?.delivery_mode || '-'}</span>
@@ -1314,26 +1332,16 @@ export default function CourseDetailPage() {
                         <label className="form-label fw-semibold">Recorded Type</label>
                         <select
                           className="form-select"
-                          value={
-                            courseForm.courseType === 'OwningManhattan'
-                              ? 'Short Courses'
-                              : courseForm.recordedType || 'Chapter Wise/Topic Wise'
-                          }
+                          value={courseForm.recordedType || 'Chapter Wise/Topic Wise'}
                           onChange={(event) => {
-                            if (courseForm.courseType !== 'OwningManhattan') {
-                              setCourseForm((prev) => ({ ...prev, recordedType: event.target.value }));
-                            }
+                            setCourseForm((prev) => ({ ...prev, recordedType: event.target.value }));
                           }}
-                          disabled={courseForm.courseType === 'OwningManhattan'}
                         >
-                          {courseForm.courseType === 'OwningManhattan' ? (
-                            <option value="Short Courses">Short Course</option>
-                          ) : (
-                            <>
-                              <option value="Chapter Wise/Topic Wise">Chapter Wise/Topic Wise</option>
-                              <option value="Short Courses">Short Course</option>
-                            </>
-                          )}
+                          {getRecordedTypeOptions(courseForm.courseType).map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     )}
@@ -1492,4 +1500,3 @@ export default function CourseDetailPage() {
     </DashboardSectionPage>
   );
 }
-

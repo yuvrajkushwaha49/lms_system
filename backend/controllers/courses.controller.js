@@ -308,6 +308,8 @@ const mapCourseRow = (row) => {
 /** Used by monthly challenge schedule; same rows as GET /api/courses without request context. */
 const fetchOrgCoursesForOrg = async (orgId, { courseTypeFilter = '' } = {}) => {
   await ensureCoursesTableColumns();
+  await ensureCourseVideosTable();
+  await ensureCourseVideoEngagementTables();
   const params = [orgId];
   let typeClause = '';
   const cf = String(courseTypeFilter || '').trim();
@@ -320,6 +322,8 @@ const fetchOrgCoursesForOrg = async (orgId, { courseTypeFilter = '' } = {}) => {
             COALESCE(courses.delivery_mode, 'Recorded') AS effective_delivery_mode,
             COALESCE(courses.pricing_type, CASE WHEN courses.price = 0 THEN 'Free for Members' ELSE 'Paid' END) AS effective_pricing_type,
             COALESCE(courses.free_for_members, CASE WHEN courses.price = 0 THEN 1 ELSE 0 END) AS effective_free_for_members,
+            COALESCE(cv_likes.likes_count, 0) AS likes_count,
+            COALESCE(cv_comments.comments_count, 0) AS comments_count,
             COALESCE(courses.course_type,
               CASE
                 WHEN LOWER(COALESCE(courses.delivery_mode, 'Recorded')) = 'live' THEN 'Workshop'
@@ -328,6 +332,18 @@ const fetchOrgCoursesForOrg = async (orgId, { courseTypeFilter = '' } = {}) => {
               END
             ) AS effective_course_type
      FROM courses
+     LEFT JOIN (
+       SELECT org_id, course_id, COUNT(*) AS likes_count
+       FROM course_video_likes
+       GROUP BY org_id, course_id
+     ) cv_likes
+       ON cv_likes.org_id = courses.org_id AND cv_likes.course_id = courses.id
+     LEFT JOIN (
+       SELECT org_id, course_id, COUNT(*) AS comments_count
+       FROM course_video_comments
+       GROUP BY org_id, course_id
+     ) cv_comments
+       ON cv_comments.org_id = courses.org_id AND cv_comments.course_id = courses.id
      WHERE courses.org_id = ?${typeClause}`,
     params,
   );
