@@ -674,8 +674,8 @@ body {
   left: 0;
   top: 0;
   height: 100vh;
-  width: 296px;
-  min-width: 296px;
+  width: 20%;
+  min-width: 20%;
   flex: 0 0 296px;
   padding: 22px 16px 18px;
   gap: 12px;
@@ -1885,13 +1885,13 @@ color: #ffffff;
   font-size: 0;
 }
 
-/* Adjust main content for fixed sidebar */
-main {
-  margin-left: 296px;
-}
 
 .lms-sidebar-collapsed ~ main {
   margin-left: 94px;
+}
+.flexss-fs{
+  margin-left: 19.5%;
+  width: 80%;
 }
 
 .lms-sidebar > .student-starter-nav {

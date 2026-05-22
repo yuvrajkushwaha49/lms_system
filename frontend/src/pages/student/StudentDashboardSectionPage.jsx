@@ -926,7 +926,7 @@ export default function StudentDashboardSectionPage({
         </div> */}
       </aside>
 
-      <main className="flex-grow-1 p-3 p-sm-4 position-relative">
+      <div className="flexss-fs p-3 p-sm-4 position-relative">
         <div className="student-panel-top-header mb-4">
           <div className="student-panel-top-nav">
             {topHeaderLinks.map((item) => (
@@ -1157,7 +1157,7 @@ export default function StudentDashboardSectionPage({
             </div>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }
