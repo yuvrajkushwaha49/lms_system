@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
-
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
 import CommentReportReasonModal from "../../components/CommentReportReasonModal";
@@ -38,14 +37,22 @@ const resolveCommentAuthorName = (comment) =>
     comment?.user_name || comment?.userName || comment?.name || "Unknown User",
   ).trim() || "Unknown User";
 
+const isOwningManhattanCourse = (entry) =>
+  String(entry?.course_type || "")
+    .replace(/\s+/g, "")
+    .toLowerCase() === "owningmanhattan";
+
 export default function StudentCourseDetailPage({ courseIdOverride = null, backPathOverride = null }) {
   const { courseId: routeCourseId } = useParams();
   const courseId = courseIdOverride != null ? String(courseIdOverride) : routeCourseId;
   const navigate = useNavigate();
-  const { search } = useLocation();
+  const { pathname, search } = useLocation();
   const omSearchParams = useMemo(() => new URLSearchParams(search), [search]);
   const fromOwningManhattan = omSearchParams.get("from") === "owning-manhattan";
-  const fromStartHereStarter = omSearchParams.get("from") === "start-here";
+  const fromStartHereStarter =
+    omSearchParams.get("from") === "start-here" ||
+    pathname === "/dashboard/start-here-starter" ||
+    backPathOverride === "/dashboard/start-here-starter";
   const autoOpenPlayerMode =
     (fromOwningManhattan || fromStartHereStarter) && omSearchParams.get("view") === "player";
   const coursesListPath = fromOwningManhattan
@@ -54,6 +61,8 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
       ? (backPathOverride || "/dashboard/start-here-starter")
       : "/dashboard/student-course";
   const [course, setCourse] = useState(null);
+  const [catalogCourses, setCatalogCourses] = useState([]);
+  const [suggestedCourseThumbMap, setSuggestedCourseThumbMap] = useState({});
   const [videos, setVideos] = useState([]);
   const [activeVideoId, setActiveVideoId] = useState(null);
   const [isPlayerOpen, setIsPlayerOpen] = useState(false);
@@ -140,7 +149,9 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
         if (!response.ok || payload.status !== "success") {
           throw new Error(payload.message || "Unable to fetch course detail");
         }
-        const current = (payload.data || []).find(
+        const allCourses = Array.isArray(payload.data) ? payload.data : [];
+        setCatalogCourses(allCourses);
+        const current = allCourses.find(
           (entry) => String(entry.id) === String(courseId),
         );
         if (!current) throw new Error("Course not found.");
@@ -597,13 +608,10 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
                   </button>
                 </div>
               </div>
-            ) : (
+            ) :  ( <div className="d-flex align-items-center gap-2 mb-1 justify-content-between">
               <p className="mb-1">{comment.text}</p>
-            )}
+            
             <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-              <p className="mb-0 text-muted small">
-                {new Date(comment.createdAt).toLocaleString()}
-              </p>
               <div className="d-flex align-items-center gap-2 flex-wrap">
                 <button
                   type="button"
@@ -713,6 +721,8 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
                 ) : null}
               </div>
             </div>
+            </div>
+            )}
             {replyOpen ? (
               <div className="d-flex flex-column gap-2 mt-3 pt-2 border-top">
                 <input
@@ -952,6 +962,61 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
     [videos, activeVideoId],
   );
 
+  const owningManhattanSuggestedCourses = useMemo(() => {
+    if (!fromOwningManhattan) return [];
+    const omCourses = catalogCourses.filter((entry) => isOwningManhattanCourse(entry));
+    if (omCourses.length <= 1) return [];
+    const currentIndex = omCourses.findIndex((entry) => String(entry.id) === String(courseId));
+    const otherCourses = omCourses.filter((entry) => String(entry.id) !== String(courseId));
+    if (currentIndex === -1) return otherCourses;
+    const nextCourses = omCourses.slice(currentIndex + 1).filter((entry) => String(entry.id) !== String(courseId));
+    const previousCourses = omCourses.slice(0, currentIndex).filter((entry) => String(entry.id) !== String(courseId));
+    return [...nextCourses, ...previousCourses];
+  }, [catalogCourses, courseId, fromOwningManhattan]);
+
+  useEffect(() => {
+    if (!fromOwningManhattan || owningManhattanSuggestedCourses.length === 0) {
+      setSuggestedCourseThumbMap({});
+      return undefined;
+    }
+    const token = localStorage.getItem("token");
+    if (!token) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const entries = await Promise.all(
+          owningManhattanSuggestedCourses.map(async (entry) => {
+            const fallbackThumb = entry.thumbnail_url || entry.thumbnail_data_url || "";
+            if (fallbackThumb) return [String(entry.id), fallbackThumb];
+            try {
+              const response = await fetch(`${apiBaseUrl}/api/courses/${entry.id}/videos`, {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              const payload = await response.json();
+              if (!response.ok || payload.status !== "success") return [String(entry.id), ""];
+              const courseVideos = Array.isArray(payload.data) ? payload.data : [];
+              const thumbVideo =
+                courseVideos.find((video) => video.thumbnail_url || video.thumbnail_data_url) || courseVideos[0] || null;
+              return [
+                String(entry.id),
+                thumbVideo?.thumbnail_url || thumbVideo?.thumbnail_data_url || "",
+              ];
+            } catch {
+              return [String(entry.id), ""];
+            }
+          }),
+        );
+        if (cancelled) return;
+        setSuggestedCourseThumbMap(Object.fromEntries(entries));
+      } catch {
+        if (!cancelled) setSuggestedCourseThumbMap({});
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBaseUrl, fromOwningManhattan, owningManhattanSuggestedCourses]);
+
   const user = JSON.parse(localStorage.getItem("user")) || {};
   const userName = user?.name || "Student";
 
@@ -1081,9 +1146,6 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
               onClick={() => toggleMediaBookmark(activeVideo.id)}
             >
               {mediaBookmarkedMap[String(activeVideo.id)] ? "★ Saved" : "☆ Save"}
-            </button>
-            <button type="button" className="btn btn-sm rounded-pill btn-outline-secondary" disabled>
-              👎
             </button>
           </div>
           <span className="text-muted small fw-semibold">
@@ -1260,7 +1322,6 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
                       >
                         {activeVideo.title || course?.title || "Owning Manhattan"}
                       </h2>
-                      <p className="mb-0 text-muted small mt-1">Watch Video</p>
                     </div>
                   </div>
                   <div className="position-relative bg-dark">{renderOmCinemaPlayer()}</div>
@@ -1268,10 +1329,57 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
                 </div>
               </div>
               <div className="col-xl-4">
-                <div className="lms-card p-4 sell-snack-suggested-sidebar">
+                <div className="lms-card py-4 px-3 sell-snack-suggested-sidebar">
                   <h2 className="h6 fw-bold mb-3 text-uppercase text-muted small">Next suggested video</h2>
                   <div className="sell-snack-suggested-scroll">
-                    {omCinemaSuggestedVideos.length === 0 ? (
+                    {fromOwningManhattan ? (
+                      owningManhattanSuggestedCourses.length === 0 ? (
+                        <p className="text-muted small mb-0">No other Owning Manhattan videos yet.</p>
+                      ) : (
+                        <ul className="list-unstyled mb-0 sell-snack-suggested-list">
+                          {owningManhattanSuggestedCourses.map((item) => {
+                            const thumb = resolvePublicMediaUrl(
+                              suggestedCourseThumbMap[String(item.id)] ||
+                                item.thumbnail_url ||
+                                item.thumbnail_data_url ||
+                                "",
+                              apiBaseUrl,
+                            );
+                            return (
+                              <li key={String(item.id)} className="mb-3">
+                                <button
+                                  type="button"
+                                  className="text-decoration-none text-reset d-flex gap-1 sell-snack-suggested-row w-100 text-start border-0 bg-transparent p-0"
+                                  onClick={() =>
+                                    navigate(`/dashboard/student-course/${item.id}?from=owning-manhattan&view=player`)
+                                  }
+                                >
+                                  <div
+                                    className="sell-snack-suggested-thumb flex-shrink-0 rounded overflow-hidden bg-secondary"
+                                    style={{
+                                      width: 90,
+                                      height: 63,
+                                      background: thumb
+                                        ? `url(${thumb}) center/cover no-repeat`
+                                        : "linear-gradient(135deg,#4169ff,#f7efe1)",
+                                    }}
+                                  />
+                                  <div className="min-w-0">
+                                    <p className="fw-semibold mb-1 small sell-snack-suggested-title">
+                                      {item.title || "Owning Manhattan"}
+                                    </p>
+                                    
+                                    <p className="mb-0 small text-muted mt-1">
+                                      👍 {Number(item.likes_count || 0)} · 💬 {Number(item.comments_count || 0)}
+                                    </p>
+                                  </div>
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )
+                    ) : omCinemaSuggestedVideos.length === 0 ? (
                       <p className="text-muted small mb-0">No other videos in this episode.</p>
                     ) : (
                       <ul className="list-unstyled mb-0 sell-snack-suggested-list">
@@ -1292,7 +1400,7 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
                                 <div
                                   className="sell-snack-suggested-thumb flex-shrink-0 rounded overflow-hidden bg-secondary"
                                   style={{
-                                    width: 112,
+                                    width: 90,
                                     height: 63,
                                     background: thumb
                                       ? `url(${thumb}) center/cover no-repeat`
@@ -1351,12 +1459,7 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
         <div className="border-bottom pb-3 mb-4">
           <div className="d-flex justify-content-between align-items-center gap-3 flex-wrap">
             <h1 className="h3 mb-0 fw-bold">{course?.title || "Course"}</h1>
-            <Link
-              to={coursesListPath}
-              className="btn btn-outline-secondary btn-sm"
-            >
-              {fromOwningManhattan ? "Back to Owning Manhattan" : fromStartHereStarter ? "Back to Start Here" : "Back to Courses"}
-            </Link>
+           
           </div>
         </div>
 
@@ -1394,10 +1497,10 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
               ) : (
                 <button
                   type="button"
-                  className="btn btn-outline-primary rounded-pill px-4 fw-semibold"
+                  className="btn btn-outline-Start rounded-pill px-4 fw-semibold"
                   onClick={handleContinueLearning}
                 >
-                  Start Course
+                  Start
                 </button>
               )}
             </div>
@@ -1423,37 +1526,39 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
               </div>
             </div>
 
-            <div className="row g-3 mb-4">
-              <div className="col-12 col-md-4">
-                <div className="lms-card p-3 student-summary-card">
-                  <p className="small text-uppercase text-muted mb-1">
-                    Sections
-                  </p>
-                  <p className="h4 mb-0 fw-bold">{sectionGroups.length}</p>
+            {!fromStartHereStarter && (
+              <div className="row g-3 mb-4">
+                <div className="col-12 col-md-4">
+                  <div className="lms-card p-3 student-summary-card">
+                    <p className="small text-uppercase text-muted mb-1">
+                      Sections
+                    </p>
+                    <p className="h4 mb-0 fw-bold">{sectionGroups.length}</p>
+                  </div>
+                </div>
+                <div className="col-12 col-md-4">
+                  <div className="lms-card p-3 student-summary-card">
+                    <p className="small text-uppercase text-muted mb-1">
+                      Lessons
+                    </p>
+                    <p className="h4 mb-0 fw-bold">{videos.length}</p>
+                  </div>
+                </div>
+                <div className="col-12 col-md-4">
+                  <div className="lms-card p-3 student-summary-card">
+                    <p className="small text-uppercase text-muted mb-1">
+                      Total Duration
+                    </p>
+                    <p className="h4 mb-0 fw-bold">
+                      {toDurationLabel(totalDurationSeconds)}
+                    </p>
+                  </div>
                 </div>
               </div>
-              <div className="col-12 col-md-4">
-                <div className="lms-card p-3 student-summary-card">
-                  <p className="small text-uppercase text-muted mb-1">
-                    Lessons
-                  </p>
-                  <p className="h4 mb-0 fw-bold">{videos.length}</p>
-                </div>
-              </div>
-              <div className="col-12 col-md-4">
-                <div className="lms-card p-3 student-summary-card">
-                  <p className="small text-uppercase text-muted mb-1">
-                    Total Duration
-                  </p>
-                  <p className="h4 mb-0 fw-bold">
-                    {toDurationLabel(totalDurationSeconds)}
-                  </p>
-                </div>
-              </div>
-            </div>
+            )}
 
             <div className="mb-3">
-              <h3 className="h3 fw-bold mb-1">Lessons</h3>
+              <h3 className="h3 fw-bold mb-1">Content</h3>
               <div className="d-flex justify-content-between align-items-center text-muted flex-wrap gap-2">
                 <span>
                   {sectionGroups.length} sections • {videos.length} lessons •{" "}
@@ -1744,10 +1849,16 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
                         >
                           <div className="d-flex align-items-center gap-2">
                             <span
-                              className="text-muted small"
+                              className="text-muted small d-flex align-items-center justify-content-center"
                               style={{ width: 16 }}
                             >
-                              {openSections[section.title] ? "▾" : "▸"}
+                              <i
+                                className={`bi ${
+                                  openSections[section.title]
+                                    ? "bi-caret-down-fill"
+                                    : "bi-caret-right-fill"
+                                }`}
+                              ></i>
                             </span>
                             <h6 className="mb-0 fw-semibold">
                               {section.title}
@@ -1875,11 +1986,17 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
                         onClick={() => toggleSectionOpen(section.title)}
                       >
                         <div className="d-flex align-items-center gap-2">
-                          <span
-                            className="text-muted small"
+                         <span
+                            className="text-muted small d-flex align-items-center justify-content-center"
                             style={{ width: 16 }}
                           >
-                            {openSections[section.title] ? "▾" : "▸"}
+                            <i
+                              className={`bi ${
+                                openSections[section.title]
+                                  ? "bi-caret-down-fill"
+                                  : "bi-caret-right-fill"
+                              }`}
+                            ></i>
                           </span>
                           <h4 className="h4 mb-0 fw-bold">{section.title}</h4>
                         </div>

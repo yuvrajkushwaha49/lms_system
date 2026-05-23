@@ -93,7 +93,6 @@ const starterNavItems = [
 const topHeaderLinks = [
   { key: "home", label: "Home", path: "/dashboard/student-dashboard" },
   { key: "courses", label: "Courses", path: "/dashboard/student-course" },
-  { key: "owning-manhattan", label: "Owning Manhattan", path: "/dashboard/student-owning-manhattan" },
   { key: "events", label: "Events", path: "/dashboard/student-workshops" },
 ];
 
@@ -713,7 +712,8 @@ export default function StudentDashboardSectionPage({
                   monthlySidebar.meta.map(({ key, count }, index) => {
                     const cur = new URLSearchParams(search).get("month");
                     const firstKey = monthlySidebar.meta[0]?.key;
-                    const isMonthActive = cur === key || (!cur && key === firstKey);
+                    const isMonthActive =
+                      isMonthlyChallengesRoute && (cur === key || (!cur && key === firstKey));
                     const line = formatMonthlyChallengeLine(key, monthlySidebar.labels);
                     const tip = `${displayTitleForMonthKey(key, monthlySidebar.labels)} — ${count} course${count === 1 ? "" : "s"}`;
                     const emoji =

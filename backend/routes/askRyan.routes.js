@@ -55,7 +55,9 @@ router.post('/questions', askRyanController.submitQuestion);
 router.get('/published', askRyanController.getPublished);
 router.get('/community-like', askRyanController.getCommunityLike);
 router.post('/community-like/toggle', askRyanController.toggleCommunityLike);
+router.get('/questions/:questionId/likes', askRyanController.getQuestionLikes);
 router.post('/questions/:questionId/likes/toggle', askRyanController.toggleLike);
+router.post('/questions/:questionId/comments/:commentId/likes/toggle', askRyanController.toggleCommentLike);
 router.post('/questions/:questionId/comments', askRyanController.addComment);
 router.get('/questions/:questionId/comments', askRyanController.getComments);
 

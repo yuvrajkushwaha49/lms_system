@@ -2,16 +2,22 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 
 import {
+  FiArrowLeft,
   FiBookmark,
   FiChevronDown,
   FiHeart,
+  FiMaximize2,
   FiMessageCircle,
+  FiMinimize2,
   FiMoreHorizontal,
   FiPlay,
   FiSend,
   FiShare2,
   FiX,
 } from "react-icons/fi";
+
+const ASK_RYAN_POST_BOOKMARKS_STORAGE_KEY = "student_ask_ryan_post_bookmarks";
+const ASK_RYAN_INTRO_BOOKMARK_STORAGE_KEY = "student_ask_ryan_intro_bookmarked";
 
 function initials(name) {
   const s = String(name || "").trim();
@@ -27,6 +33,31 @@ function truncate(text, max) {
   return `${t.slice(0, max - 1)}…`;
 }
 
+function buildCommentTree(rows) {
+  const allRows = Array.isArray(rows) ? rows : [];
+  const byId = new Map();
+  const roots = [];
+
+  allRows.forEach((row) => {
+    byId.set(String(row.id), { ...row, replies: [] });
+  });
+
+  byId.forEach((row) => {
+    if (row.parent_comment_id == null) {
+      roots.push(row);
+      return;
+    }
+    const parent = byId.get(String(row.parent_comment_id));
+    if (parent) {
+      parent.replies.push(row);
+    } else {
+      roots.push(row);
+    }
+  });
+
+  return roots;
+}
+
 export default function AskRyanContent() {
   const [sort, setSort] = useState("latest");
   const [items, setItems] = useState([]);
@@ -37,7 +68,7 @@ export default function AskRyanContent() {
   const [submitting, setSubmitting] = useState(false);
   const [pageNotice, setPageNotice] = useState("");
   const [submitError, setSubmitError] = useState("");
-  const [videoModal, setVideoModal] = useState(null);
+  const [videoModalId, setVideoModalId] = useState(null);
   const [communityLiked, setCommunityLiked] = useState(false);
   const [communityLikesCount, setCommunityLikesCount] = useState(0);
   const [communityRecentLikers, setCommunityRecentLikers] = useState([]);
@@ -45,11 +76,45 @@ export default function AskRyanContent() {
   const [commentsLoading, setCommentsLoading] = useState({});
   const [commentDrafts, setCommentDrafts] = useState({});
   const [expandedComments, setExpandedComments] = useState({});
+  const [modalCommentsOpen, setModalCommentsOpen] = useState(true);
+  const [replyOpenByCommentId, setReplyOpenByCommentId] = useState({});
+  const [replyDraftsByCommentId, setReplyDraftsByCommentId] = useState({});
+  const [detailExpanded, setDetailExpanded] = useState(false);
+  const [likesModal, setLikesModal] = useState(null);
+  const [likesModalLoading, setLikesModalLoading] = useState(false);
+  const [introBookmarked, setIntroBookmarked] = useState(() => {
+    try {
+      return localStorage.getItem(ASK_RYAN_INTRO_BOOKMARK_STORAGE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [bookmarkedPostMap, setBookmarkedPostMap] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(ASK_RYAN_POST_BOOKMARKS_STORAGE_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  });
 
   const apiBaseUrl = useMemo(
     () => getApiBaseUrl(),
     [],
   );
+
+  useEffect(() => {
+    localStorage.setItem(
+      ASK_RYAN_INTRO_BOOKMARK_STORAGE_KEY,
+      introBookmarked ? "1" : "0",
+    );
+  }, [introBookmarked]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      ASK_RYAN_POST_BOOKMARKS_STORAGE_KEY,
+      JSON.stringify(bookmarkedPostMap),
+    );
+  }, [bookmarkedPostMap]);
 
   const loadPublished = useCallback(async () => {
     const token = localStorage.getItem("token");
@@ -166,10 +231,22 @@ export default function AskRyanContent() {
   const toggleLike = async (id) => {
     const token = localStorage.getItem("token");
     if (!token) return;
+    let avatarDataUrl = "";
+    try {
+      const rawExtras = localStorage.getItem("lms_student_profile_extras_v1");
+      const parsedExtras = rawExtras ? JSON.parse(rawExtras) : {};
+      avatarDataUrl = String(parsedExtras?.avatarDataUrl || "").trim();
+    } catch {
+      avatarDataUrl = "";
+    }
     try {
       const response = await fetch(`${apiBaseUrl}/api/ask-ryan/questions/${id}/likes/toggle`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ avatar_data_url: avatarDataUrl || null }),
       });
       const payload = await response.json();
       if (!response.ok || payload.status !== "success") return;
@@ -180,6 +257,7 @@ export default function AskRyanContent() {
                 ...row,
                 is_liked: payload.data.is_liked,
                 likes_count: payload.data.likes_count,
+                recent_likers: Array.isArray(payload.data.recent_likers) ? payload.data.recent_likers : row.recent_likers,
               }
             : row,
         ),
@@ -187,6 +265,33 @@ export default function AskRyanContent() {
     } catch {
       /* ignore */
     }
+  };
+
+  const openLikesModal = async (row) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    setLikesModal({ title: row.response_title || "Ask Ryan Anything", likes: [] });
+    setLikesModalLoading(true);
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/ask-ryan/questions/${row.id}/likes`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await response.json();
+      if (!response.ok || payload.status !== "success") return;
+      setLikesModal({
+        title: row.response_title || "Ask Ryan Anything",
+        likes: Array.isArray(payload.data) ? payload.data : [],
+      });
+    } finally {
+      setLikesModalLoading(false);
+    }
+  };
+
+  const togglePostBookmark = (postId) => {
+    setBookmarkedPostMap((prev) => ({
+      ...prev,
+      [String(postId)]: !prev[String(postId)],
+    }));
   };
 
   const loadComments = async (questionId) => {
@@ -215,9 +320,11 @@ export default function AskRyanContent() {
     });
   };
 
-  const sendComment = async (questionId) => {
+  const sendComment = async (questionId, parentCommentId = null) => {
     const token = localStorage.getItem("token");
-    const text = String(commentDrafts[questionId] || "").trim();
+    const text = String(
+      parentCommentId == null ? commentDrafts[questionId] || "" : replyDraftsByCommentId[parentCommentId] || "",
+    ).trim();
     if (!token || !text) return;
     try {
       const response = await fetch(`${apiBaseUrl}/api/ask-ryan/questions/${questionId}/comments`, {
@@ -226,11 +333,19 @@ export default function AskRyanContent() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ comment_text: text }),
+        body: JSON.stringify({
+          comment_text: text,
+          parent_comment_id: parentCommentId,
+        }),
       });
       const payload = await response.json();
       if (!response.ok || payload.status !== "success") return;
-      setCommentDrafts((d) => ({ ...d, [questionId]: "" }));
+      if (parentCommentId == null) {
+        setCommentDrafts((d) => ({ ...d, [questionId]: "" }));
+      } else {
+        setReplyDraftsByCommentId((d) => ({ ...d, [parentCommentId]: "" }));
+        setReplyOpenByCommentId((prev) => ({ ...prev, [parentCommentId]: false }));
+      }
       setItems((prev) =>
         prev.map((row) =>
           String(row.id) === String(questionId) ? { ...row, comments_count: payload.data.comments_count } : row,
@@ -240,6 +355,123 @@ export default function AskRyanContent() {
     } catch {
       /* ignore */
     }
+  };
+
+  const sessionUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}");
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const selectedVideoModal = useMemo(
+    () => items.find((row) => String(row.id) === String(videoModalId)) || null,
+    [items, videoModalId],
+  );
+
+  const openResponseDetail = (row) => {
+    setVideoModalId(row.id);
+    setDetailExpanded(false);
+    setModalCommentsOpen(true);
+    if (!(commentsById[row.id] || []).length) {
+      void loadComments(row.id);
+    }
+  };
+
+  const toggleCommentLike = async (questionId, commentId) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/ask-ryan/questions/${questionId}/comments/${commentId}/likes/toggle`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      const payload = await response.json();
+      if (!response.ok || payload.status !== "success") return;
+      setCommentsById((prev) => ({
+        ...prev,
+        [questionId]: (prev[questionId] || []).map((comment) =>
+          String(comment.id) === String(commentId)
+            ? {
+                ...comment,
+                is_liked: payload.data.is_liked,
+                likes_count: payload.data.likes_count,
+              }
+            : comment,
+        ),
+      }));
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const renderCommentNode = (questionId, comment, depth = 0) => {
+    const replies = Array.isArray(comment.replies) ? comment.replies : [];
+    const isReplyOpen = Boolean(replyOpenByCommentId[comment.id]);
+
+    return (
+      <li key={comment.id} className={depth > 0 ? "ask-ryan-comment-item ask-ryan-comment-item-reply" : "ask-ryan-comment-item"}>
+        <div className="ask-ryan-comment-row">
+          <span className="ask-ryan-avatar ask-ryan-comment-avatar">{initials(comment.user_name)}</span>
+          <div className="ask-ryan-comment-content">
+            <div className="ask-ryan-comment-bubble">
+              <strong>{comment.user_name}</strong>
+              <span>{comment.comment_text}</span>
+            </div>
+            <button
+              type="button"
+              className="ask-ryan-comment-reply-btn"
+              onClick={() =>
+                setReplyOpenByCommentId((prev) => ({
+                  ...prev,
+                  [comment.id]: !prev[comment.id],
+                }))
+              }
+            >
+              Reply
+            </button>
+            <button
+              type="button"
+              className={`ask-ryan-comment-like-btn${comment.is_liked ? " is-liked" : ""}`}
+              onClick={() => void toggleCommentLike(questionId, comment.id)}
+              aria-pressed={comment.is_liked}
+            >
+              <FiHeart size={13} />
+              <span>{comment.likes_count || 0}</span>
+            </button>
+            {isReplyOpen && (
+              <div className="ask-ryan-comment-form ask-ryan-comment-reply-form">
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  placeholder={`Reply to ${comment.user_name}...`}
+                  value={replyDraftsByCommentId[comment.id] || ""}
+                  onChange={(e) => setReplyDraftsByCommentId((d) => ({ ...d, [comment.id]: e.target.value }))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void sendComment(questionId, comment.id);
+                    }
+                  }}
+                />
+                <button type="button" className="btn btn-sm btn-primary" onClick={() => void sendComment(questionId, comment.id)}>
+                  <FiSend size={14} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        {replies.length > 0 && (
+          <ul className="ask-ryan-comment-list ask-ryan-comment-replies">
+            {replies.map((reply) => renderCommentNode(questionId, reply, depth + 1))}
+          </ul>
+        )}
+      </li>
+    );
   };
 
   return (
@@ -284,14 +516,15 @@ export default function AskRyanContent() {
         <div className="ask-ryan-intro-head">
           <h3 className="ask-ryan-intro-title">Drop your questions below 👇</h3>
           <div className="ask-ryan-intro-actions">
-            <button type="button" className="ask-ryan-intro-icon" aria-label="Bookmark" title="Bookmark">
+            <button
+              type="button"
+              className={`ask-ryan-intro-icon ${introBookmarked ? "is-active" : ""}`}
+              aria-label={introBookmarked ? "Remove bookmark" : "Bookmark"}
+              aria-pressed={introBookmarked}
+              title={introBookmarked ? "Remove bookmark" : "Bookmark"}
+              onClick={() => setIntroBookmarked((prev) => !prev)}
+            >
               <FiBookmark />
-            </button>
-            <button type="button" className="ask-ryan-intro-icon" aria-label="More" title="More">
-              <FiMoreHorizontal />
-            </button>
-            <button type="button" className="ask-ryan-intro-icon" aria-label="Share" title="Share">
-              <FiShare2 />
             </button>
           </div>
         </div>
@@ -367,7 +600,19 @@ export default function AskRyanContent() {
         ) : (
           <div className="ask-ryan-grid">
             {items.map((row) => (
-              <article key={row.id} className="ask-ryan-response-card lms-card">
+              <article
+                key={row.id}
+                className="ask-ryan-response-card lms-card"
+                role="button"
+                tabIndex={0}
+                onClick={() => openResponseDetail(row)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openResponseDetail(row);
+                  }
+                }}
+              >
                 <div className="ask-ryan-split">
                   <div className="ask-ryan-split-q">
                     <div className="ask-ryan-bubble">
@@ -382,7 +627,10 @@ export default function AskRyanContent() {
                     <button
                       type="button"
                       className="ask-ryan-split-video"
-                      onClick={() => setVideoModal(row)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openResponseDetail(row);
+                      }}
                       aria-label={`Play video: ${row.response_title}`}
                     >
                       {row.response_thumbnail_url ? (
@@ -405,13 +653,23 @@ export default function AskRyanContent() {
                   <button
                     type="button"
                     className={`ask-ryan-meta-btn${row.is_liked ? " is-liked" : ""}`}
-                    onClick={() => toggleLike(row.id)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void toggleLike(row.id);
+                    }}
                     aria-pressed={row.is_liked}
                   >
                     <FiHeart />
                     <span>{row.likes_count}</span>
                   </button>
-                  <button type="button" className="ask-ryan-meta-btn" onClick={() => toggleComments(row.id)}>
+                  <button
+                    type="button"
+                    className="ask-ryan-meta-btn"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openResponseDetail(row);
+                    }}
+                  >
                     <FiMessageCircle />
                     <span>{row.comments_count}</span>
                   </button>
@@ -422,12 +680,7 @@ export default function AskRyanContent() {
                       <p className="ask-ryan-muted small mb-2">Loading comments…</p>
                     ) : (
                       <ul className="ask-ryan-comment-list">
-                        {(commentsById[row.id] || []).map((c) => (
-                          <li key={c.id}>
-                            <strong>{c.user_name}</strong>
-                            <span>{c.comment_text}</span>
-                          </li>
-                        ))}
+                        {buildCommentTree(commentsById[row.id] || []).map((comment) => renderCommentNode(row.id, comment))}
                       </ul>
                     )}
                     <div className="ask-ryan-comment-form">
@@ -496,26 +749,223 @@ export default function AskRyanContent() {
         </div>
       )}
 
-      {videoModal && (
-        <div className="ask-ryan-modal-backdrop" role="presentation" onClick={() => setVideoModal(null)}>
-          <div className="ask-ryan-video-modal" onClick={(e) => e.stopPropagation()}>
-            <button type="button" className="ask-ryan-modal-close ask-ryan-video-close" onClick={() => setVideoModal(null)}>
-              <FiX />
-            </button>
-            <h3 className="ask-ryan-video-modal-title">{videoModal.response_title}</h3>
-            <video
-              className="ask-ryan-video-el"
-              controls
-              playsInline
-              autoPlay
-              src={videoModal.response_video_url}
-              poster={videoModal.response_thumbnail_url || undefined}
-            >
-              <track kind="captions" />
-            </video>
-            <p className="ask-ryan-video-q">
-              <strong>{videoModal.user_name} asked:</strong> {videoModal.question_text}
-            </p>
+      {selectedVideoModal && (
+        <div
+          className={`ask-ryan-modal-backdrop${detailExpanded ? " ask-ryan-modal-backdrop-expanded" : ""}`}
+          role="presentation"
+          onClick={() => {
+            setVideoModalId(null);
+            setDetailExpanded(false);
+          }}
+        >
+          <div
+            className={`ask-ryan-video-modal ask-ryan-detail-modal${detailExpanded ? " ask-ryan-detail-modal-expanded" : ""}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="ask-ryan-detail-head">
+              <div className="ask-ryan-detail-head-main">
+                {detailExpanded && (
+                  <button
+                    type="button"
+                    className="ask-ryan-detail-back-btn"
+                    onClick={() => setDetailExpanded(false)}
+                  >
+                    <FiArrowLeft />
+                    <span>Back to Ask Ryan Anything</span>
+                  </button>
+                )}
+                {!detailExpanded && <h3 className="ask-ryan-video-modal-title">{selectedVideoModal.response_title}</h3>}
+              </div>
+              <div className="ask-ryan-detail-tools">
+                <button
+                  type="button"
+                  className={`ask-ryan-intro-icon ${bookmarkedPostMap[String(selectedVideoModal.id)] ? "is-active" : ""}`}
+                  aria-label={bookmarkedPostMap[String(selectedVideoModal.id)] ? "Remove bookmark" : "Add to bookmark"}
+                  aria-pressed={Boolean(bookmarkedPostMap[String(selectedVideoModal.id)])}
+                  title={bookmarkedPostMap[String(selectedVideoModal.id)] ? "Remove bookmark" : "Add to bookmark"}
+                  onClick={() => togglePostBookmark(selectedVideoModal.id)}
+                >
+                  <FiBookmark />
+                </button>
+                <button
+                  type="button"
+                  className="ask-ryan-intro-icon"
+                  aria-label={detailExpanded ? "Exit expanded view" : "Expand"}
+                  title={detailExpanded ? "Exit expanded view" : "Expand"}
+                  onClick={() => setDetailExpanded((prev) => !prev)}
+                >
+                  {detailExpanded ? <FiMinimize2 /> : <FiMaximize2 />}
+                </button>
+                <button
+                  type="button"
+                  className="ask-ryan-modal-close ask-ryan-video-close"
+                  onClick={() => {
+                    setVideoModalId(null);
+                    setDetailExpanded(false);
+                  }}
+                  aria-label="Close"
+                >
+                  <FiX />
+                </button>
+              </div>
+            </div>
+            <div className="ask-ryan-detail-scroll">
+              <video
+                className="ask-ryan-video-el"
+                controls
+                playsInline
+                autoPlay
+                src={selectedVideoModal.response_video_url}
+                poster={selectedVideoModal.response_thumbnail_url || undefined}
+              >
+                <track kind="captions" />
+              </video>
+              <div className="ask-ryan-detail-copy">
+                <p className="ask-ryan-video-q mb-2">
+                  <a href="#ask-ryan-author" className="ask-ryan-detail-author-link">
+                    {selectedVideoModal.user_name || "Member"}
+                  </a>{" "}
+                  {!!selectedVideoModal.question_text && selectedVideoModal.question_text}
+                </p>
+                <p className="ask-ryan-detail-tag mb-0">#Ask Ryan Anything</p>
+              </div>
+              <div className="ask-ryan-detail-stats">
+                <div className="ask-ryan-detail-stats-left">
+                  <button
+                    type="button"
+                    className={`ask-ryan-meta-btn${selectedVideoModal.is_liked ? " is-liked" : ""}`}
+                    onClick={() => void toggleLike(selectedVideoModal.id)}
+                    aria-pressed={selectedVideoModal.is_liked}
+                  >
+                    <FiHeart />
+                    <span>{selectedVideoModal.likes_count || 0}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="ask-ryan-meta-btn"
+                    onClick={() => {
+                      setModalCommentsOpen((prev) => {
+                        const next = !prev;
+                        if (next && !(commentsById[selectedVideoModal.id] || []).length) {
+                          void loadComments(selectedVideoModal.id);
+                        }
+                        return next;
+                      });
+                    }}
+                  >
+                    <FiMessageCircle />
+                    <span>{selectedVideoModal.comments_count || 0}</span>
+                  </button>
+                </div>
+                <div className="ask-ryan-detail-stats-right">
+                  <button
+                    type="button"
+                    className="ask-ryan-detail-likes-trigger"
+                    onClick={() => void openLikesModal(selectedVideoModal)}
+                  >
+                    {Array.isArray(selectedVideoModal.recent_likers) && selectedVideoModal.recent_likers.length > 0 && (
+                      <span className="ask-ryan-detail-like-avatars" aria-hidden>
+                        {selectedVideoModal.recent_likers.slice(0, 5).map((liker, idx) => (
+                          <span
+                            key={`${liker?.user_name || "member"}-${idx}`}
+                            className="ask-ryan-detail-like-avatar"
+                            title={liker?.user_name || "Member"}
+                          >
+                            {liker?.avatar_data_url ? (
+                              <img src={liker.avatar_data_url} alt="" className="ask-ryan-intro-like-avatar-img" />
+                            ) : (
+                              initials(liker?.user_name)
+                            )}
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                    <span>{selectedVideoModal.likes_count || 0} likes</span>
+                  </button>
+                  <span>{selectedVideoModal.comments_count || 0} comments</span>
+                </div>
+              </div>
+              <div className="ask-ryan-detail-author" id="ask-ryan-author">
+                <span className="ask-ryan-avatar">{initials(selectedVideoModal.user_name || sessionUser?.name)}</span>
+                <div>
+                  <strong>{selectedVideoModal.user_name || "Member"}</strong>
+                  <div className="ask-ryan-detail-role">Founder & CEO</div>
+                </div>
+              </div>
+              {modalCommentsOpen && (
+                <div className="ask-ryan-detail-comments">
+                  {commentsLoading[selectedVideoModal.id] ? (
+                    <p className="ask-ryan-muted small mb-3">Loading comments…</p>
+                  ) : (commentsById[selectedVideoModal.id] || []).length > 0 ? (
+                    <ul className="ask-ryan-comment-list ask-ryan-detail-comment-list">
+                      {buildCommentTree(commentsById[selectedVideoModal.id] || []).map((comment) =>
+                        renderCommentNode(selectedVideoModal.id, comment),
+                      )}
+                    </ul>
+                  ) : (
+                    <p className="ask-ryan-muted small mb-3">No comments yet.</p>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="ask-ryan-detail-compose">
+              <span className="ask-ryan-avatar ask-ryan-detail-compose-avatar">
+                {initials(sessionUser?.name || "U")}
+              </span>
+              <div className="ask-ryan-comment-form ask-ryan-detail-comment-form">
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="What are your thoughts?"
+                  value={commentDrafts[selectedVideoModal.id] || ""}
+                  onChange={(e) => setCommentDrafts((d) => ({ ...d, [selectedVideoModal.id]: e.target.value }))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void sendComment(selectedVideoModal.id);
+                    }
+                  }}
+                />
+                <button type="button" className="btn btn-primary" onClick={() => void sendComment(selectedVideoModal.id)}>
+                  <FiSend size={15} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {likesModal && (
+        <div className="ask-ryan-modal-backdrop" role="presentation" onClick={() => setLikesModal(null)}>
+          <div className="ask-ryan-likes-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ask-ryan-likes-modal-head">
+              <h3 className="ask-ryan-likes-modal-title">{likesModal.likes.length} Likes</h3>
+              <button type="button" className="ask-ryan-modal-close" onClick={() => setLikesModal(null)} aria-label="Close">
+                <FiX />
+              </button>
+            </div>
+            <div className="ask-ryan-likes-modal-body">
+              {likesModalLoading ? (
+                <p className="ask-ryan-muted mb-0">Loading likes…</p>
+              ) : likesModal.likes.length > 0 ? (
+                <ul className="ask-ryan-likes-list">
+                  {likesModal.likes.map((liker, idx) => (
+                    <li key={`${liker.user_id || liker.user_name}-${idx}`} className="ask-ryan-likes-item">
+                      <span className="ask-ryan-likes-avatar">
+                        {liker.avatar_data_url ? (
+                          <img src={liker.avatar_data_url} alt="" className="ask-ryan-intro-like-avatar-img" />
+                        ) : (
+                          initials(liker.user_name)
+                        )}
+                      </span>
+                      <span className="ask-ryan-likes-name">{liker.user_name || "Member"}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="ask-ryan-muted mb-0">No likes yet.</p>
+              )}
+            </div>
           </div>
         </div>
       )}

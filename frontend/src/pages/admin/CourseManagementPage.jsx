@@ -5,6 +5,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import DashboardSectionPage from './DashboardSectionPage';
 import { resolvePublicMediaUrl } from '../../utils/mediaUrl';
 
+const STANDARD_RECORDED_TYPE_OPTIONS = ['Chapter Wise/Topic Wise', 'Short Course'];
+const OWNING_MANHATTAN_RECORDED_TYPE_OPTIONS = ['Short Course', 'Podcast Episode'];
+
+const getRecordedTypeOptions = (courseType) =>
+  courseType === 'OwningManhattan'
+    ? OWNING_MANHATTAN_RECORDED_TYPE_OPTIONS
+    : STANDARD_RECORDED_TYPE_OPTIONS;
+
 export default function CourseManagementPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -100,10 +108,10 @@ export default function CourseManagementPage() {
           return { ...prev, courseType: value, deliveryMode: 'Live', recordedType: 'Chapter Wise/Topic Wise' };
         }
         if (value === 'Short Course') {
-          return { ...prev, courseType: value, deliveryMode: 'Recorded', recordedType: 'Short Courses' };
+          return { ...prev, courseType: value, deliveryMode: 'Recorded', recordedType: 'Short Course' };
         }
         if (value === 'OwningManhattan') {
-          return { ...prev, courseType: value, deliveryMode: 'Recorded', recordedType: 'Short Courses' };
+          return { ...prev, courseType: value, deliveryMode: 'Recorded', recordedType: 'Short Course' };
         }
         return { ...prev, courseType: value, deliveryMode: 'Recorded', recordedType: 'Chapter Wise/Topic Wise' };
       }
@@ -153,9 +161,7 @@ export default function CourseManagementPage() {
           delivery_mode: formData.deliveryMode,
           recorded_type:
             formData.deliveryMode === 'Recorded'
-              ? formData.courseType === 'OwningManhattan'
-                ? 'Short Courses'
-                : formData.recordedType || 'Chapter Wise/Topic Wise'
+              ? formData.recordedType || 'Chapter Wise/Topic Wise'
               : null,
           pricing_type: formData.pricingType,
           free_for_members: formData.pricingType === 'Free for Members',
@@ -272,8 +278,8 @@ export default function CourseManagementPage() {
   };
 
   const defaultRecordedTypeBySidebar = useMemo(() => {
-    if (sidebarTypeFilter === 'short') return 'Short Courses';
-    if (sidebarTypeFilter === 'owning-manhattan') return 'Short Courses';
+    if (sidebarTypeFilter === 'short') return 'Short Course';
+    if (sidebarTypeFilter === 'owning-manhattan') return 'Short Course';
     if (sidebarTypeFilter === 'chapter') return 'Chapter Wise/Topic Wise';
     return 'Chapter Wise/Topic Wise';
   }, [sidebarTypeFilter]);
@@ -946,23 +952,15 @@ export default function CourseManagementPage() {
                           <label className="form-label fw-semibold">Recorded Type</label>
                           <select
                             name="recordedType"
-                            value={
-                              formData.courseType === 'OwningManhattan'
-                                ? 'Short Courses'
-                                : formData.recordedType || 'Chapter Wise/Topic Wise'
-                            }
+                            value={formData.recordedType || 'Chapter Wise/Topic Wise'}
                             onChange={handleChange}
                             className="form-select"
-                            disabled={formData.courseType === 'OwningManhattan'}
                           >
-                            {formData.courseType === 'OwningManhattan' ? (
-                              <option value="Short Courses">Short Course</option>
-                            ) : (
-                              <>
-                                <option value="Chapter Wise/Topic Wise">Chapter Wise/Topic Wise</option>
-                                <option value="Short Courses">Short Course</option>
-                              </>
-                            )}
+                            {getRecordedTypeOptions(formData.courseType).map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
                           </select>
                         </div>
                       )}
@@ -1090,4 +1088,3 @@ export default function CourseManagementPage() {
     </DashboardSectionPage>
   );
 }
-
