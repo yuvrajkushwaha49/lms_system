@@ -3,6 +3,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 
 import { useNavigate, useSearchParams } from "react-router-dom";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
+import StudentPageSearchSync from "../../components/StudentPageSearchSync";
 import { resolvePublicMediaUrl } from "../../utils/mediaUrl";
 import {
   buildMonthsMetaFromCourses,
@@ -71,6 +72,7 @@ export default function StudentCoursesByMonthPage() {
   const [thumbByCourseId, setThumbByCourseId] = useState({});
   const [schedule, setSchedule] = useState(null);
   const [scheduleLoaded, setScheduleLoaded] = useState(false);
+  const [headerMonthSearch, setHeaderMonthSearch] = useState("");
 
   const apiBaseUrl = useMemo(
     () => getApiBaseUrl(),
@@ -274,9 +276,24 @@ export default function StudentCoursesByMonthPage() {
     };
   }, [coursesForThumbs, apiBaseUrl]);
 
+  const filteredWeekSections = useMemo(() => {
+    const query = headerMonthSearch.trim().toLowerCase();
+    if (!query) return weekSections;
+    return weekSections
+      .map((section) => ({
+        ...section,
+        list: section.list.filter((course) => {
+          const title = String(course.title || "").toLowerCase();
+          const description = String(course.description || "").toLowerCase();
+          return title.includes(query) || description.includes(query);
+        }),
+      }))
+      .filter((section) => section.list.length > 0);
+  }, [weekSections, headerMonthSearch]);
+
   const visibleCourseCount = useMemo(
-    () => weekSections.reduce((n, s) => n + s.list.length, 0),
-    [weekSections],
+    () => filteredWeekSections.reduce((n, s) => n + s.list.length, 0),
+    [filteredWeekSections],
   );
 
   const toggleWeek = (weekIndex) => {
@@ -302,6 +319,7 @@ export default function StudentCoursesByMonthPage() {
 
   return (
     <StudentDashboardSectionPage title="Monthly challenges">
+      <StudentPageSearchSync onSearchChange={setHeaderMonthSearch} />
       <div className="container-fluid px-0 student-monthly-page" style={{ maxWidth: 960 }}>
         <div className="lms-card overflow-hidden border-0 shadow-sm student-monthly-card">
           <div className="student-monthly-hero px-3 py-4 px-md-4 border-bottom">
@@ -331,7 +349,7 @@ export default function StudentCoursesByMonthPage() {
                       {visibleCourseCount} course
                       {visibleCourseCount === 1 ? "" : "s"}
                       <span className="text-muted opacity-50 mx-2">·</span>
-                      {weekSections.length} week{weekSections.length === 1 ? "" : "s"} with uploads
+                      {filteredWeekSections.length} week{filteredWeekSections.length === 1 ? "" : "s"} with uploads
                     </p>
                   </div>
                   <div className="d-flex flex-wrap gap-2">
@@ -352,11 +370,11 @@ export default function StudentCoursesByMonthPage() {
                   </div>
                 </div>
 
-                {weekSections.length === 0 ? (
+                {filteredWeekSections.length === 0 ? (
                   <p className="text-muted mb-0">No uploads in this month.</p>
                 ) : (
                   <div className="student-monthly-week-stack d-flex flex-column gap-3">
-                    {weekSections.map(({ weekIndex, list, range }) => {
+                    {filteredWeekSections.map(({ weekIndex, list, range }) => {
                       const open = openWeeks.has(weekIndex);
                       return (
                         <div

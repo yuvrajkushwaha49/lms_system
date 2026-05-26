@@ -1458,7 +1458,7 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
       >
         <div className="border-bottom pb-3 mb-4">
           <div className="d-flex justify-content-between align-items-center gap-3 flex-wrap">
-            <h1 className="h3 mb-0 fw-bold">{course?.title || "Course"}</h1>
+            <h1 className="h3 mb-0  txts-sty">{course?.title || "Course"}</h1>
            
           </div>
         </div>
@@ -1470,7 +1470,7 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
 
         {isLoading ? (
           <div className="lms-card p-5 text-center text-muted">
-            Loading course...
+            Loading ...
           </div>
         ) : (
           <>
@@ -1856,7 +1856,7 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
                                 className={`bi ${
                                   openSections[section.title]
                                     ? "bi-caret-down-fill"
-                                    : "bi-caret-right-fill"
+                                    : "bi-chevron-right"
                                 }`}
                               ></i>
                             </span>
@@ -1994,11 +1994,11 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
                               className={`bi ${
                                 openSections[section.title]
                                   ? "bi-caret-down-fill"
-                                  : "bi-caret-right-fill"
+                                  : "bi-chevron-right"
                               }`}
                             ></i>
                           </span>
-                          <h4 className="h4 mb-0 fw-bold">{section.title}</h4>
+                          <h4 className="h4 mb-0 txts-stsy">{section.title}</h4>
                         </div>
                         <span className="text-muted">
                           {section.lessons.length} lesson

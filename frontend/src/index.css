@@ -987,7 +987,6 @@ color: #ffffff;
 .student-starter-nav {
   margin-top: 8px;
   padding-top: 16px;
-  border-top: 1px solid #e5e7eb;
 }
 
 .student-starter-panel {
@@ -1818,7 +1817,6 @@ color: #ffffff;
   width: 32px;
   height: 32px;
   border-radius: 10px;
-  background: #f3f4f6;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -6159,6 +6157,7 @@ video.student-community-media {
   transition:
     transform 0.18s ease,
     box-shadow 0.18s ease;
+    background-color: #fff;
 }
 
 .student-community-card:hover {
@@ -6444,7 +6443,11 @@ video.student-community-media {
 .student-community-side-card {
   padding: 20px;
   border-radius: 14px;
+  background-color: #fff;
   box-shadow: 0 7px 20px rgba(15, 23, 42, 0.035);
+}
+.txts-stsy{
+  color: #383838;
 }
 
 .student-community-side-card h2 {
@@ -7637,6 +7640,52 @@ video.student-community-media {
   justify-content: center;
 }
 
+.student-profile-menu-wrap {
+  position: relative;
+}
+
+.student-profile-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 168px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+  padding: 6px;
+  z-index: 1060;
+}
+
+.student-profile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 0.88rem;
+  font-family: inherit;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  text-align: left;
+}
+
+.student-profile-menu-item:hover {
+  background: #f1f5f9;
+}
+
+.student-profile-menu-item--logout {
+  color: #b91c1c;
+}
+
+.student-profile-menu-item--logout:hover {
+  background: #fef2f2;
+}
+
 .student-bookmark-overlay {
   position: fixed;
   inset: 0;
@@ -7831,7 +7880,7 @@ video.student-community-media {
 }
 
 .student-course-detail-page .h4 {
-  font-size: 1.12rem;
+  font-size: 1rem;
 }
 
 .student-course-detail-page .h5 {

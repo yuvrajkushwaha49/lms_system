@@ -15,6 +15,7 @@ import {
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
+import StudentPageSearchSync from "../../components/StudentPageSearchSync";
 
 /** Split FAQ answer into paragraphs and bullet/numbered lists (lines like "- item" or "1. item"). */
 function parseFaqAnswerBody(text) {
@@ -73,6 +74,7 @@ export default function StudentFaqsPage() {
   const [members, setMembers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [headerFaqSearch, setHeaderFaqSearch] = useState("");
   const navigate = useNavigate();
 
   const apiBaseUrl = useMemo(
@@ -173,6 +175,16 @@ export default function StudentFaqsPage() {
     [modalFaq],
   );
 
+  const filteredFaqs = useMemo(() => {
+    const query = headerFaqSearch.trim().toLowerCase();
+    if (!query) return faqs;
+    return faqs.filter((faq) => {
+      const question = String(faq.question || "").toLowerCase();
+      const answer = String(faq.answer || "").toLowerCase();
+      return question.includes(query) || answer.includes(query);
+    });
+  }, [faqs, headerFaqSearch]);
+
   const handleUpgradeClick = () => {
     setModalFaq(null);
     navigate("/dashboard/student-start-here");
@@ -180,6 +192,7 @@ export default function StudentFaqsPage() {
 
   return (
     <StudentDashboardSectionPage title="FAQs">
+      <StudentPageSearchSync onSearchChange={setHeaderFaqSearch} />
       <div className="container-fluid px-0 student-faq-page-wrap">
         <section className="student-faq-top-strip">
           <div className="student-faq-top-left">
@@ -212,11 +225,13 @@ export default function StudentFaqsPage() {
           {error && <div className="alert alert-danger py-2">{error}</div>}
           {isLoading ? (
             <p className="text-muted mb-0">Loading FAQs...</p>
-          ) : faqs.length === 0 ? (
-            <p className="text-muted mb-0">No FAQs available yet.</p>
+          ) : filteredFaqs.length === 0 ? (
+            <p className="text-muted mb-0">
+              {faqs.length === 0 ? "No FAQs available yet." : "No FAQs match your search."}
+            </p>
           ) : (
             <div className="student-faq-list">
-              {faqs.map((faq) => (
+              {filteredFaqs.map((faq) => (
                 <div key={faq.id} className="student-faq-item">
                   <button
                     type="button"

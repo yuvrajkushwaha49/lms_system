@@ -41,6 +41,7 @@ import {
   FiVideo,
 } from "react-icons/fi";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
+import StudentPageSearchSync from "../../components/StudentPageSearchSync";
 import CommunityVideoPlayer from "../../components/CommunityVideoPlayer";
 import CommentReportReasonModal from "../../components/CommentReportReasonModal";
 import MemberProfileModal from "../../components/MemberProfileModal";
@@ -612,6 +613,7 @@ export default function StudentCommunityFeedPage({
       setSearchParams(next, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+  const [headerFeedSearch, setHeaderFeedSearch] = useState("");
   const [posts, setPosts] = useState([]);
   const [processingPosts, setProcessingPosts] = useState([]);
   const [formValues, setFormValues] = useState({
@@ -816,7 +818,21 @@ export default function StudentCommunityFeedPage({
   }, [postingSpaceMenuOpen]);
 
   const sortedPosts = useMemo(() => {
-    const nextPosts = [...posts];
+    const query = headerFeedSearch.trim().toLowerCase();
+    const nextPosts = query
+      ? posts.filter((post) => {
+          const heading = String(post.heading || "").toLowerCase();
+          const subHeading = String(post.sub_heading || post.subHeading || "").toLowerCase();
+          const content = String(post.content || "").toLowerCase();
+          const author = String(post.author_name || post.user_name || "").toLowerCase();
+          return (
+            heading.includes(query) ||
+            subHeading.includes(query) ||
+            content.includes(query) ||
+            author.includes(query)
+          );
+        })
+      : [...posts];
     if (activeSort === "Alphabetical") {
       return nextPosts.sort((a, b) =>
         String(a.heading || "").localeCompare(String(b.heading || "")),
@@ -844,7 +860,7 @@ export default function StudentCommunityFeedPage({
     return nextPosts.sort(
       (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
     );
-  }, [activeSort, posts]);
+  }, [activeSort, posts, headerFeedSearch]);
 
   const selectedPost = useMemo(
     () =>
@@ -1743,6 +1759,7 @@ export default function StudentCommunityFeedPage({
 
   return (
     <DashboardSection title={title}>
+      <StudentPageSearchSync onSearchChange={setHeaderFeedSearch} />
       <div className="student-community-page">
         <div className="student-community-shell-head">
           <h1>{title}</h1>

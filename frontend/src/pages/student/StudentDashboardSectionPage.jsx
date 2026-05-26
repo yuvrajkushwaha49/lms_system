@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+import { StudentHeaderSearchContext } from "../../contexts/StudentHeaderSearchContext";
 
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import logo from "../../assets/logo.png";
@@ -14,6 +15,7 @@ import {
   FiGrid,
   FiHome,
   FiLayers,
+  FiLogOut,
   FiMenu,
   FiMessageCircle,
   FiSearch,
@@ -79,7 +81,7 @@ const welcomeNavItems = [
   { label: "Meet + Greet", icon: "👋", short: "MG", path: "/dashboard/student-meet-greet" },
   { label: "Ask Ryan Anything", icon: "s.", short: "AR", path: "/dashboard/student-ask-ryan" },
   { label: "Owning Manhattan", icon: "🏙", short: "OM", path: "/dashboard/student-owning-manhattan" },
-  { label: "Community Input", icon: "✏️", short: "CI", path: "/dashboard/student-community" },
+  // { label: "Community Input", icon: "✏️", short: "CI", path: "/dashboard/student-community" },
 ];
 
 const starterNavItems = [
@@ -113,6 +115,27 @@ export default function StudentDashboardSectionPage({
   const [activeBookmarkTab, setActiveBookmarkTab] = useState("posts");
   const [showMessagePanel, setShowMessagePanel] = useState(false);
   const [activeMessageTab, setActiveMessageTab] = useState("inbox");
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const profileMenuRef = useRef(null);
+  const [internalHeaderSearch, setInternalHeaderSearch] = useState("");
+  const isHeaderSearchControlled = typeof onTopHeaderSearchChange === "function";
+  const headerSearch = isHeaderSearchControlled
+    ? (topHeaderSearchValue ?? "")
+    : internalHeaderSearch;
+  const setHeaderSearch = useCallback(
+    (value) => {
+      if (isHeaderSearchControlled) {
+        onTopHeaderSearchChange({ target: { value } });
+      } else {
+        setInternalHeaderSearch(value);
+      }
+    },
+    [isHeaderSearchControlled, onTopHeaderSearchChange],
+  );
+  const handleHeaderSearchChange = useCallback(
+    (event) => setHeaderSearch(event.target.value),
+    [setHeaderSearch],
+  );
   const [starterMenuOpen, setStarterMenuOpen] = useState(true);
   const [welcomeMenuOpen, setWelcomeMenuOpen] = useState(true);
   const [communityMenuOpen, setCommunityMenuOpen] = useState(true);
@@ -180,6 +203,17 @@ export default function StudentDashboardSectionPage({
     localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
   }, [collapsed]);
 
+  useEffect(() => {
+    if (!isHeaderSearchControlled) {
+      setInternalHeaderSearch("");
+    }
+  }, [pathname, isHeaderSearchControlled]);
+
+  const headerSearchContextValue = useMemo(
+    () => ({ search: headerSearch, setSearch: setHeaderSearch }),
+    [headerSearch, setHeaderSearch],
+  );
+
   const isStartHereCourseDetail = pathname.startsWith("/dashboard/student-course/") && new URLSearchParams(search).get("from") === "start-here";
   const isOwningManhattanCourseDetail =
     pathname.startsWith("/dashboard/student-course/") && new URLSearchParams(search).get("from") === "owning-manhattan";
@@ -191,7 +225,7 @@ export default function StudentDashboardSectionPage({
     return pathname === path || pathname.startsWith(`${path}/`);
   };
   const isCommunityRouteActive = COMMUNITY_NAV_ITEMS.some((item) => linkIsActive(item.path));
-  const showCommunityMenu = communityMenuOpen || isCommunityRouteActive;
+  const showCommunityMenu = communityMenuOpen;
   const showMonthlyChallengesMenu = monthlyChallengesMenuOpen;
   const isMonthlyChallengesNavActive = linkIsActive(STUDENT_MONTHLY_CHALLENGES_PATH);
   const isStarterRouteActive = starterNavItems.some((item) => linkIsActive(item.path));
@@ -201,14 +235,14 @@ export default function StudentDashboardSectionPage({
   const activeTopHeaderKey = pathname.startsWith("/dashboard/student-owning-manhattan") || isOwningManhattanCourseDetail
     ? "owning-manhattan"
     : pathname.startsWith("/dashboard/student-course") ||
-        pathname.startsWith(STUDENT_MONTHLY_CHALLENGES_PATH)
+      pathname.startsWith(STUDENT_MONTHLY_CHALLENGES_PATH)
       ? "courses"
       : pathname.startsWith("/dashboard/student-workshops")
         ? "events"
         : pathname.startsWith("/dashboard/feed") ||
-            pathname.startsWith("/dashboard/student-community") ||
-            pathname.startsWith("/dashboard/student-members") ||
-            pathname.startsWith("/dashboard/student-wall-of-wins")
+          pathname.startsWith("/dashboard/student-community") ||
+          pathname.startsWith("/dashboard/student-members") ||
+          pathname.startsWith("/dashboard/student-wall-of-wins")
           ? "leaderboard"
           : "home";
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -243,7 +277,7 @@ export default function StudentDashboardSectionPage({
   }, [isCommunityRouteActive]);
 
   useEffect(() => {
-    if (!communityMenuOpen && !isCommunityRouteActive) return undefined;
+    if (!communityMenuOpen) return undefined;
     const token = localStorage.getItem("token");
     if (!token) return undefined;
     let cancelled = false;
@@ -267,7 +301,7 @@ export default function StudentDashboardSectionPage({
     return () => {
       cancelled = true;
     };
-  }, [communityMenuOpen, isCommunityRouteActive, apiBaseUrl]);
+  }, [communityMenuOpen, apiBaseUrl]);
 
   const SidebarLinkLabel = ({ icon: Icon, label, short, collapsed: isCollapsed }) => (
     <>
@@ -279,10 +313,22 @@ export default function StudentDashboardSectionPage({
   );
 
   const handleLogout = () => {
+    setShowProfileMenu(false);
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     navigate("/login");
   };
+
+  useEffect(() => {
+    if (!showProfileMenu) return undefined;
+    const onPointerDown = (event) => {
+      if (!profileMenuRef.current?.contains(event.target)) {
+        setShowProfileMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [showProfileMenu]);
 
   const bookmarkTabs = [
     { key: "posts", label: "Posts" },
@@ -326,112 +372,183 @@ export default function StudentDashboardSectionPage({
   ];
 
   return (
-    <div className="d-flex min-vh-100">
-      <aside
-        className={`d-none d-lg-flex flex-column text-white lms-bg-purple lms-sidebar ${collapsed ? "lms-sidebar-collapsed" : ""}`}
-      >
-        <div className="lms-sidebar-top">
-          <div className={`lms-sidebar-brand ${collapsed ? "is-collapsed" : ""}`}>
-            <img src={logo} alt="Workians" className="lms-sidebar-logo" />
-          </div>
-          <button
-            type="button"
-            onClick={() => {}}
-            className="lms-sidebar-toggle"
-            disabled
-            title="Sidebar always expanded"
-            aria-expanded={true}
-            aria-label="Sidebar always expanded"
-          >
-            <FiMenu />
-          </button>
-        </div>
-
-<div className="side-bars">
-        <NavLink
-          to="/dashboard/feed"
-          title={collapsed ? "Feed" : undefined}
-          className={() =>
-            `lms-nav-link student-sidebar-feed-link ${collapsed ? "lms-nav-link-collapsed" : ""} ${linkIsActive("/dashboard/feed") ? "active" : ""}`
-          }
+    <StudentHeaderSearchContext.Provider value={headerSearchContextValue}>
+      <div className="d-flex min-vh-100">
+        <aside
+          className={`d-none d-lg-flex flex-column text-white lms-bg-purple lms-sidebar ${collapsed ? "lms-sidebar-collapsed" : ""}`}
         >
-          <SidebarLinkLabel icon={FiLayers} label="Feed" short="FD" collapsed={collapsed} />
-        </NavLink>
-
-
-         <div className={`student-starter-panel ${collapsed ? "collapsed" : ""}`}>
-          {collapsed ? (
-            <NavLink
-              to="/dashboard/student-start-here"
-              title="Sell It Starter"
-              className={`lms-nav-link lms-nav-link-collapsed ${isStarterRouteActive ? "active" : ""}`}
+          <div className="lms-sidebar-top">
+            <div className={`lms-sidebar-brand ${collapsed ? "is-collapsed" : ""}`}>
+              <img src={logo} alt="Workians" className="lms-sidebar-logo" />
+            </div>
+            <button
+              type="button"
+              onClick={() => { }}
+              className="lms-sidebar-toggle"
+              disabled
+              title="Sidebar always expanded"
+              aria-expanded={true}
+              aria-label="Sidebar always expanded"
             >
-              <span className="lms-nav-icon-wrap" aria-hidden="true">
-                <FiGrid className="lms-nav-icon" />
-              </span>
-              <span className="lms-nav-short">SI</span>
+              <FiMenu />
+            </button>
+          </div>
+
+          <div className="side-bars">
+            <NavLink
+              to="/dashboard/feed"
+              title={collapsed ? "Feed" : undefined}
+              className={() =>
+                `lms-nav-link student-sidebar-feed-link ${collapsed ? "lms-nav-link-collapsed" : ""} ${linkIsActive("/dashboard/feed") ? "active" : ""}`
+              }
+            >
+              <SidebarLinkLabel icon={FiLayers} label="Feed" short="FD" collapsed={collapsed} />
             </NavLink>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="student-starter-panel-head"
-                onClick={() => setStarterMenuOpen((prev) => !prev)}
-                aria-expanded={showStarterMenu}
-              >
-                <span className="student-starter-panel-title">Sell It Starter</span>
-                <span className="student-starter-panel-more" aria-hidden="true">
-                  {showStarterMenu ? <FiChevronDown /> : <FiChevronRight />}
-                </span>
-              </button>
-              {showStarterMenu && (
-                <div className="student-starter-panel-list">
-                  {starterNavItems.map((item) => {
-                    return (
-                      <NavLink
-                        key={`starter-panel-${item.label}`}
-                        to={item.path}
-                        className={`student-starter-panel-link ${linkIsActive(item.path) ? "active" : ""}`}
-                      >
-                        <span className="student-starter-panel-icon" aria-hidden="true">
-                          {item.icon}
-                        </span>
-                        <span className="student-starter-panel-label">{item.label}</span>
-                        {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
-                        {item.label === "Sell It Snacks" && <span className="student-starter-panel-count">1</span>}
-                      </NavLink>
-                    );
-                  })}
-                </div>
+
+
+            <div className={`student-starter-panel ${collapsed ? "collapsed" : ""}`}>
+              {collapsed ? (
+                <NavLink
+                  to="/dashboard/student-start-here"
+                  title="Sell It Starter"
+                  className={`lms-nav-link lms-nav-link-collapsed ${isStarterRouteActive ? "active" : ""}`}
+                >
+                  <span className="lms-nav-icon-wrap" aria-hidden="true">
+                    <FiGrid className="lms-nav-icon" />
+                  </span>
+                  <span className="lms-nav-short">SI</span>
+                </NavLink>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="student-starter-panel-head"
+                    onClick={() => setStarterMenuOpen((prev) => !prev)}
+                    aria-expanded={showStarterMenu}
+                  >
+                    <span className="student-starter-panel-title">Sell It Starter</span>
+                    <span className="student-starter-panel-more" aria-hidden="true">
+                      {showStarterMenu ? <FiChevronDown /> : <FiChevronRight />}
+                    </span>
+                  </button>
+                  {showStarterMenu && (
+                    <div className="student-starter-panel-list">
+                      {starterNavItems.map((item) => {
+                        return (
+                          <NavLink
+                            key={`starter-panel-${item.label}`}
+                            to={item.path}
+                            className={`student-starter-panel-link ${linkIsActive(item.path) ? "active" : ""}`}
+                          >
+                            <span className="student-starter-panel-icon" aria-hidden="true">
+                              {item.icon}
+                            </span>
+                            <span className="student-starter-panel-label">{item.label}</span>
+                            {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
+                            {item.label === "Sell It Snacks" && <span className="student-starter-panel-count">1</span>}
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
               )}
-            </>
-          )}
-        </div>
+            </div>
 
-        <div className={`student-starter-panel ${collapsed ? "collapsed" : ""}`}>
-          {collapsed ? (
-            <NavLink
-              to="/dashboard/student-start-here"
-              title="Welcome"
-              className={`lms-nav-link lms-nav-link-collapsed ${isWelcomeRouteActive ? "active" : ""}`}
-            >
-              <span className="lms-nav-icon-wrap" aria-hidden="true">
-                <FiHome className="lms-nav-icon" />
-              </span>
-              <span className="lms-nav-short">W</span>
-            </NavLink>
-          ) : (
-            <>
+            <div className={`student-starter-panel ${collapsed ? "collapsed" : ""}`}>
+              {collapsed ? (
+                <NavLink
+                  to="/dashboard/student-start-here"
+                  title="Welcome"
+                  className={`lms-nav-link lms-nav-link-collapsed ${isWelcomeRouteActive ? "active" : ""}`}
+                >
+                  <span className="lms-nav-icon-wrap" aria-hidden="true">
+                    <FiHome className="lms-nav-icon" />
+                  </span>
+                  <span className="lms-nav-short">W</span>
+                </NavLink>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="student-starter-panel-head"
+                    onClick={() => setWelcomeMenuOpen((prev) => !prev)}
+                    aria-expanded={showWelcomeMenu}
+                  >
+                    <span className="student-starter-panel-title">Welcome!</span>
+                    <span className="student-starter-panel-more" aria-hidden="true">
+                      {showWelcomeMenu ? <FiChevronDown /> : <FiChevronRight />}
+                    </span>
+                  </button>
+                  {showWelcomeMenu && (
+                    <div className="student-starter-panel-list">
+                      {welcomeNavItems.map((item) => {
+                        const isCommunityInput = item.label === "Community Input";
+                        if (isCommunityInput) {
+                          return (
+                            <button
+                              key={`welcome-panel-${item.path}`}
+                              type="button"
+                              className="student-starter-panel-link student-starter-panel-link-disabled"
+                              title="Coming soon"
+                              disabled
+                            >
+                              <span className="student-starter-panel-icon" aria-hidden="true">
+                                {item.icon}
+                              </span>
+                              <span className="student-starter-panel-label">{item.label}</span>
+                              <span className="student-starter-soon-badge">Coming soon</span>
+                            </button>
+                          );
+                        }
+                        return (
+                          <NavLink
+                            key={`welcome-panel-${item.path}`}
+                            to={item.path}
+                            className={`student-starter-panel-link ${linkIsActive(item.path) ? "active" : ""}`}
+                          >
+                            <span className="student-starter-panel-icon" aria-hidden="true">
+                              {item.icon}
+                            </span>
+                            <span className="student-starter-panel-label">{item.label}</span>
+                            {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+
+
+            <div className={`student-starter-panel student-starter-nav-top ${collapsed ? "collapsed" : ""}`}>
               <button
                 type="button"
-                className="student-starter-panel-head"
+                className={`lms-nav-link lms-nav-link-button student-starter-title ${isWelcomeRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
                 onClick={() => setWelcomeMenuOpen((prev) => !prev)}
+                title="Welcome!"
                 aria-expanded={showWelcomeMenu}
               >
-                <span className="student-starter-panel-title">Welcome!</span>
-                <span className="student-starter-panel-more" aria-hidden="true">
-                  {showWelcomeMenu ? <FiChevronDown /> : <FiChevronRight />}
-                </span>
+                {collapsed ? (
+                  <>
+                    <span className="lms-nav-icon-wrap" aria-hidden="true">
+                      <FiHome className="lms-nav-icon" />
+                    </span>
+                    <span className="lms-nav-short">W</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="lms-nav-link-main">
+                      <span className="lms-nav-icon-wrap" aria-hidden="true">
+                        <FiHome className="lms-nav-icon" />
+                      </span>
+                      <span>Welcome!</span>
+                    </span>
+                    <span className="student-starter-panel-more" aria-hidden="true">                   {showStarterMenu ? <FiChevronDown /> : <FiChevronRight />}                 </span>
+                  </>
+                )}
               </button>
               {showWelcomeMenu && (
                 <div className="student-starter-panel-list">
@@ -440,481 +557,285 @@ export default function StudentDashboardSectionPage({
                     if (isCommunityInput) {
                       return (
                         <button
-                          key={`welcome-panel-${item.path}`}
+                          key={`welcome-nav-${item.path}`}
                           type="button"
-                          className="student-starter-panel-link student-starter-panel-link-disabled"
-                          title="Coming soon"
+                          className={`student-starter-link student-starter-link-disabled ${collapsed ? "justify-content-center" : ""}`}
+                          title={collapsed ? `${item.label} (Coming soon)` : "Coming soon"}
                           disabled
                         >
-                          <span className="student-starter-panel-icon" aria-hidden="true">
-                            {item.icon}
-                          </span>
-                          <span className="student-starter-panel-label">{item.label}</span>
-                          <span className="student-starter-soon-badge">Coming soon</span>
+                          <span className="student-starter-panel-icon" aria-hidden="true">{item.icon}</span>
+                          {!collapsed && (
+                            <>
+                              <span>{item.label}</span>
+                              <span className="student-starter-soon-badge">Coming soon</span>
+                            </>
+                          )}
+                          {collapsed && <span className="visually-hidden">{item.label} coming soon</span>}
                         </button>
                       );
                     }
                     return (
                       <NavLink
-                        key={`welcome-panel-${item.path}`}
+                        key={`welcome-nav-${item.path}`}
                         to={item.path}
-                        className={`student-starter-panel-link ${linkIsActive(item.path) ? "active" : ""}`}
+                        title={collapsed ? item.label : undefined}
+                        className={() =>
+                          `student-starter-link ${linkIsActive(item.path) ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`
+                        }
                       >
-                        <span className="student-starter-panel-icon" aria-hidden="true">
-                          {item.icon}
-                        </span>
-                        <span className="student-starter-panel-label">{item.label}</span>
-                        {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
+                        <span className="student-starter-panel-icon" aria-hidden="true">{item.icon}</span>
+                        {!collapsed && <span>{item.label}</span>}
+                        {collapsed && <span className="visually-hidden">{item.label}</span>}
                       </NavLink>
                     );
                   })}
                 </div>
               )}
-            </>
-          )}
-        </div>
-
-       
-
-        <div className={`student-starter-nav student-starter-nav-top ${collapsed ? "collapsed" : ""}`}>
-          <button
-            type="button"
-            className={`lms-nav-link lms-nav-link-button student-starter-title ${isWelcomeRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
-            onClick={() => setWelcomeMenuOpen((prev) => !prev)}
-            title="Welcome!"
-            aria-expanded={showWelcomeMenu}
-          >
-            {collapsed ? (
-              <>
-                <span className="lms-nav-icon-wrap" aria-hidden="true">
-                  <FiHome className="lms-nav-icon" />
-                </span>
-                <span className="lms-nav-short">W</span>
-              </>
-            ) : (
-              <>
-                <span className="lms-nav-link-main">
-                  <span className="lms-nav-icon-wrap" aria-hidden="true">
-                    <FiHome className="lms-nav-icon" />
-                  </span>
-                  <span>Welcome!</span>
-                </span>
-                <span>{showWelcomeMenu ? "▾" : "▸"}</span>
-              </>
-            )}
-          </button>
-          {showWelcomeMenu && (
-            <div className="student-starter-menu">
-              {welcomeNavItems.map((item) => {
-                const isCommunityInput = item.label === "Community Input";
-                if (isCommunityInput) {
-                  return (
-                    <button
-                      key={`welcome-nav-${item.path}`}
-                      type="button"
-                      className={`student-starter-link student-starter-link-disabled ${collapsed ? "justify-content-center" : ""}`}
-                      title={collapsed ? `${item.label} (Coming soon)` : "Coming soon"}
-                      disabled
-                    >
-                      <span className="student-starter-icon" aria-hidden="true">{item.icon}</span>
-                      {!collapsed && (
-                        <>
-                          <span>{item.label}</span>
-                          <span className="student-starter-soon-badge">Coming soon</span>
-                        </>
-                      )}
-                      {collapsed && <span className="visually-hidden">{item.label} coming soon</span>}
-                    </button>
-                  );
-                }
-                return (
-                  <NavLink
-                    key={`welcome-nav-${item.path}`}
-                    to={item.path}
-                    title={collapsed ? item.label : undefined}
-                    className={() =>
-                      `student-starter-link ${linkIsActive(item.path) ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`
-                    }
-                  >
-                    <span className="student-starter-icon" aria-hidden="true">{item.icon}</span>
-                    {!collapsed && <span>{item.label}</span>}
-                    {collapsed && <span className="visually-hidden">{item.label}</span>}
-                  </NavLink>
-                );
-              })}
             </div>
-          )}
-        </div>
 
-        <div className={`student-starter-nav student-starter-nav-top ${collapsed ? "collapsed" : ""}`}>
-          <button
-            type="button"
-            className={`lms-nav-link lms-nav-link-button student-starter-title ${isStarterRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
-            onClick={() => setStarterMenuOpen((prev) => !prev)}
-            title="Sell It Starter"
-            aria-expanded={showStarterMenu}
-          >
-            {collapsed ? (
-              <>
-                <span className="lms-nav-icon-wrap" aria-hidden="true">
-                  <FiGrid className="lms-nav-icon" />
-                </span>
-                <span className="lms-nav-short">SI</span>
-              </>
-            ) : (
-              <>
-                <span className="lms-nav-link-main">
-                  <span className="lms-nav-icon-wrap" aria-hidden="true">
-                    <FiGrid className="lms-nav-icon" />
-                  </span>
-                  <span>Sell It Starter</span>
-                </span>
-                <span>{showStarterMenu ? "▾" : "▸"}</span>
-              </>
-            )}
-          </button>
-          {showStarterMenu && (
-            <div className="student-starter-menu">
-              {starterNavItems.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  title={collapsed ? item.label : undefined}
-                  className={() =>
-                    `student-starter-link ${linkIsActive(item.path) ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`
-                  }
-                >
-                  <span className="student-starter-icon" aria-hidden="true">{item.icon}</span>
-                  {!collapsed && (
-                    <>
-                      <span>{item.label}</span>
-                      {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
-                    </>
-                  )}
-                  {collapsed && <span className="visually-hidden">{item.label}</span>}
-                </NavLink>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <nav className="lms-sidebar-nav">
-          <div className={`student-starter-nav student-starter-nav-community ${collapsed ? "collapsed" : ""}`}>
-            <button
-              type="button"
-              className={`lms-nav-link lms-nav-link-button student-starter-title ${isCommunityRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
-              onClick={() => setCommunityMenuOpen((prev) => !prev)}
-              title="Community"
-              aria-expanded={showCommunityMenu}
-            >
-              {collapsed ? (
-                <>
-                  <span className="lms-nav-icon-wrap" aria-hidden="true">
-                    <FiUsers className="lms-nav-icon" />
-                  </span>
-                  <span className="lms-nav-short">CM</span>
-                </>
-              ) : (
-                <>
-                  <span className="lms-nav-link-main">
-                    <span className="lms-nav-icon-wrap" aria-hidden="true">
-                      <FiUsers className="lms-nav-icon" />
-                    </span>
-                    <span>Community</span>
-                  </span>
-                  <span>{showCommunityMenu ? "▾" : "▸"}</span>
-                </>
-              )}
-            </button>
-            {showCommunityMenu && (
-              <div className="student-starter-menu">
-                {COMMUNITY_NAV_ITEMS.map((item) => {
-                  const badgeCount =
-                    item.badgeKey === "wallOfWins"
-                      ? communitySummary.wallOfWins
-                      : item.badgeKey != null
-                        ? communitySummary.feedBySpace[item.badgeKey] ?? null
-                        : null;
-                  const showBadge = badgeCount != null && !Number.isNaN(Number(badgeCount));
-                  return (
-                    <NavLink
-                      key={item.key}
-                      to={item.path}
-                      title={collapsed ? item.label : undefined}
-                      className={() =>
-                        `student-starter-link student-starter-link-community ${linkIsActive(item.path) ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`
-                      }
-                    >
-                      <span className="student-starter-icon" aria-hidden="true">
-                        {item.icon === "arrow" ? (
-                          <span className="community-sidebar-ico-sell">➤</span>
-                        ) : item.icon === "search" ? (
-                          <FiSearch className="community-sidebar-fi" />
-                        ) : (
-                          item.icon
-                        )}
-                      </span>
-                      {!collapsed && (
-                        <>
-                          <span className="flex-grow-1 text-truncate" style={{ minWidth: 0 }}>
-                            {item.label}
-                          </span>
-                          {showBadge ? (
-                            <span className="student-community-sidebar-count">{badgeCount}</span>
-                          ) : null}
-                        </>
-                      )}
-                      {collapsed && <span className="visually-hidden">{item.label}</span>}
-                    </NavLink>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-          <div className={`student-starter-nav student-starter-nav-monthly ${collapsed ? "collapsed" : ""}`}>
-            <button
-              type="button"
-              className={`lms-nav-link lms-nav-link-button student-starter-title ${isMonthlyChallengesNavActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
-              onClick={() => setMonthlyChallengesMenuOpen((prev) => !prev)}
-              title="Monthly Challenges"
-              aria-expanded={showMonthlyChallengesMenu}
-            >
-              {collapsed ? (
-                <>
-                  <span className="lms-nav-icon-wrap" aria-hidden="true">
-                    <FiCalendar className="lms-nav-icon" />
-                  </span>
-                  <span className="lms-nav-short">MO</span>
-                </>
-              ) : (
-                <>
-                  <span className="lms-nav-link-main">
-                    <span className="lms-nav-icon-wrap" aria-hidden="true">
-                      <FiCalendar className="lms-nav-icon" />
-                    </span>
-                    <span>Monthly Challenges</span>
-                  </span>
-                  <span>{showMonthlyChallengesMenu ? "▾" : "▸"}</span>
-                </>
-              )}
-            </button>
-            {showMonthlyChallengesMenu && (
-              <div className="student-starter-menu">
-                {monthlySidebar.loading ? (
-                  <div className="student-starter-link student-starter-link-disabled text-muted py-2 px-2">
-                    {!collapsed ? "Loading months…" : "…"}
-                  </div>
-                ) : monthlySidebar.meta.length === 0 ? (
-                  <div className="student-starter-link student-starter-link-disabled text-muted py-2 px-2">
-                    {!collapsed ? "No months yet." : "—"}
-                  </div>
-                ) : (
-                  monthlySidebar.meta.map(({ key, count }, index) => {
-                    const cur = new URLSearchParams(search).get("month");
-                    const firstKey = monthlySidebar.meta[0]?.key;
-                    const isMonthActive =
-                      isMonthlyChallengesRoute && (cur === key || (!cur && key === firstKey));
-                    const line = formatMonthlyChallengeLine(key, monthlySidebar.labels);
-                    const tip = `${displayTitleForMonthKey(key, monthlySidebar.labels)} — ${count} course${count === 1 ? "" : "s"}`;
-                    const emoji =
-                      MONTHLY_CHALLENGE_ROW_EMOJIS[index % MONTHLY_CHALLENGE_ROW_EMOJIS.length];
-                    return (
-                      <Link
-                        key={`mc-month-${key}`}
-                        to={`${STUDENT_MONTHLY_CHALLENGES_PATH}?month=${encodeURIComponent(key)}`}
-                        title={tip}
-                        className={`student-starter-link ${isMonthActive ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`}
-                      >
-                        <span className="student-starter-icon" aria-hidden="true">
-                          {emoji}
-                        </span>
-                        {!collapsed && (
-                          <span className="text-truncate" style={{ maxWidth: "11.5rem" }}>
-                            {line}
-                          </span>
-                        )}
-                        {collapsed && <span className="visually-hidden">{line}</span>}
-                      </Link>
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </div>
-          <NavLink
-            to="/dashboard/student-live-workshops"
-            title={collapsed ? "Join Us LIVE" : undefined}
-            className={() =>
-              `lms-nav-link student-sidebar-live-link ${collapsed ? "lms-nav-link-collapsed" : ""} ${linkIsActive("/dashboard/student-live-workshops") ? "active" : ""}`
-            }
-          >
-            <SidebarLinkLabel icon={FiAward} label="Join Us LIVE" short="LV" collapsed={collapsed} />
-          </NavLink>
-          <LearningCenterSidebarSection variant="student" collapsed={collapsed} />
-          {!collapsed && (
-            <div className="student-sidebar-links-group">
-              <div className="student-sidebar-links-label">Links</div>
+            <div className={`student-starter-panel student-starter-nav-top ${collapsed ? "collapsed" : ""}`}>
               <button
                 type="button"
-                className="student-sidebar-links-item"
-                onClick={() => navigate("/dashboard/student-faqs")}
+                className={`lms-nav-link lms-nav-link-button student-starter-title ${isStarterRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
+                onClick={() => setStarterMenuOpen((prev) => !prev)}
+                title="Sell It Starter"
+                aria-expanded={showStarterMenu}
               >
-                <FiArrowUpRight className="student-sidebar-links-icon" aria-hidden="true" />
-                <span>Contact Us</span>
-              </button>
-            </div>
-          )}
-          {studentNavItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              title={collapsed ? item.label : undefined}
-              className={() =>
-                `lms-nav-link ${collapsed ? "lms-nav-link-collapsed" : ""} ${linkIsActive(item.path) ? "active" : ""}`
-              }
-            >
-              <SidebarLinkLabel {...item} collapsed={collapsed} />
-            </NavLink>
-          ))}
-          <div className={`student-starter-nav ${collapsed ? "collapsed" : ""}`}>
-            <button
-              type="button"
-              className={`lms-nav-link lms-nav-link-button student-starter-title ${isWelcomeRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
-              onClick={() => setWelcomeMenuOpen((prev) => !prev)}
-              title="Welcome!"
-              aria-expanded={showWelcomeMenu}
-            >
-              {collapsed ? (
-                <>
-                  <span className="lms-nav-icon-wrap" aria-hidden="true">
-                    <FiHome className="lms-nav-icon" />
-                  </span>
-                  <span className="lms-nav-short">W</span>
-                </>
-              ) : (
-                <>
-                  <span className="lms-nav-link-main">
+                {collapsed ? (
+                  <>
                     <span className="lms-nav-icon-wrap" aria-hidden="true">
-                      <FiHome className="lms-nav-icon" />
+                      <FiGrid className="lms-nav-icon" />
                     </span>
-                    <span>Welcome!</span>
-                  </span>
-                  <span>{showWelcomeMenu ? "▾" : "▸"}</span>
-                </>
-              )}
-            </button>
-            {showWelcomeMenu && (
-              <div className="student-starter-menu">
-                {welcomeNavItems.map((item) => {
-                  const isCommunityInput = item.label === "Community Input";
-                  if (isCommunityInput) {
-                    return (
-                      <button
-                        key={`welcome-inner-${item.path}`}
-                        type="button"
-                        className={`student-starter-link student-starter-link-disabled ${collapsed ? "justify-content-center" : ""}`}
-                        title={collapsed ? `${item.label} (Coming soon)` : "Coming soon"}
-                        disabled
-                      >
-                        <span className="student-starter-icon" aria-hidden="true">
-                          {item.icon}
-                        </span>
-                        {!collapsed && (
-                          <>
-                            <span>{item.label}</span>
-                            <span className="student-starter-soon-badge">Coming soon</span>
-                          </>
-                        )}
-                        {collapsed && <span className="visually-hidden">{item.label} coming soon</span>}
-                      </button>
-                    );
-                  }
-
-                  return (
+                    <span className="lms-nav-short">SI</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="lms-nav-link-main">
+                      <span className="lms-nav-icon-wrap" aria-hidden="true">
+                        <FiGrid className="lms-nav-icon" />
+                      </span>
+                      <span>Sell It Starter</span>
+                    </span>
+                    <span className="student-starter-panel-more" aria-hidden="true">                   {showStarterMenu ? <FiChevronDown /> : <FiChevronRight />}                 </span>
+                  </>
+                )}
+              </button>
+              {showStarterMenu && (
+                <div className="student-starter-panel-list">
+                  {starterNavItems.map((item) => (
                     <NavLink
-                      key={`welcome-inner-${item.path}`}
+                      key={item.path}
                       to={item.path}
                       title={collapsed ? item.label : undefined}
                       className={() =>
                         `student-starter-link ${linkIsActive(item.path) ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`
                       }
                     >
-                      <span className="student-starter-icon" aria-hidden="true">
-                        {item.icon}
-                      </span>
-                      {!collapsed && <span>{item.label}</span>}
+                      <span className="student-starter-panel-icon" aria-hidden="true">{item.icon}</span>
+                      {!collapsed && (
+                        <>
+                          <span>{item.label}</span>
+                          {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
+                        </>
+                      )}
                       {collapsed && <span className="visually-hidden">{item.label}</span>}
                     </NavLink>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-          <div className={`student-starter-nav ${collapsed ? "collapsed" : ""}`}>
-            <button
-              type="button"
-              className={`lms-nav-link lms-nav-link-button student-starter-title ${isStarterRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
-              onClick={() => setStarterMenuOpen((prev) => !prev)}
-              title="Sell It Starter"
-              aria-expanded={showStarterMenu}
-            >
-              {collapsed ? (
-                <>
-                  <span className="lms-nav-icon-wrap" aria-hidden="true">
-                    <FiGrid className="lms-nav-icon" />
-                  </span>
-                  <span className="lms-nav-short">SI</span>
-                </>
-              ) : (
-                <>
-                  <span className="lms-nav-link-main">
-                    <span className="lms-nav-icon-wrap" aria-hidden="true">
-                      <FiGrid className="lms-nav-icon" />
-                    </span>
-                    <span>Sell It Starter</span>
-                  </span>
-                  <span>{showStarterMenu ? "▾" : "▸"}</span>
-                </>
+                  ))}
+                </div>
               )}
-            </button>
-            {showStarterMenu && (
-              <div className="student-starter-menu">
-                {starterNavItems.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    title={collapsed ? item.label : undefined}
-                    className={() =>
-                      `student-starter-link ${linkIsActive(item.path) ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`
-                    }
-                  >
-                    <span className="student-starter-icon" aria-hidden="true">{item.icon}</span>
-                    {!collapsed && (
-                      <>
-                        <span>{item.label}</span>
-                        {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
-                      </>
-                    )}
-                    {collapsed && <span className="visually-hidden">{item.label}</span>}
-                  </NavLink>
-                ))}
+            </div>
+
+
+            <div className={`student-starter-panel  ${collapsed ? "collapsed" : ""}`}>
+              <button
+                type="button"
+                className={`student-starter-panel-head ${isCommunityRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
+                onClick={() => setCommunityMenuOpen((prev) => !prev)}
+                title="Community"
+                aria-expanded={showCommunityMenu}
+              >
+                {collapsed ? (
+                  <>
+                    <span className="lms-nav-icon-wrap" aria-hidden="true">
+                      <FiUsers className="lms-nav-icon" />
+                    </span>
+                    <span className="lms-nav-short">CM</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="student-starter-panel-title">
+
+                      <span>Community</span>
+                    </span>
+                    <span className="student-starter-panel-more" aria-hidden="true">
+                      {showCommunityMenu ? <FiChevronDown /> : <FiChevronRight />}
+                    </span>
+                  </>
+                )}
+              </button>
+              {showCommunityMenu && (
+                <div className="student-starter-panel-list">
+                  {COMMUNITY_NAV_ITEMS.map((item) => {
+                    const badgeCount =
+                      item.badgeKey === "wallOfWins"
+                        ? communitySummary.wallOfWins
+                        : item.badgeKey != null
+                          ? communitySummary.feedBySpace[item.badgeKey] ?? null
+                          : null;
+                    const showBadge = badgeCount != null && !Number.isNaN(Number(badgeCount));
+                    return (
+                      <NavLink
+                        key={item.key}
+                        to={item.path}
+                        title={collapsed ? item.label : undefined}
+                        className={() =>
+                          `student-starter-panel-link  ${linkIsActive(item.path) ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`
+                        }
+                      >
+                        <span className="student-starter-panel-icon" aria-hidden="true">
+                          {item.icon === "arrow" ? (
+                            <span className="community-sidebar-ico-sell">➤</span>
+                          ) : item.icon === "search" ? (
+                            <FiSearch className="community-sidebar-fi" />
+                          ) : (
+                            item.icon
+                          )}
+                        </span>
+                        {!collapsed && (
+                          <>
+                            <span className="flex-grow-1 text-truncate" style={{ minWidth: 0 }}>
+                              {item.label}
+                            </span>
+                            {showBadge ? (
+                              <span className="student-community-sidebar-count">{badgeCount}</span>
+                            ) : null}
+                          </>
+                        )}
+                        {collapsed && <span className="visually-hidden">{item.label}</span>}
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className={`student-starter-panel  ${collapsed ? "collapsed" : ""}`}>
+              <button
+                type="button"
+                className={`student-starter-panel-head   ${isMonthlyChallengesNavActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
+                onClick={() => setMonthlyChallengesMenuOpen((prev) => !prev)}
+                title="Monthly Challenges"
+                aria-expanded={showMonthlyChallengesMenu}
+              >
+                {collapsed ? (
+                  <>
+                    <span className="student-starter-panel-title" aria-hidden="true">
+                      <FiCalendar className="lms-nav-icon" />
+                    </span>
+                    <span className="lms-nav-short">MO</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="student-starter-panel-title">
+
+                      <span>Monthly Challenges</span>
+                    </span>
+                    <span className="student-starter-panel-more" aria-hidden="true">                   {showStarterMenu ? <FiChevronDown /> : <FiChevronRight />}                 </span>
+                  </>
+                )}
+              </button>
+              {showMonthlyChallengesMenu && (
+                <div className="student-starter-panel-list">
+                  {monthlySidebar.loading ? (
+                    <div className="student-starter-link student-starter-link-disabled text-muted py-2 px-2">
+                      {!collapsed ? "Loading months…" : "…"}
+                    </div>
+                  ) : monthlySidebar.meta.length === 0 ? (
+                    <div className="student-starter-link student-starter-link-disabled text-muted py-2 px-2">
+                      {!collapsed ? "No months yet." : "—"}
+                    </div>
+                  ) : (
+                    monthlySidebar.meta.map(({ key, count }, index) => {
+                      const cur = new URLSearchParams(search).get("month");
+                      const firstKey = monthlySidebar.meta[0]?.key;
+                      const isMonthActive =
+                        isMonthlyChallengesRoute && (cur === key || (!cur && key === firstKey));
+                      const line = formatMonthlyChallengeLine(key, monthlySidebar.labels);
+                      const tip = `${displayTitleForMonthKey(key, monthlySidebar.labels)} — ${count} course${count === 1 ? "" : "s"}`;
+                      const emoji =
+                        MONTHLY_CHALLENGE_ROW_EMOJIS[index % MONTHLY_CHALLENGE_ROW_EMOJIS.length];
+                      return (
+                        <Link
+                          key={`mc-month-${key}`}
+                          to={`${STUDENT_MONTHLY_CHALLENGES_PATH}?month=${encodeURIComponent(key)}`}
+                          title={tip}
+                          className={`student-starter-panel-link    ${isMonthActive ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`}
+                        >
+                          <span className="student-starter-panel-icon" aria-hidden="true">
+                            {emoji}
+                          </span>
+                          {!collapsed && (
+                            <span className="text-truncate" style={{ maxWidth: "11.5rem" }}>
+                              {line}
+                            </span>
+                          )}
+                          {collapsed && <span className="visually-hidden">{line}</span>}
+                        </Link>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+            <NavLink
+              to="/dashboard/student-live-workshops"
+              title={collapsed ? "Join Us LIVE" : undefined}
+              className={() =>
+                `lms-nav-link student-sidebar-live-link ${collapsed ? "lms-nav-link-collapsed" : ""} ${linkIsActive("/dashboard/student-live-workshops") ? "active" : ""}`
+              }
+            >
+              <SidebarLinkLabel icon={FiAward} label="Join Us LIVE" short="LV" collapsed={collapsed} />
+            </NavLink>
+            <LearningCenterSidebarSection variant="student" collapsed={collapsed} />
+            {!collapsed && (
+              <div className="student-sidebar-links-group">
+                <div className="student-sidebar-links-label">Links</div>
+                <button
+                  type="button"
+                  className="student-sidebar-links-item"
+                  onClick={() => navigate("/dashboard/student-faqs")}
+                >
+                  <FiArrowUpRight className="student-sidebar-links-icon" aria-hidden="true" />
+                  <span>Contact Us</span>
+                </button>
               </div>
             )}
-          </div>
-        </nav>
-        </div>
+            {studentNavItems.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                title={collapsed ? item.label : undefined}
+                className={() =>
+                  `lms-nav-link ${collapsed ? "lms-nav-link-collapsed" : ""} ${linkIsActive(item.path) ? "active" : ""}`
+                }
+              >
+                <SidebarLinkLabel {...item} collapsed={collapsed} />
+              </NavLink>
+            ))}
 
-        {!collapsed && (
-          <div className="lms-sidebar-card">
-            <span className="lms-sidebar-card-kicker">Membership Flow</span>
-            <strong className="lms-sidebar-card-title">Start, learn, and track wins</strong>
-            <p className="lms-sidebar-card-copy mb-0">
-              Jump into lessons, workshops, and saved resources from one clearer sidebar.
-            </p>
-          </div>
-        )}
 
-        {/* <div className="lms-sidebar-footer">
+          </div>
+
+          {!collapsed && (
+            <div className="lms-sidebar-card">
+              <span className="lms-sidebar-card-kicker">Membership Flow</span>
+              <strong className="lms-sidebar-card-title">Start, learn, and track wins</strong>
+              <p className="lms-sidebar-card-copy mb-0">
+                Jump into lessons, workshops, and saved resources from one clearer sidebar.
+              </p>
+            </div>
+          )}
+
+          {/* <div className="lms-sidebar-footer">
           <button
             type="button"
             onClick={handleLogout}
@@ -924,240 +845,260 @@ export default function StudentDashboardSectionPage({
             {collapsed ? "⎋" : "Logout"}
           </button>
         </div> */}
-      </aside>
+        </aside>
 
-      <div className="flexss-fs p-3 p-sm-4 position-relative">
-        <div className="student-panel-top-header mb-4">
-          <div className="student-panel-top-nav">
-            {topHeaderLinks.map((item) => (
+        <div className="flexss-fs p-3 p-sm-4 position-relative">
+          <div className="student-panel-top-header mb-4">
+            <div className="student-panel-top-nav">
+              {topHeaderLinks.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`student-top-nav-link ${activeTopHeaderKey === item.key ? "active" : ""}`}
+                  onClick={() => navigate(item.path)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <div className="student-panel-top-actions">
+              <div className="student-search-chip">
+                <input
+                  type="search"
+                  value={headerSearch}
+                  onChange={handleHeaderSearchChange}
+                  placeholder="Search..."
+                  className="student-search-input"
+                  aria-label="Search"
+                />
+              </div>
               <button
-                key={item.key}
                 type="button"
-                className={`student-top-nav-link ${activeTopHeaderKey === item.key ? "active" : ""}`}
-                onClick={() => navigate(item.path)}
+                className="student-icon-btn"
+                aria-label="Notifications"
               >
-                {item.label}
+                <FiBell />
               </button>
-            ))}
-          </div>
-          <div className="student-panel-top-actions">
-            <div className="student-search-chip">
-              <input
-                type="search"
-                value={
-                  typeof onTopHeaderSearchChange === "function"
-                    ? (topHeaderSearchValue ?? "")
-                    : undefined
-                }
-                onChange={onTopHeaderSearchChange}
-                readOnly={typeof onTopHeaderSearchChange !== "function"}
-                placeholder="Search..."
-                className="student-search-input"
-                aria-label="Search"
-              />
-            </div>
-            <button
-              type="button"
-              className="student-icon-btn"
-              aria-label="Notifications"
-            >
-              <FiBell />
-            </button>
 
-            <button
-              type="button"
-              className="student-icon-btn"
-              aria-label="Messages"
-              onClick={() => setShowMessagePanel((prev) => !prev)}
-            >
-              <FiMessageCircle />
-            </button>
+              <button
+                type="button"
+                className="student-icon-btn"
+                aria-label="Messages"
+                onClick={() => {
+                  setShowProfileMenu(false);
+                  setShowMessagePanel((prev) => !prev);
+                }}
+              >
+                <FiMessageCircle />
+              </button>
 
-            <button
-              type="button"
-              className="student-icon-btn"
-              aria-label="Bookmarks"
-              onClick={() => setShowBookmarkPanel((prev) => !prev)}
-            >
-              <FiBookmark />
-            </button>
+              <button
+                type="button"
+                className="student-icon-btn"
+                aria-label="Bookmarks"
+                onClick={() => {
+                  setShowProfileMenu(false);
+                  setShowBookmarkPanel((prev) => !prev);
+                }}
+              >
+                <FiBookmark />
+              </button>
 
-            <button
-              type="button"
-              className="student-avatar-btn"
-              aria-label="Profile"
-            >
-              {userInitial ? userInitial : <FiUser />}
-            </button>
-          </div>
-        </div>
-        {showMessagePanel && (
-          <>
-            <button
-              type="button"
-              className="student-bookmark-overlay"
-              aria-label="Close message panel"
-              onClick={() => setShowMessagePanel(false)}
-            />
-            <div className="student-message-modal lms-card">
-              <div className="p-4 pb-3 border-bottom">
-                <div className="d-flex justify-content-between align-items-center gap-2">
-                  <h3 className="mb-0 fw-bold">Direct messages</h3>
-                  <div className="d-flex align-items-center gap-2 text-muted">
-                    <span className="student-message-tool">⌄⌄</span>
-                    <span className="student-message-tool">＋</span>
+              <div className="student-profile-menu-wrap" ref={profileMenuRef}>
+                <button
+                  type="button"
+                  className="student-avatar-btn"
+                  aria-label="Profile"
+                  aria-expanded={showProfileMenu}
+                  aria-haspopup="menu"
+                  onClick={() => setShowProfileMenu((prev) => !prev)}
+                >
+                  {userInitial ? userInitial : <FiUser />}
+                </button>
+                {showProfileMenu && (
+                  <div className="student-profile-menu" role="menu">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="student-profile-menu-item student-profile-menu-item--logout"
+                      onClick={handleLogout}
+                    >
+                      <FiLogOut aria-hidden="true" />
+                      <span>Logout</span>
+                    </button>
                   </div>
-                </div>
-              </div>
-              <div className="student-bookmark-tabs px-4 border-bottom">
-                {messageTabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    className={`student-bookmark-tab ${activeMessageTab === tab.key ? "active" : ""}`}
-                    onClick={() => setActiveMessageTab(tab.key)}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-              <div className="student-message-body">
-                {messageItems.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`student-message-item ${message.highlighted ? "active" : ""}`}
-                  >
-                    <div className="student-message-avatar">
-                      {String(message.name || "U").trim().charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-grow-1">
-                      <div className="d-flex align-items-center gap-2 flex-wrap">
-                        <h5 className="mb-0 fw-bold">{message.name}</h5>
-                        <span className="text-muted">{message.date}</span>
-                      </div>
-                      <p className="mb-0 text-muted">{message.text}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-        {showBookmarkPanel && (
-          <>
-            <button
-              type="button"
-              className="student-bookmark-overlay"
-              aria-label="Close bookmark panel"
-              onClick={() => setShowBookmarkPanel(false)}
-            />
-            <div className="student-bookmark-modal lms-card">
-              <div className="p-4 pb-3 border-bottom">
-                <h3 className="mb-0 fw-bold">Bookmarks</h3>
-              </div>
-              <div className="student-bookmark-tabs px-4 border-bottom">
-                {bookmarkTabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    className={`student-bookmark-tab ${activeBookmarkTab === tab.key ? "active" : ""}`}
-                    onClick={() => setActiveBookmarkTab(tab.key)}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-              <div className="student-bookmark-body p-4">
-                {activeBookmarkTab === "lessons" ? (
-                  bookmarkLessons.length > 0 ? (
-                    bookmarkLessons.map((lesson) => (
-                      <div key={lesson.id} className="student-bookmark-entry">
-                        <button
-                          type="button"
-                          className="student-bookmark-link w-100 text-start border-0 bg-transparent"
-                          onClick={() => {
-                            navigate(`/dashboard/student-course/${lesson.id}`);
-                            setShowBookmarkPanel(false);
-                          }}
-                        >
-                          <h5 className="mb-1 fw-bold">{lesson.title || "Untitled lesson"}</h5>
-                          <p className="mb-0 text-muted">
-                            {lesson.description || "No description available."}
-                          </p>
-                        </button>
-                        <div className="d-flex justify-content-end">
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-danger rounded-pill px-3"
-                            onClick={() => onRemoveBookmarkLesson?.(lesson.id)}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-muted mb-0">No bookmarked lessons yet.</p>
-                  )
-                ) : activeBookmarkTab === "media" ? (
-                  bookmarkMediaFiles.length > 0 ? (
-                    bookmarkMediaFiles.map((item) => (
-                      <div key={`${item.courseId}-${item.videoId}`} className="student-bookmark-entry">
-                        <button
-                          type="button"
-                          className="student-bookmark-link w-100 text-start border-0 bg-transparent"
-                          onClick={() => {
-                            if (item.openPath) {
-                              navigate(item.openPath);
-                              setShowBookmarkPanel(false);
-                              return;
-                            }
-                            if (item.openUrl) {
-                              window.open(item.openUrl, "_blank", "noopener,noreferrer");
-                            }
-                          }}
-                        >
-                          <h5 className="mb-1 fw-bold">{item.title || "Untitled media"}</h5>
-                          <p className="mb-0 text-muted">
-                            {item.shortDescription || item.description || "No description available."}
-                          </p>
-                        </button>
-                        <div className="d-flex justify-content-end">
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-danger rounded-pill px-3"
-                            onClick={() => onRemoveBookmarkMedia?.(item.courseId, item.videoId)}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-muted mb-0">No bookmarked media files yet.</p>
-                  )
-                ) : (
-                  <p className="text-muted mb-0">
-                    No bookmarked {activeBookmarkTab} yet.
-                  </p>
                 )}
               </div>
             </div>
-          </>
-        )}
-        {children || (
-          <div
-            className="lms-card p-5 d-flex align-items-center justify-content-center"
-            style={{ minHeight: 220 }}
-          >
-            <div className="text-center">
-              <h1 className="h3 fw-bold text-dark">
-                {title || "Student Dashboard"}
-              </h1>
-            </div>
           </div>
-        )}
+          {showMessagePanel && (
+            <>
+              <button
+                type="button"
+                className="student-bookmark-overlay"
+                aria-label="Close message panel"
+                onClick={() => setShowMessagePanel(false)}
+              />
+              <div className="student-message-modal lms-card">
+                <div className="p-4 pb-3 border-bottom">
+                  <div className="d-flex justify-content-between align-items-center gap-2">
+                    <h3 className="mb-0 fw-bold">Direct messages</h3>
+                    <div className="d-flex align-items-center gap-2 text-muted">
+                      <span className="student-message-tool">⌄⌄</span>
+                      <span className="student-message-tool">＋</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="student-bookmark-tabs px-4 border-bottom">
+                  {messageTabs.map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      className={`student-bookmark-tab ${activeMessageTab === tab.key ? "active" : ""}`}
+                      onClick={() => setActiveMessageTab(tab.key)}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="student-message-body">
+                  {messageItems.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`student-message-item ${message.highlighted ? "active" : ""}`}
+                    >
+                      <div className="student-message-avatar">
+                        {String(message.name || "U").trim().charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-grow-1">
+                        <div className="d-flex align-items-center gap-2 flex-wrap">
+                          <h5 className="mb-0 fw-bold">{message.name}</h5>
+                          <span className="text-muted">{message.date}</span>
+                        </div>
+                        <p className="mb-0 text-muted">{message.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+          {showBookmarkPanel && (
+            <>
+              <button
+                type="button"
+                className="student-bookmark-overlay"
+                aria-label="Close bookmark panel"
+                onClick={() => setShowBookmarkPanel(false)}
+              />
+              <div className="student-bookmark-modal lms-card">
+                <div className="p-4 pb-3 border-bottom">
+                  <h3 className="mb-0 fw-bold">Bookmarks</h3>
+                </div>
+                <div className="student-bookmark-tabs px-4 border-bottom">
+                  {bookmarkTabs.map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      className={`student-bookmark-tab ${activeBookmarkTab === tab.key ? "active" : ""}`}
+                      onClick={() => setActiveBookmarkTab(tab.key)}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="student-bookmark-body p-4">
+                  {activeBookmarkTab === "lessons" ? (
+                    bookmarkLessons.length > 0 ? (
+                      bookmarkLessons.map((lesson) => (
+                        <div key={lesson.id} className="student-bookmark-entry">
+                          <button
+                            type="button"
+                            className="student-bookmark-link w-100 text-start border-0 bg-transparent"
+                            onClick={() => {
+                              navigate(`/dashboard/student-course/${lesson.id}`);
+                              setShowBookmarkPanel(false);
+                            }}
+                          >
+                            <h5 className="mb-1 fw-bold">{lesson.title || "Untitled lesson"}</h5>
+                            <p className="mb-0 text-muted">
+                              {lesson.description || "No description available."}
+                            </p>
+                          </button>
+                          <div className="d-flex justify-content-end">
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-danger rounded-pill px-3"
+                              onClick={() => onRemoveBookmarkLesson?.(lesson.id)}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-muted mb-0">No bookmarked lessons yet.</p>
+                    )
+                  ) : activeBookmarkTab === "media" ? (
+                    bookmarkMediaFiles.length > 0 ? (
+                      bookmarkMediaFiles.map((item) => (
+                        <div key={`${item.courseId}-${item.videoId}`} className="student-bookmark-entry">
+                          <button
+                            type="button"
+                            className="student-bookmark-link w-100 text-start border-0 bg-transparent"
+                            onClick={() => {
+                              if (item.openPath) {
+                                navigate(item.openPath);
+                                setShowBookmarkPanel(false);
+                                return;
+                              }
+                              if (item.openUrl) {
+                                window.open(item.openUrl, "_blank", "noopener,noreferrer");
+                              }
+                            }}
+                          >
+                            <h5 className="mb-1 fw-bold">{item.title || "Untitled media"}</h5>
+                            <p className="mb-0 text-muted">
+                              {item.shortDescription || item.description || "No description available."}
+                            </p>
+                          </button>
+                          <div className="d-flex justify-content-end">
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-danger rounded-pill px-3"
+                              onClick={() => onRemoveBookmarkMedia?.(item.courseId, item.videoId)}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-muted mb-0">No bookmarked media files yet.</p>
+                    )
+                  ) : (
+                    <p className="text-muted mb-0">
+                      No bookmarked {activeBookmarkTab} yet.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+          {children || (
+            <div
+              className="lms-card p-5 d-flex align-items-center justify-content-center"
+              style={{ minHeight: 220 }}
+            >
+              <div className="text-center">
+                <h1 className="h3 fw-bold text-dark">
+                  {title || "Student Dashboard"}
+                </h1>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </StudentHeaderSearchContext.Provider>
   );
 }

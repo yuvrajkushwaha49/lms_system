@@ -11,6 +11,7 @@ import {
   FiUserPlus,
 } from "react-icons/fi";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
+import StudentPageSearchSync from "../../components/StudentPageSearchSync";
 import MemberProfileModal from "../../components/MemberProfileModal";
 
 const PAGE_SIZE = 24;
@@ -248,6 +249,7 @@ export default function StudentMembersPage() {
 
   return (
     <StudentDashboardSectionPage title="Member Directory">
+      <StudentPageSearchSync onSearchChange={setSearchTerm} />
       <div className="member-directory-wrap">
         <section className="member-directory-page lms-card">
           <header className="member-directory-header">
@@ -352,27 +354,14 @@ export default function StudentMembersPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
-                <div className="member-directory-chips" aria-label="Quick filters">
-                  <span className="member-directory-chip member-directory-chip--muted">
-                    <FiNavigation aria-hidden />
-                    Near me
-                  </span>
-                  <span className="member-directory-chip member-directory-chip--muted">
-                    <FiMessageCircle aria-hidden />
-                    Online
-                  </span>
-                  <span className="member-directory-chip member-directory-chip--muted">
-                    <FiUserPlus aria-hidden />
-                    Recently joined
-                  </span>
-                </div>
+               
                 <label className="member-directory-label" htmlFor="member-dir-location">
                   Location
                 </label>
                 <input
                   id="member-dir-location"
                   className="member-directory-input"
-                  placeholder="Filter loaded rows"
+                  placeholder="Location"
                   value={locationFilter}
                   onChange={(e) => setLocationFilter(e.target.value)}
                 />
