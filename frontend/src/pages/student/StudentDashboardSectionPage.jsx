@@ -718,7 +718,7 @@ export default function StudentDashboardSectionPage({
                 </div>
               )}
             </div>
-            <div className={`student-starter-panel  ${collapsed ? "collapsed" : ""}`}>
+            {/* <div className={`student-starter-panel  ${collapsed ? "collapsed" : ""}`}>
               <button
                 type="button"
                 className={`student-starter-panel-head   ${isMonthlyChallengesNavActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
@@ -820,7 +820,7 @@ export default function StudentDashboardSectionPage({
               >
                 <SidebarLinkLabel {...item} collapsed={collapsed} />
               </NavLink>
-            ))}
+            ))} */}
 
 
           </div>
