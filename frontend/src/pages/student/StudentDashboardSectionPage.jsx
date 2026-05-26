@@ -718,7 +718,7 @@ export default function StudentDashboardSectionPage({
                 </div>
               )}
             </div>
-            <div className={`student-starter-panel  ${collapsed ? "collapsed" : ""}`}>
+            {/* <div className={`student-starter-panel  ${collapsed ? "collapsed" : ""}`}>
               <button
                 type="button"
                 className={`student-starter-panel-head   ${isMonthlyChallengesNavActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
@@ -794,8 +794,8 @@ export default function StudentDashboardSectionPage({
               }
             >
               <SidebarLinkLabel icon={FiAward} label="Join Us LIVE" short="LV" collapsed={collapsed} />
-            </NavLink>
-            <LearningCenterSidebarSection variant="student" collapsed={collapsed} />
+            </NavLink> */}
+            {/* <LearningCenterSidebarSection variant="student" collapsed={collapsed} />
             {!collapsed && (
               <div className="student-sidebar-links-group">
                 <div className="student-sidebar-links-label">Links</div>
@@ -808,7 +808,7 @@ export default function StudentDashboardSectionPage({
                   <span>Contact Us</span>
                 </button>
               </div>
-            )}
+            )} */}
             {studentNavItems.map((item) => (
               <NavLink
                 key={item.path}
