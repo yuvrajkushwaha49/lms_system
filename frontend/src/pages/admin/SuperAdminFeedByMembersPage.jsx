@@ -3,7 +3,7 @@ import DashboardSectionPage from "./DashboardSectionPage";
 export default function SuperAdminFeedByMembersPage() {
   return (
     <DashboardSectionPage title="Feed By Members">
-      <div className="container-fluid px-0" style={{ maxWidth: 1200 }}>
+      <div className="container-fluid px-0">
         <div className="lms-card p-4 p-md-5 mb-3">
           <h1 className="h3 fw-bold mb-2">Feed By Members</h1>
           <p className="text-muted mb-0">

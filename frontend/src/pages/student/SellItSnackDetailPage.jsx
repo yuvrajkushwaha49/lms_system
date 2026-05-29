@@ -749,7 +749,7 @@ export default function SellItSnackDetailPage({
 
   return (
     <DashboardSection title="Sell It Snack Detail">
-      <div className="container-fluid px-0 sell-snack-detail-page" style={{ maxWidth: 1200 }}>
+      <div className="container-fluid px-0 sell-snack-detail-page"  >
         <div className="d-flex justify-content-between align-items-center mb-3">
           <Link to={backPath} className="btn btn-outline-secondary btn-sm">
             Back to Sell It Snacks
