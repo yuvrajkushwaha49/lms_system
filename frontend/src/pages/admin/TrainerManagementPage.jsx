@@ -224,7 +224,7 @@ export default function TrainerManagementPage() {
 
   return (
     <DashboardSectionPage title="Trainer Management">
-      <div className="container-fluid px-0" style={{ maxWidth: 1200 }}>
+      <div className="container-fluid px-0"  >
         <div className="lms-card p-4 p-md-5 mb-3 text-white" style={{ background: 'linear-gradient(90deg,#071d3d,#0d2f69 45%,#0a5dea)' }}>
           <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
             <div>

@@ -117,7 +117,7 @@ export default function AdminSellItSnacksPage() {
 
   return (
     <DashboardSectionPage title="Sell It Snacks">
-      <div className="container-fluid px-0" style={{ maxWidth: 1200 }}>
+      <div className="container-fluid px-0"  >
         <div className="lms-card p-4 p-md-5 mb-3">
           <div className="d-flex justify-content-between align-items-center gap-3 flex-wrap">
             <div>

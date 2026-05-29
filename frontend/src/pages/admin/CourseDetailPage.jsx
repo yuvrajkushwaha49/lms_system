@@ -689,7 +689,7 @@ export default function CourseDetailPage() {
 
   return (
     <DashboardSectionPage title="Course Detail">
-      <div className="container-fluid px-0" style={{ maxWidth: 1200 }}>
+      <div className="container-fluid px-0"  >
         <div className="d-flex justify-content-between align-items-center mb-3">
           <Link to="/dashboard/course-management" className="btn btn-outline-secondary btn-sm">
             Back to Course Management

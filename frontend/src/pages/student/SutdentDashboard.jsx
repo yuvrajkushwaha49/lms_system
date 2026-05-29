@@ -3,7 +3,7 @@ import StudentDashboardSectionPage from './StudentDashboardSectionPage';
 export default function StudentDashboard() {
   return (
     <StudentDashboardSectionPage title="Student Dashboard">
-      <div className="container-fluid px-0" style={{ maxWidth: 1200 }}>
+      <div className="container-fluid px-0"  >
         <div className="lms-card p-4 p-md-5 mb-3 text-white" style={{ background: 'linear-gradient(90deg,#0b1f4f,#1d4ed8)' }}>
           <h1 className="h2 fw-bold mb-1">Student Dashboard</h1>
           <p className="mb-0 text-light">Track your enrolled courses, progress, and upcoming classes.</p>

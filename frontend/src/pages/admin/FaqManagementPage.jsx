@@ -219,7 +219,7 @@ export default function FaqManagementPage() {
 
   return (
     <DashboardSectionPage title="FAQs Management">
-      <div className="container-fluid px-0 faq-admin-page" style={{ maxWidth: 1200 }}>
+      <div className="container-fluid px-0 faq-admin-page"  >
         <div
           className="lms-card p-4 p-md-5 mb-3 text-white border-0"
           style={{

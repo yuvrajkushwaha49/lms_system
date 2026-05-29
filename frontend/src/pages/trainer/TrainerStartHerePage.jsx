@@ -12,7 +12,7 @@ export default function TrainerStartHerePage() {
 
   return (
     <TrainerDashboardSectionPage title="Start Here">
-      <div className="container-fluid px-0 student-panel-page" style={{ maxWidth: 1200 }}>
+      <div className="container-fluid px-0 student-panel-page"  >
         <div className="lms-card p-4 p-md-5 mb-3">
           <p className="text-uppercase small text-primary fw-bold mb-2">Welcome</p>
           <h1 className="h3 fw-bold mb-1">Start Here</h1>
