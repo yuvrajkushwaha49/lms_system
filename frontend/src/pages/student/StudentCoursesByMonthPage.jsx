@@ -320,7 +320,7 @@ export default function StudentCoursesByMonthPage() {
   return (
     <StudentDashboardSectionPage title="Monthly challenges">
       <StudentPageSearchSync onSearchChange={setHeaderMonthSearch} />
-      <div className="container-fluid px-0 student-monthly-page" style={{ maxWidth: 960 }}>
+      <div className="container-fluid px-0 student-monthly-page" >
         <div className="lms-card overflow-hidden border-0 shadow-sm student-monthly-card">
           <div className="student-monthly-hero px-3 py-4 px-md-4 border-bottom">
             <p className="text-uppercase small text-white-50 fw-bold mb-2">Learning</p>
@@ -355,14 +355,14 @@ export default function StudentCoursesByMonthPage() {
                   <div className="d-flex flex-wrap gap-2">
                     <button
                       type="button"
-                      className="btn btn-sm btn-outline-primary rounded-pill px-3"
+                      className="btn btn-sm student-community-new-post rounded-pill px-3"
                       onClick={expandAllWeeks}
                     >
                       Expand all
                     </button>
                     <button
                       type="button"
-                      className="btn btn-sm btn-outline-secondary rounded-pill px-3"
+                      className="btn btn-sm rounded-pill px-3"
                       onClick={collapseAllWeeks}
                     >
                       Collapse all

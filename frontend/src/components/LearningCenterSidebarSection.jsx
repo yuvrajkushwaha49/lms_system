@@ -155,47 +155,29 @@ export default function LearningCenterSidebarSection({ variant, collapsed }) {
   }
 
   return (
-    <div className="lms-learning-center">
-      <div className={`lms-learning-center-head ${anyActive ? "is-active" : ""}`}>
+    <div className="student-starter-panel  ">
         <button
           type="button"
-          className="lms-learning-center-title-btn"
+          className="student-starter-panel-head  "
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
         >
-          <span className="lms-learning-center-title-text">Learning Center</span>
+          <span className="student-starter-panel-title">Learning Center</span>
           <span className="lms-learning-center-chevron" aria-hidden>
             {open ? <FiChevronDown /> : <FiChevronRight />}
           </span>
         </button>
-        <div className="lms-learning-center-more-wrap" ref={moreWrapRef}>
-          <button
-            type="button"
-            className="lms-learning-center-more-btn"
-            aria-label="Learning Center options"
-            aria-expanded={moreOpen}
-            onClick={() => setMoreOpen((v) => !v)}
-          >
-            <FiMoreHorizontal />
-          </button>
-          {moreOpen ? (
-            <div className="lms-learning-center-more-menu" role="menu">
-              <Link to={helpTo} role="menuitem" className="lms-learning-center-more-item" onClick={() => setMoreOpen(false)}>
-                Help &amp; FAQs
-              </Link>
-            </div>
-          ) : null}
-        </div>
-      </div>
+       
+  
       {open ? (
-        <div className="lms-learning-center-list">
+        <div className="student-starter-panel-list">
           {items.map((item) => {
             const active = learningRouteActive(variant, item.key, pathname, search);
             return (
               <NavLink
                 key={item.key}
                 to={item.to}
-                className={() => `lms-learning-center-item ${active ? "is-active" : ""}`}
+                className={() => `student-starter-panel-link      ${active ? "is-active" : ""}`}
               >
                 {renderIcon(item.icon)}
                 <span className="lms-learning-center-label">{item.label}</span>
