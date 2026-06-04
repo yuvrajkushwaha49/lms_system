@@ -786,29 +786,10 @@ export default function StudentDashboardSectionPage({
                 </div>
               )}
             </div>
-            <NavLink
-              to="/dashboard/student-live-workshops"
-              title={collapsed ? "Join Us LIVE" : undefined}
-              className={() =>
-                `lms-nav-link student-sidebar-live-link ${collapsed ? "lms-nav-link-collapsed" : ""} ${linkIsActive("/dashboard/student-live-workshops") ? "active" : ""}`
-              }
-            >
-              <SidebarLinkLabel icon={FiAward} label="Join Us LIVE" short="LV" collapsed={collapsed} />
-            </NavLink>
+
             <LearningCenterSidebarSection variant="student" collapsed={collapsed} />
-            {!collapsed && (
-              <div className="student-sidebar-links-group">
-                <div className="student-sidebar-links-label">Links</div>
-                <button
-                  type="button"
-                  className="student-sidebar-links-item"
-                  onClick={() => navigate("/dashboard/student-faqs")}
-                >
-                  <FiArrowUpRight className="student-sidebar-links-icon" aria-hidden="true" />
-                  <span>Contact Us</span>
-                </button>
-              </div>
-            )}
+           
+          
             {studentNavItems.map((item) => (
               <NavLink
                 key={item.path}
@@ -821,6 +802,7 @@ export default function StudentDashboardSectionPage({
                 <SidebarLinkLabel {...item} collapsed={collapsed} />
               </NavLink>
             ))}
+
 
 
           </div>
