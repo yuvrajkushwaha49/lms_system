@@ -64,7 +64,7 @@ export default function WorkshopManagementPage() {
 
   return (
     <DashboardSectionPage title="Workshop Management">
-      <div className="container-fluid px-0" style={{ maxWidth: 1200 }}>
+      <div className="container-fluid px-0"  >
         <div className="lms-card p-4 p-md-5 mb-3 text-white" style={{ background: 'linear-gradient(90deg,#071d3d,#0d2f69 45%,#0a5dea)' }}>
           <h1 className="h2 fw-bold mb-1">Workshop Management</h1>
           <p className="mb-0 text-light">Live workshop data from courses table.</p>

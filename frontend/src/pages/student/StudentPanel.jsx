@@ -365,7 +365,7 @@ export default function StudentPanel({ variant = 'signature' }) {
       bookmarkLessons={bookmarkedCourses}
       onRemoveBookmarkLesson={toggleBookmarkCourse}
     >
-      <div className="container-fluid px-0 student-panel-page" style={{ maxWidth: 1200 }}>
+      <div className="container-fluid px-0 student-panel-page"  >
         {/* <div className="lms-card p-4 p-md-5 mb-4 text-white student-panel-hero">
           <div className="d-flex justify-content-between align-items-center gap-3 flex-wrap">
             <div>
