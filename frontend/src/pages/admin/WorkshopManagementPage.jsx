@@ -3,6 +3,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 
 import { useNavigate } from 'react-router-dom';
 import DashboardSectionPage from './DashboardSectionPage';
+import { TableSkeleton } from '../../components/skeletons/LoadingSkeletons';
 
 export default function WorkshopManagementPage() {
   const navigate = useNavigate();
@@ -93,9 +94,7 @@ export default function WorkshopManagementPage() {
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr>
-                    <td colSpan={5} className="text-center py-5 text-muted">Loading workshops...</td>
-                  </tr>
+                  <TableSkeleton rows={5} cols={5} />
                 ) : filteredWorkshops.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="text-center py-5 text-muted">No workshop data found.</td>

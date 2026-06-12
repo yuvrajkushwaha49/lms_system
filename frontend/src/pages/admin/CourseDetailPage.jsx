@@ -6,6 +6,7 @@ import DashboardSectionPage from './DashboardSectionPage';
 import CommunityVideoPlayer from '../../components/CommunityVideoPlayer.jsx';
 import CourseAdaptiveVideo from '../../components/CourseAdaptiveVideo.jsx';
 import { resolvePublicMediaUrl } from '../../utils/mediaUrl';
+import { CourseHeroSkeleton } from '../../components/skeletons/LoadingSkeletons';
 
 const STANDARD_RECORDED_TYPE_OPTIONS = ['Chapter Wise/Topic Wise', 'Short Course'];
 const OWNING_MANHATTAN_RECORDED_TYPE_OPTIONS = ['Short Course', 'Podcast Episode'];
@@ -733,7 +734,7 @@ export default function CourseDetailPage() {
           }}
         >
           {isLoading ? (
-            <p className="mb-0">Loading course detail...</p>
+            <CourseHeroSkeleton variant="dark" />
           ) : (
             <>
               <p className="text-uppercase small mb-1 text-light">Course Overview</p>

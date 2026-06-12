@@ -288,7 +288,6 @@ export default function WelcomeVideoManagementPage() {
             <div className="admin-welcome-video-loading" aria-busy="true" aria-label="Loading welcome video settings">
               <div className="admin-welcome-video-skeleton" />
               <div className="admin-welcome-video-skeleton short" />
-              <p className="text-muted small mb-0 mt-3">Loading settings…</p>
             </div>
           ) : (
             <form onSubmit={handleSave} noValidate>

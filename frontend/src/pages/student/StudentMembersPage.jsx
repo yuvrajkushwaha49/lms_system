@@ -13,6 +13,7 @@ import {
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
 import StudentPageSearchSync from "../../components/StudentPageSearchSync";
 import MemberProfileModal from "../../components/MemberProfileModal";
+import { MemberDirectoryGridSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 const PAGE_SIZE = 24;
 const SCROLL_LOAD_THRESHOLD_PX = 120;
@@ -392,7 +393,7 @@ export default function StudentMembersPage() {
                 onScroll={handleDirectoryScroll}
               >
                 {listLoading && members.length === 0 ? (
-                  <p className="member-directory-empty">Loading members…</p>
+                  <MemberDirectoryGridSkeleton count={8} />
                 ) : sortedMembers.length === 0 ? (
                   <p className="member-directory-empty">No members match your filters.</p>
                 ) : (

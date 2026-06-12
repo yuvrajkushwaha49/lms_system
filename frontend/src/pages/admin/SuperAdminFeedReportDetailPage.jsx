@@ -3,6 +3,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 
 import { Link, useLocation, useParams } from "react-router-dom";
 import DashboardSectionPage from "./DashboardSectionPage";
+import { FeedReportDetailSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -149,7 +150,7 @@ export default function SuperAdminFeedReportDetailPage() {
         {notice && <div className="alert alert-success py-2">{notice}</div>}
 
         {isLoading && !report ? (
-          <div className="lms-card p-4">Loading report detail...</div>
+          <FeedReportDetailSkeleton />
         ) : report ? (
           <div className="row g-3">
             <div className="col-lg-8">

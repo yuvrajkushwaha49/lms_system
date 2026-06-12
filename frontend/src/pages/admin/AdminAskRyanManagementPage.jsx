@@ -3,6 +3,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 
 import { useNavigate } from "react-router-dom";
 import DashboardSectionPage from "./DashboardSectionPage";
+import { AskRyanAdminListSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 export default function AdminAskRyanManagementPage() {
   const navigate = useNavigate();
@@ -128,7 +129,7 @@ export default function AdminAskRyanManagementPage() {
                 </button>
               </div>
               {loading ? (
-                <p className="text-muted small mb-0">Loading…</p>
+                <AskRyanAdminListSkeleton count={6} />
               ) : rows.length === 0 ? (
                 <p className="text-muted small mb-0">No questions in this filter.</p>
               ) : (

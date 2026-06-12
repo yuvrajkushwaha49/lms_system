@@ -6,6 +6,7 @@ import TrainerDashboardSectionPage from './TrainerDashboardSectionPage';
 import CommunityVideoPlayer from '../../components/CommunityVideoPlayer.jsx';
 import CourseAdaptiveVideo from '../../components/CourseAdaptiveVideo.jsx';
 import { resolvePublicMediaUrl } from '../../utils/mediaUrl';
+import { CourseHeroSkeleton } from '../../components/skeletons/LoadingSkeletons';
 
 export default function TrainerCourseDetailPage() {
   const { courseId } = useParams();
@@ -115,7 +116,7 @@ export default function TrainerCourseDetailPage() {
           }}
         >
           {isLoading ? (
-            <p className="mb-0">Loading course detail...</p>
+            <CourseHeroSkeleton variant="dark" />
           ) : (
             <>
               <p className="text-uppercase small mb-1 text-light">Trainer Course Overview</p>

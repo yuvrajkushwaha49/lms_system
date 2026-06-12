@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { StudentHeaderSearchContext } from "../../contexts/StudentHeaderSearchContext";
+import { SidebarLinksSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import logo from "../../assets/logo.png";
@@ -746,9 +747,7 @@ export default function StudentDashboardSectionPage({
               {showMonthlyChallengesMenu && (
                 <div className="student-starter-panel-list">
                   {monthlySidebar.loading ? (
-                    <div className="student-starter-link student-starter-link-disabled text-muted py-2 px-2">
-                      {!collapsed ? "Loading months…" : "…"}
-                    </div>
+                    <SidebarLinksSkeleton count={collapsed ? 2 : 4} />
                   ) : monthlySidebar.meta.length === 0 ? (
                     <div className="student-starter-link student-starter-link-disabled text-muted py-2 px-2">
                       {!collapsed ? "No months yet." : "—"}
@@ -785,7 +784,7 @@ export default function StudentDashboardSectionPage({
                   )}
                 </div>
               )}
-            </div>
+            </div> */}
             <NavLink
               to="/dashboard/student-live-workshops"
               title={collapsed ? "Join Us LIVE" : undefined}

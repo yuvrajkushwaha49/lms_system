@@ -8,6 +8,7 @@ import {
 } from "react-icons/fi";
 import CourseAdaptiveVideo from "./CourseAdaptiveVideo";
 import { resolvePublicMediaUrl } from "../utils/mediaUrl";
+import { CommentListSkeleton } from "./skeletons/LoadingSkeletons";
 
 const DEFAULT_SUBTITLE = "Based on Ryan's Best-Selling Book";
 
@@ -535,7 +536,7 @@ export default function SignatureCoursePreviewModal({
                 onScroll={handleCommentsScroll}
               >
                 {engageLoading && visibleComments.length === 0 ? (
-                  <p className="signature-course-preview-muted">Loading comments…</p>
+                  <CommentListSkeleton count={3} />
                 ) : null}
                 {!engageLoading && visibleComments.length === 0 ? (
                   <p className="signature-course-preview-muted">No comments yet. Start the conversation.</p>

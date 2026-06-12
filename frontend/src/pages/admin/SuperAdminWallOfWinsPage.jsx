@@ -4,6 +4,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { FiHeart, FiImage, FiMessageCircle, FiPlus, FiRefreshCw, FiUploadCloud } from "react-icons/fi";
 import { Link } from "react-router-dom";
 import DashboardSectionPage from "./DashboardSectionPage";
+import { WallOfWinsGridSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 const canUploadWallOfWins = (user) => {
   const r = String(user?.role_name || "").toLowerCase();
@@ -240,7 +241,7 @@ export default function SuperAdminWallOfWinsPage() {
         ) : null}
 
         {isLoading && entries.length === 0 ? (
-          <div className="lms-card p-5 text-center text-muted">Loading Wall of Wins...</div>
+          <WallOfWinsGridSkeleton count={8} />
         ) : entries.length === 0 ? (
           <div className="lms-card p-5 text-center text-muted">No uploads yet.</div>
         ) : (

@@ -12,6 +12,7 @@ import {
   monthKeyFromDate,
   parseCourseCreatedAt,
 } from "../../utils/studentMonthlyChallengeMeta";
+import { MonthlyWeekListSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 /** Week 1 = days 1–7, Week 2 = 8–14, … of the calendar month */
 const weekBucketInMonth = (d) => Math.min(5, Math.ceil(d.getDate() / 7));
@@ -335,7 +336,7 @@ export default function StudentCoursesByMonthPage() {
 
           <div className="p-3 p-md-4 student-monthly-body">
             {isLoading ? (
-              <p className="text-muted mb-0">Loading courses…</p>
+              <MonthlyWeekListSkeleton count={4} />
             ) : !selectedMonthKey || !selectedMonthDate ? (
               <p className="text-muted mb-0">Choose a month in the left sidebar under Monthly Challenges.</p>
             ) : (

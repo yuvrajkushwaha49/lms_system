@@ -3,6 +3,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 
 import { Link, useLocation } from "react-router-dom";
 import DashboardSectionPage from "./DashboardSectionPage";
+import { FeedReportsTableSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 const formatReportDate = (value) => {
   if (!value) return "-";
@@ -241,7 +242,7 @@ export default function SuperAdminFeedReportsPage({
           </div>
 
           {isLoading && tableEmpty ? (
-            <p className="text-muted mb-0">Loading reports...</p>
+            <FeedReportsTableSkeleton rows={6} cols={6} />
           ) : tableEmpty ? (
             <p className="text-muted mb-0">No reports in this section yet.</p>
           ) : activeTab === "posts" ? (

@@ -6,6 +6,7 @@ import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
 import { SNACK_CATEGORIES } from "../../constants/snackCategories";
 import { resolvePublicMediaUrl } from "../../utils/mediaUrl";
 import sellitStarterImage from "../../assets/feed.png";
+import { SnackVideoGridSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 export default function SellItSnacksViewerPage({
   SectionComponent = StudentDashboardSectionPage,
@@ -187,9 +188,7 @@ export default function SellItSnacksViewerPage({
         </div>
 
         {isLoading ? (
-          <div className="lms-card p-5 text-center text-muted">
-            Loading Sell It Snacks...
-          </div>
+          <SnackVideoGridSkeleton count={6} />
         ) : visibleSnacks.length === 0 ? (
           <div className="lms-card p-5 text-center text-muted">
             No videos in this section yet.

@@ -6,6 +6,7 @@ import DashboardSectionPage from './DashboardSectionPage';
 import CommunityVideoPlayer from '../../components/CommunityVideoPlayer.jsx';
 import CourseAdaptiveVideo from '../../components/CourseAdaptiveVideo.jsx';
 import { resolvePublicMediaUrl } from '../../utils/mediaUrl';
+import { OmCatalogHeroSkeleton } from '../../components/skeletons/LoadingSkeletons';
 
 const normalizeCourseType = (value) =>
   String(value || '')
@@ -203,7 +204,7 @@ export default function AdminOwningManhattanDetailPage() {
         ) : null}
 
         {isLoading ? (
-          <p className="text-muted py-5 text-center">Loading…</p>
+          <OmCatalogHeroSkeleton />
         ) : course ? (
           <>
             <div className="lms-om-admin-hero lms-card p-4 p-md-5 mb-3">

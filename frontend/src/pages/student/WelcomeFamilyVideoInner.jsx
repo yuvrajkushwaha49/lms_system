@@ -3,6 +3,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 
 import { FiBookmark, FiMoreHorizontal, FiShare2, FiStar } from "react-icons/fi";
 import { resolveWelcomeVideoPresentation } from "../../utils/welcomeVideoEmbed";
+import { WelcomeVideoSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 const CARD_TITLE = "Welcome to the Sell It family! 💙";
 
@@ -114,7 +115,7 @@ export default function WelcomeFamilyVideoInner({ showHero = true }) {
 
         <div className="welcome-family-video-wrap">
           {isLoading ? (
-            <div className="welcome-family-video-placeholder text-muted">Loading video…</div>
+            <WelcomeVideoSkeleton />
           ) : videoPresentation.type === "youtube" ? (
             <div className="ratio ratio-16x9">
               <iframe

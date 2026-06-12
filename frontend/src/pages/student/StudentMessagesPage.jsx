@@ -4,6 +4,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
 import { isDmBlockedMemberId } from "../../utils/blockedDmMembers";
+import { ChatThreadSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 export default function StudentMessagesPage() {
   const [searchParams] = useSearchParams();
@@ -352,7 +353,7 @@ export default function StudentMessagesPage() {
             <div className="student-chat-main-body">
               {error && <div className="alert alert-danger py-2">{error}</div>}
               {isLoading ? (
-                <p className="text-muted mb-0">Loading conversation...</p>
+                <ChatThreadSkeleton count={5} />
               ) : messages.length === 0 ? (
                 <div className="student-chat-empty">
                   <div className="d-flex align-items-center gap-2 mb-2">

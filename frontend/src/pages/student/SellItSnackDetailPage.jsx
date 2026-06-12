@@ -7,6 +7,11 @@ import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
 import CommentReportReasonModal from "../../components/CommentReportReasonModal";
 import { REPORT_REASONS } from "../../constants/reportReasons";
 import { resolvePublicMediaUrl } from "../../utils/mediaUrl";
+import {
+  CommentListSkeleton,
+  CourseHeroSkeleton,
+  SuggestedVideoListSkeleton,
+} from "../../components/skeletons/LoadingSkeletons";
 
 const formatDate = (value) => {
   if (!value) return "-";
@@ -772,7 +777,7 @@ export default function SellItSnackDetailPage({
             }}
           >
             {isLoading ? (
-              <p className="mb-0">Loading Sell It Snack...</p>
+              <CourseHeroSkeleton variant="dark" />
             ) : (
               <>
                 <p className="text-uppercase small mb-1 text-light">Sell It Snack Overview</p>
@@ -917,11 +922,7 @@ export default function SellItSnackDetailPage({
                       </Fragment>
                     ))
                   )}
-                  {commentsLoading && (
-                    <p className="text-muted small mb-0 mt-2">
-                      {comments.length ? "Loading more comments…" : "Loading comments…"}
-                    </p>
-                  )}
+                  {commentsLoading && !comments.length ? <CommentListSkeleton count={3} /> : null}
                 </div>
                 {snack?.processing_status === "processing" && (
                   <div className="alert alert-info py-2 mb-0 mt-2">
@@ -978,11 +979,9 @@ export default function SellItSnackDetailPage({
                     })}
                   </ul>
                 )}
-                {suggestionsLoading && (
-                  <p className="text-muted small mb-0 mt-2">
-                    {suggestedSnacks.length ? "Loading more…" : "Loading suggestions…"}
-                  </p>
-                )}
+                {suggestionsLoading && !suggestedSnacks.length ? (
+                  <SuggestedVideoListSkeleton count={3} />
+                ) : null}
               </div>
             </div>
           </div>

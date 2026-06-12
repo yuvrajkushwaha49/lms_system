@@ -7,6 +7,7 @@ import { FiX } from "react-icons/fi";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
 import wallofwins from "../../assets/Wall of Wins.png";
+import { CommentListSkeleton, WallOfWinsGridSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 const PAGE_SIZE = 18;
 
@@ -335,9 +336,7 @@ export default function StudentWallOfWinsPage() {
         )}
 
         {isLoading && entries.length === 0 ? (
-          <div className="lms-card p-5 text-center text-muted">
-            Loading celebrations…
-          </div>
+          <WallOfWinsGridSkeleton count={8} />
         ) : entries.length === 0 ? (
           <div className="lms-card p-5 text-center text-muted">
             <p className="mb-0">No photos yet. Check back soon.</p>
@@ -548,9 +547,7 @@ export default function StudentWallOfWinsPage() {
                   </div>
                   <div className="wall-of-wins-detail-comments">
                     {isCommentsLoading ? (
-                      <p className="text-muted small mb-0">
-                        Loading comments...
-                      </p>
+                      <CommentListSkeleton count={3} />
                     ) : entryComments.length === 0 ? (
                       <p className="text-muted small mb-0">No comments yet.</p>
                     ) : (

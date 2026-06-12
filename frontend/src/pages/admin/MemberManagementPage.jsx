@@ -3,6 +3,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 
 import { useNavigate } from 'react-router-dom';
 import DashboardSectionPage from './DashboardSectionPage';
+import { TableSkeleton } from '../../components/skeletons/LoadingSkeletons';
 
 export default function MemberManagementPage() {
   const navigate = useNavigate();
@@ -193,9 +194,7 @@ export default function MemberManagementPage() {
               </thead>
               <tbody>
                 {isLoadingUsers ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-5 text-muted">Loading users...</td>
-                  </tr>
+                  <TableSkeleton rows={6} cols={7} />
                 ) : filteredUsers.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-5 text-muted">No users found.</td>

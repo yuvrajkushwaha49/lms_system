@@ -4,6 +4,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FiArrowLeft, FiCalendar } from 'react-icons/fi';
 import DashboardSectionPage from './DashboardSectionPage';
+import { AdminMonthlyDetailSkeleton } from '../../components/skeletons/LoadingSkeletons';
 
 const WEEK_OPTIONS = [1, 2, 3, 4, 5];
 
@@ -316,7 +317,7 @@ export default function AdminMonthlyChallengeDetailPage() {
           </section>
 
           {loading ? (
-            <p className="text-muted">Loading…</p>
+            <AdminMonthlyDetailSkeleton />
           ) : (
             <>
               {WEEK_OPTIONS.map((w) => {

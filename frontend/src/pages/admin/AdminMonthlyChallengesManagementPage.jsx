@@ -4,6 +4,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { Link, useNavigate } from 'react-router-dom';
 import { FiCalendar, FiPlus, FiRotateCcw } from 'react-icons/fi';
 import DashboardSectionPage from './DashboardSectionPage';
+import { AdminTablePanelSkeleton } from '../../components/skeletons/LoadingSkeletons';
 
 const emptyDraft = () => ({ month_key: '', display_name: '' });
 
@@ -243,7 +244,7 @@ export default function AdminMonthlyChallengesManagementPage() {
               <h2 className="admin-mcm-panel-title mb-0">Configured months</h2>
             </div>
             {isLoading ? (
-              <p className="admin-mcm-empty mb-0">Loading…</p>
+              <AdminTablePanelSkeleton rows={5} />
             ) : sortedRows.length === 0 ? (
               <div className="admin-mcm-empty-callout">
                 <p className="admin-mcm-empty-title mb-1">No months yet</p>

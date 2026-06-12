@@ -7,6 +7,7 @@ import CommunityVideoPlayer from "../../components/CommunityVideoPlayer.jsx";
 import CourseAdaptiveVideo from "../../components/CourseAdaptiveVideo.jsx";
 import { REPORT_REASONS } from "../../constants/reportReasons";
 import { resolvePublicMediaUrl } from "../../utils/mediaUrl";
+import { CourseVideoPlayerSkeleton, CourseWelcomeSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 const toDurationLabel = (seconds) => {
   const totalSeconds = Number(seconds);
@@ -1284,8 +1285,8 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
           </div>
 
           {isLoading ? (
-            <div className="lms-card p-4 mb-3 text-muted border-0" style={snackStyleCardShadow}>
-              Loading…
+            <div className="lms-card p-0 mb-3 border-0 overflow-hidden" style={snackStyleCardShadow}>
+              <CourseVideoPlayerSkeleton />
             </div>
           ) : error ? (
             <>
@@ -1469,9 +1470,7 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
         )}
 
         {isLoading ? (
-          <div className="lms-card p-5 text-center text-muted">
-            Loading ...
-          </div>
+          <CourseWelcomeSkeleton />
         ) : (
           <>
             <div className="d-flex justify-content-between align-items-center mb-4 student-course-welcome">

@@ -4,6 +4,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { useLocation, useNavigate } from 'react-router-dom';
 import DashboardSectionPage from './DashboardSectionPage';
 import { resolvePublicMediaUrl } from '../../utils/mediaUrl';
+import { OmAdminCardGridSkeleton, TableSkeleton } from '../../components/skeletons/LoadingSkeletons';
 
 const STANDARD_RECORDED_TYPE_OPTIONS = ['Chapter Wise/Topic Wise', 'Short Course'];
 const OWNING_MANHATTAN_RECORDED_TYPE_OPTIONS = ['Short Course', 'Podcast Episode'];
@@ -595,10 +596,7 @@ export default function CourseManagementPage() {
               </div>
 
               {isLoadingCourses ? (
-                <div className="lms-om-admin-loading py-5 text-center">
-                  <div className="lms-om-admin-spinner mx-auto mb-3" aria-hidden />
-                  <p className="text-muted small mb-0">Loading catalog…</p>
-                </div>
+                <OmAdminCardGridSkeleton count={6} />
               ) : filteredCourses.length === 0 ? (
                 <div className="lms-om-admin-empty lms-om-admin-empty--premium">
                   <div className="lms-om-admin-empty-icon mb-3" aria-hidden>
@@ -808,9 +806,7 @@ export default function CourseManagementPage() {
                     </thead>
                     <tbody>
                       {isLoadingCourses ? (
-                        <tr>
-                          <td colSpan={9} className="text-center py-5 text-muted">Loading courses...</td>
-                        </tr>
+                        <TableSkeleton rows={6} cols={9} />
                       ) : filteredCourses.length === 0 ? (
                         <tr>
                           <td colSpan={9} className="text-center py-5 px-4 text-muted">

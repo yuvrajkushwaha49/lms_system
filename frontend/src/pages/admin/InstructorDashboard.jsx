@@ -2,6 +2,7 @@ import logo from '../../assets/logo.png';
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 
 import { useEffect, useMemo, useState } from 'react';
+import { UserListSkeleton } from '../../components/skeletons/LoadingSkeletons';
 
 const sidebarItems = [
   'User Management',
@@ -292,7 +293,7 @@ export default function InstructorDashboard() {
                   </button>
                 </div>
                 {isLoadingUsers ? (
-                  <p className="text-sm text-gray-500">Loading users...</p>
+                  <UserListSkeleton count={5} />
                 ) : users.length === 0 ? (
                   <p className="text-sm text-gray-500">No users found.</p>
                 ) : (

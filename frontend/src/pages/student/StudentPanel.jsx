@@ -7,6 +7,7 @@ import StudentDashboardSectionPage from './StudentDashboardSectionPage';
 import SignatureCoursePreviewModal from '../../components/SignatureCoursePreviewModal';
 import { resolvePublicMediaUrl } from '../../utils/mediaUrl';
 import owningManhattanBanner from '../../assets/OwningManhattanBanner.png';
+import { OmEpisodeGridSkeleton } from '../../components/skeletons/LoadingSkeletons';
 
 const COURSE_PAGE_SIZE = 8;
 const OWNING_MANHATTAN_COURSE_TYPE = 'OwningManhattan';
@@ -432,7 +433,7 @@ export default function StudentPanel({ variant = 'signature' }) {
           )}
           <div className={` ${owningManhattanOnly ? 'student-om-shell' : ''}`}>
             {isLoading ? (
-              <div className="text-center py-5 text-muted">Loading courses...</div>
+              <OmEpisodeGridSkeleton count={6} />
             ) : displayedCourses.length === 0 ? (
               <div className="text-center py-5 text-muted">
                 {activeTab === 'my'

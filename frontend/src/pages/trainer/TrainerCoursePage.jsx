@@ -3,6 +3,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 
 import { useNavigate, useLocation } from 'react-router-dom';
 import TrainerDashboardSectionPage from './TrainerDashboardSectionPage';
+import { TableSkeleton } from '../../components/skeletons/LoadingSkeletons';
 
 const OWNING_MANHATTAN_COURSE_TYPE = 'OwningManhattan';
 
@@ -199,9 +200,7 @@ export default function TrainerCoursePage() {
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-5 text-muted">Loading courses...</td>
-                  </tr>
+                  <TableSkeleton rows={6} cols={6} />
                 ) : filteredCourses.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-5 text-muted">

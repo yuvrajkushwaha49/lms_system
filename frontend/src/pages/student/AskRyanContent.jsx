@@ -15,6 +15,7 @@ import {
   FiShare2,
   FiX,
 } from "react-icons/fi";
+import { AskRyanGridSkeleton, CommentListSkeleton, UserListSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 const ASK_RYAN_POST_BOOKMARKS_STORAGE_KEY = "student_ask_ryan_post_bookmarks";
 const ASK_RYAN_INTRO_BOOKMARK_STORAGE_KEY = "student_ask_ryan_intro_bookmarked";
@@ -594,7 +595,7 @@ export default function AskRyanContent() {
 
       <section className="ask-ryan-grid-section" aria-label="Video responses">
         {loading ? (
-          <p className="ask-ryan-muted">Loading responses…</p>
+          <AskRyanGridSkeleton count={4} />
         ) : items.length === 0 ? (
           <p className="ask-ryan-muted">No replies yet. Be the first to ask a question above.</p>
         ) : (
@@ -677,7 +678,7 @@ export default function AskRyanContent() {
                 {expandedComments[String(row.id)] && (
                   <div className="ask-ryan-comments">
                     {commentsLoading[row.id] ? (
-                      <p className="ask-ryan-muted small mb-2">Loading comments…</p>
+                      <CommentListSkeleton count={2} />
                     ) : (
                       <ul className="ask-ryan-comment-list">
                         {buildCommentTree(commentsById[row.id] || []).map((comment) => renderCommentNode(row.id, comment))}
@@ -895,7 +896,7 @@ export default function AskRyanContent() {
               {modalCommentsOpen && (
                 <div className="ask-ryan-detail-comments">
                   {commentsLoading[selectedVideoModal.id] ? (
-                    <p className="ask-ryan-muted small mb-3">Loading comments…</p>
+                    <CommentListSkeleton count={3} />
                   ) : (commentsById[selectedVideoModal.id] || []).length > 0 ? (
                     <ul className="ask-ryan-comment-list ask-ryan-detail-comment-list">
                       {buildCommentTree(commentsById[selectedVideoModal.id] || []).map((comment) =>
@@ -946,7 +947,7 @@ export default function AskRyanContent() {
             </div>
             <div className="ask-ryan-likes-modal-body">
               {likesModalLoading ? (
-                <p className="ask-ryan-muted mb-0">Loading likes…</p>
+                <UserListSkeleton count={4} />
               ) : likesModal.likes.length > 0 ? (
                 <ul className="ask-ryan-likes-list">
                   {likesModal.likes.map((liker, idx) => (

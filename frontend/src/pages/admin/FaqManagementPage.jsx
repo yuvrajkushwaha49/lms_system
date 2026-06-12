@@ -4,6 +4,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { useNavigate } from "react-router-dom";
 import { FiEdit2, FiHelpCircle, FiPlus, FiSearch, FiX } from "react-icons/fi";
 import DashboardSectionPage from "./DashboardSectionPage";
+import { FaqListSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 const initialForm = {
   question: "",
@@ -311,10 +312,7 @@ export default function FaqManagementPage() {
 
           <div className="p-3 p-md-4">
             {isLoading ? (
-              <div className="d-flex align-items-center gap-2 text-muted py-4 justify-content-center">
-                <span className="spinner-border spinner-border-sm" role="status" aria-hidden />
-                <span>Loading FAQs…</span>
-              </div>
+              <FaqListSkeleton count={6} />
             ) : faqs.length === 0 ? (
               <div className="text-center text-muted py-5 px-2">
                 <FiHelpCircle className="mb-3 opacity-50" size={40} aria-hidden />

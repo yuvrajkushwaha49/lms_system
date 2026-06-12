@@ -9,6 +9,7 @@ import {
   FiGrid,
   FiHeart,
   FiHelpCircle,
+  FiImage,
   FiLayers,
   FiLogOut,
   FiMenu,
@@ -27,6 +28,7 @@ const navItems = [
   { label: 'Trainer Management', short: 'TR', path: '/dashboard/trainer-management', icon: FiBriefcase },
   { label: 'Monthly Challenges', short: 'MC', path: '/dashboard/monthly-challenges-management', icon: FiCalendar },
   { label: 'Workshop Management', short: 'WS', path: '/dashboard/workshop-management', icon: FiGrid },
+  { label: 'Gallery Management', short: 'GL', path: '/dashboard/gallery-management', icon: FiImage },
   { label: 'Community', short: 'CM', path: '/dashboard/admin-community', icon: FiMessageCircle },
   { label: 'Feed Management', short: 'FD', path: '/dashboard/feed-management', icon: FiLayers },
   { label: 'FAQs Management', short: 'FQ', path: '/dashboard/faqs-management', icon: FiHelpCircle },
@@ -147,7 +149,7 @@ export default function DashboardSectionPage({ title, children }) {
   };
 
   const linkIsActive = (path) => {
-    if (path === '/dashboard/user-management') {
+    if (path === '/dashboard/user-management' || path === '/dashboard/gallery-management') {
       return pathname === path || pathname.startsWith(`${path}/`);
     }
     return pathname === path;
@@ -386,7 +388,7 @@ export default function DashboardSectionPage({ title, children }) {
         </div>
       </aside>
 
-      <main className="flex-grow-1 p-3 p-sm-4 marg-20">
+      <main className="flex-grow-1 p-3 p-sm-4 flexss-fs">
         {children ? (
           children
         ) : (

@@ -4,6 +4,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { Link, useParams } from "react-router-dom";
 import StudentDashboardSectionPage from "../student/StudentDashboardSectionPage";
 import DashboardSectionPage from "./DashboardSectionPage";
+import { SuggestedVideoListSkeleton, WallOfWinsDetailSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 export default function WallOfWinsDetailPage({
   SectionComponent = StudentDashboardSectionPage,
@@ -112,7 +113,7 @@ export default function WallOfWinsDetailPage({
         </div>
         {error && <div className="alert alert-danger mb-3">{error}</div>}
         {isLoading && !entry ? (
-          <div className="lms-card p-4 text-muted">Loading entry...</div>
+          <WallOfWinsDetailSkeleton />
         ) : !entry ? (
           <div className="lms-card p-4 text-muted">Entry not found.</div>
         ) : (
@@ -172,11 +173,9 @@ export default function WallOfWinsDetailPage({
                       ))}
                     </ul>
                   )}
-                  {suggestionsLoading && (
-                    <p className="text-muted small mb-0 mt-2">
-                      {suggestions.length ? "Loading more…" : "Loading suggestions…"}
-                    </p>
-                  )}
+                  {suggestionsLoading && !suggestions.length ? (
+                    <SuggestedVideoListSkeleton count={3} />
+                  ) : null}
                 </div>
               </div>
             </div>

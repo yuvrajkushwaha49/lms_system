@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { FiBriefcase, FiChevronDown, FiChevronRight, FiMoreHorizontal, FiZap } from "react-icons/fi";
+import { FiBriefcase, FiChevronDown, FiChevronRight, FiImage, FiMoreHorizontal, FiZap } from "react-icons/fi";
 import { STUDENT_MONTHLY_CHALLENGES_PATH } from "../utils/studentMonthlyChallengeMeta";
 
 function studentShortActive(pathname) {
@@ -14,6 +14,10 @@ function studentSignatureActive(pathname) {
 
 function studentDocsActive(pathname) {
   return pathname.startsWith("/dashboard/student-document-center");
+}
+
+function studentGalleryActive(pathname) {
+  return pathname.startsWith("/dashboard/student-gallery");
 }
 
 function adminShortActive(pathname, search) {
@@ -34,20 +38,26 @@ function adminDocsActive(pathname) {
   return pathname.startsWith("/dashboard/document-center-management");
 }
 
+function adminGalleryActive(pathname) {
+  return pathname.startsWith("/dashboard/gallery-management");
+}
+
 function learningRouteActive(variant, key, pathname, search) {
   if (variant === "student") {
     if (key === "short") return studentShortActive(pathname);
     if (key === "signature") return studentSignatureActive(pathname);
     if (key === "docs") return studentDocsActive(pathname);
+    if (key === "gallery") return studentGalleryActive(pathname);
   }
   if (key === "short") return adminShortActive(pathname, search);
   if (key === "signature") return adminSignatureActive(pathname, search);
   if (key === "docs") return adminDocsActive(pathname);
+  if (key === "gallery") return adminGalleryActive(pathname);
   return false;
 }
 
 function anyLearningActive(variant, pathname, search) {
-  return ["short", "signature", "docs"].some((k) => learningRouteActive(variant, k, pathname, search));
+  return ["short", "signature", "docs", "gallery"].some((k) => learningRouteActive(variant, k, pathname, search));
 }
 
 const STUDENT_ITEMS = [
@@ -69,6 +79,12 @@ const STUDENT_ITEMS = [
     to: "/dashboard/student-document-center",
     icon: "briefcase",
   },
+  {
+    key: "gallery",
+    label: "Gallery",
+    to: "/dashboard/student-gallery",
+    icon: "gallery",
+  },
 ];
 
 const ADMIN_ITEMS = [
@@ -89,6 +105,12 @@ const ADMIN_ITEMS = [
     label: "Documents & Templates",
     to: "/dashboard/document-center-management",
     icon: "briefcase",
+  },
+  {
+    key: "gallery",
+    label: "Gallery Management",
+    to: "/dashboard/gallery-management",
+    icon: "gallery",
   },
 ];
 
@@ -127,6 +149,13 @@ export default function LearningCenterSidebarSection({ variant, collapsed }) {
       return (
         <span className="lms-lc-icon lms-lc-icon--grad" aria-hidden>
           🎓
+        </span>
+      );
+    }
+    if (icon === "gallery") {
+      return (
+        <span className="lms-lc-icon lms-lc-icon--gallery" aria-hidden>
+          <FiImage />
         </span>
       );
     }

@@ -31,8 +31,12 @@ import NewsManagementPage from './pages/admin/NewsManagementPage';
 import PartnerManagementPage from './pages/admin/PartnerManagementPage';
 import DocumentCenterManagementPage from './pages/admin/DocumentCenterManagementPage';
 import DocumentCenterItemDetailPageRoute from './pages/admin/DocumentCenterItemDetailPageRoute';
+import GalleryManagementPage from './pages/admin/GalleryManagementPage';
+import GalleryFolderDetailPageRoute from './pages/admin/GalleryFolderDetailPageRoute';
 import StudentDocumentCenterPage from './pages/student/StudentDocumentCenterPage';
 import StudentDocumentCenterDetailPage from './pages/student/StudentDocumentCenterDetailPage';
+import StudentGalleryPage from './pages/student/StudentGalleryPage';
+import StudentGalleryDetailPage from './pages/student/StudentGalleryDetailPage';
 import TrainerCoursePage from './pages/trainer/TrainerCoursePage';
 import TrainerCourseDetailPage from './pages/trainer/TrainerCourseDetailPage';
 import TrainerCourseVideoDetailPage from './pages/trainer/TrainerCourseVideoDetailPage';
@@ -105,6 +109,8 @@ function App() {
           />
           <Route path="/dashboard/student-document-center" element={<StudentDocumentCenterPage />} />
           <Route path="/dashboard/student-document-center/:itemId" element={<StudentDocumentCenterDetailPage />} />
+          <Route path="/dashboard/student-gallery" element={<StudentGalleryPage />} />
+          <Route path="/dashboard/student-gallery/:folderId" element={<StudentGalleryDetailPage />} />
           <Route path="/dashboard/student-members" element={<StudentMembersPage />} />
           <Route path="/dashboard/student-account-settings" element={<StudentAccountSettingsPage />} />
           <Route path="/dashboard/student-messages" element={<StudentMessagesPage />} />
@@ -191,6 +197,8 @@ function App() {
             path="/dashboard/document-center-management/:itemId"
             element={<DocumentCenterItemDetailPageRoute />}
           />
+          <Route path="/dashboard/gallery-management" element={<GalleryManagementPage />} />
+          <Route path="/dashboard/gallery-management/:folderId" element={<GalleryFolderDetailPageRoute />} />
         </Routes>
       </Router>
     </div>

@@ -17,6 +17,7 @@ import {
 } from "react-icons/fi";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { resolvePublicMediaUrl } from "../utils/mediaUrl";
+import { CommentListSkeleton, DocCenterDetailSkeleton } from "./skeletons/LoadingSkeletons";
 
 const HELP_BULLETS = [
   "Build trust with your audience through a polished year-end story.",
@@ -456,13 +457,7 @@ export default function DocumentCenterItemDetailPage({ variant }) {
         </div>
       ) : null}
 
-      {loading ? (
-        <div className="dc-feed-card dc-feed-skeleton" aria-busy="true">
-          <div className="doc-center-skeleton-shine dc-feed-skel-title" />
-          <div className="doc-center-skeleton-shine dc-feed-skel-line" />
-          <div className="doc-center-skeleton-shine dc-feed-skel-line dc-feed-skel-line--short" />
-        </div>
-      ) : null}
+      {loading ? <DocCenterDetailSkeleton /> : null}
 
       {!loading && err ? (
         <div className="doc-center-empty-state doc-center-detail-error">
@@ -642,7 +637,7 @@ export default function DocumentCenterItemDetailPage({ variant }) {
           </div>
 
           <section className="dc-feed-thread" aria-label="Comments">
-            {commentsLoading ? <p className="dc-feed-thread-loading dc-feed-muted">Loading comments…</p> : null}
+            {commentsLoading ? <CommentListSkeleton count={3} /> : null}
             {!commentsLoading &&
               commentTree.map((c) => (
                 <CommentThread

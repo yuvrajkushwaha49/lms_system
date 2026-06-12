@@ -16,6 +16,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
 import StudentPageSearchSync from "../../components/StudentPageSearchSync";
+import { FaqListSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 /** Split FAQ answer into paragraphs and bullet/numbered lists (lines like "- item" or "1. item"). */
 function parseFaqAnswerBody(text) {
@@ -224,7 +225,7 @@ export default function StudentFaqsPage() {
         <section className="student-faq-list-card">
           {error && <div className="alert alert-danger py-2">{error}</div>}
           {isLoading ? (
-            <p className="text-muted mb-0">Loading FAQs...</p>
+            <FaqListSkeleton count={7} />
           ) : filteredFaqs.length === 0 ? (
             <p className="text-muted mb-0">
               {faqs.length === 0 ? "No FAQs available yet." : "No FAQs match your search."}

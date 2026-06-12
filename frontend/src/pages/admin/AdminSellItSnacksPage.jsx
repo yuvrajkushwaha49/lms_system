@@ -3,6 +3,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 
 import DashboardSectionPage from "./DashboardSectionPage";
 import { SNACK_CATEGORIES } from "../../constants/snackCategories";
+import { AdminSnackListSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 const initialForm = {
   category: SNACK_CATEGORIES[0],
@@ -153,7 +154,7 @@ export default function AdminSellItSnacksPage() {
         <div className="lms-card p-4">
           <h2 className="h5 fw-semibold mb-3">Uploaded videos</h2>
           {isLoading ? (
-            <p className="text-muted mb-0">Loading...</p>
+            <AdminSnackListSkeleton count={3} />
           ) : snacks.length === 0 ? (
             <p className="text-muted mb-0">No snacks uploaded yet.</p>
           ) : (

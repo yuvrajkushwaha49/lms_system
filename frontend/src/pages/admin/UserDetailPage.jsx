@@ -3,6 +3,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 
 import { useNavigate, useParams } from 'react-router-dom';
 import DashboardSectionPage from './DashboardSectionPage';
+import { ProfileHeroSkeleton } from '../../components/skeletons/LoadingSkeletons';
 
 function IconMail() {
   return (
@@ -81,7 +82,9 @@ export default function UserDetailPage() {
         {loading && (
           <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-3">
             {backButton}
-            <div className="lms-card p-4 flex-grow-1 text-muted">Loading profile...</div>
+            <div className="flex-grow-1">
+              <ProfileHeroSkeleton />
+            </div>
           </div>
         )}
 

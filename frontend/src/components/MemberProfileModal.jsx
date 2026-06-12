@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { resolvePublicMediaUrl } from "../utils/mediaUrl";
 import { addBlockedDmMemberId, isDmBlockedMemberId } from "../utils/blockedDmMembers";
+import { GenericListSkeleton, MemberProfileSkeleton } from "./skeletons/LoadingSkeletons";
 import {
   FiCalendar,
   FiClock,
@@ -756,7 +757,7 @@ export default function MemberProfileModal({
 
             {activeTab === "about" && (
               <div className="member-profile-modal-about">
-                {loading && <p className="text-muted small mb-3">Loading profile…</p>}
+                {loading && <MemberProfileSkeleton />}
                 {loadError && !loading ? (
                   <p className="text-danger small mb-3">{loadError}</p>
                 ) : null}
@@ -820,7 +821,7 @@ export default function MemberProfileModal({
                 onScroll={() => handleScrollLoad(postsScrollRef.current, postsState, loadPosts)}
               >
                 {postsState.loading && postsState.items.length === 0 ? (
-                  <p className="text-muted small py-3 mb-0">Loading posts…</p>
+                  <GenericListSkeleton count={4} className="px-1 py-2" />
                 ) : postsState.items.length === 0 ? (
                   <p className="text-muted small py-3 mb-0">No community posts yet.</p>
                 ) : (
@@ -852,7 +853,7 @@ export default function MemberProfileModal({
                 }
               >
                 {commentsState.loading && commentsState.items.length === 0 ? (
-                  <p className="text-muted small py-3 mb-0">Loading comments…</p>
+                  <GenericListSkeleton count={4} className="px-1 py-2" />
                 ) : commentsState.items.length === 0 ? (
                   <p className="text-muted small py-3 mb-0">No feed comments yet.</p>
                 ) : (
@@ -886,7 +887,7 @@ export default function MemberProfileModal({
                 onScroll={() => handleScrollLoad(spacesScrollRef.current, spacesState, loadSpaces)}
               >
                 {spacesState.loading && spacesState.items.length === 0 ? (
-                  <p className="text-muted small py-3 mb-0">Loading spaces…</p>
+                  <GenericListSkeleton count={4} className="px-1 py-2" />
                 ) : spacesState.items.length === 0 ? (
                   <p className="text-muted small py-3 mb-0">No posting spaces yet.</p>
                 ) : (
@@ -916,7 +917,7 @@ export default function MemberProfileModal({
                 }
               >
                 {rewardsState.loading && rewardsState.items.length === 0 ? (
-                  <p className="text-muted small py-3 mb-0">Loading rewards…</p>
+                  <GenericListSkeleton count={4} className="px-1 py-2" />
                 ) : rewardsState.items.length === 0 ? (
                   <p className="text-muted small py-3 mb-0">No Wall of Wins entries yet.</p>
                 ) : (

@@ -21,6 +21,7 @@ import {
 } from "react-icons/fi";
 import { DOCUMENT_CENTER_CATEGORIES } from "../utils/documentCenterStorage";
 import { resolvePublicMediaUrl } from "../utils/mediaUrl";
+import { GenericListSkeleton } from "./skeletons/LoadingSkeletons";
 
 const HERO_DESK_IMG =
   "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1400&q=80";
@@ -798,9 +799,7 @@ export default function DocumentCenterTemplatesContent({ variant }) {
                 </p>
               ) : null}
               <div className="doc-center-file-list">
-                {libraryLoading ? (
-                  <p className="doc-center-file-list-hint">Loading files…</p>
-                ) : null}
+                {libraryLoading ? <GenericListSkeleton count={5} className="doc-center-file-list-hint" /> : null}
                 {!libraryLoading && libraryFiles.length === 0 ? (
                   <p className="doc-center-file-list-hint">No files yet — upload above to add to the library.</p>
                 ) : null}
