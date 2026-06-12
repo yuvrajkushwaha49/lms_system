@@ -405,7 +405,7 @@ export default function StudentDashboardSectionPage({
             >
               <SidebarLinkLabel icon={FiLayers} label="Feed" short="FD" collapsed={collapsed} />
             </NavLink>
-
+            </div>
 
             <div className={`student-starter-panel ${collapsed ? "collapsed" : ""}`}>
               {collapsed ? (
@@ -784,7 +784,7 @@ export default function StudentDashboardSectionPage({
                   )}
                 </div>
               )}
-            </div> */}
+            </div>
             <NavLink
               to="/dashboard/student-live-workshops"
               title={collapsed ? "Join Us LIVE" : undefined}

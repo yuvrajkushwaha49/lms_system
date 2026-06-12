@@ -388,7 +388,7 @@ export default function DashboardSectionPage({ title, children }) {
         </div>
       </aside>
 
-      <main className="flex-grow-1 p-3 p-sm-4 flexss-fs">
+      <main className="flex-grow-1 p-3 p-sm-4 marg-20">
         {children ? (
           children
         ) : (

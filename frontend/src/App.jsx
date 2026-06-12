@@ -1,3 +1,13 @@
+/**
+ * LMS frontend — monolith phase (before backend microservices).
+ *
+ * All routes below are served by this single React app. Every feature calls one
+ * backend base URL (e.g. /api/auth, /api/courses, /api/gallery) on a unified
+ * Express server — not separate service hosts yet.
+ *
+ * When the backend is split into microservices, keep these routes unchanged;
+ * only point VITE_API_URL at an API gateway that proxies to each service.
+ */
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import Login from './pages/admin/Login';
 import DashboardSectionPage from './pages/admin/DashboardSectionPage';
