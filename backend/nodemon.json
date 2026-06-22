@@ -1,0 +1,17 @@
+{
+  "watch": [
+    "controllers",
+    "routes",
+    "middlewares",
+    "services",
+    "shared",
+    "config",
+    "utils",
+    "scripts/start-all.js"
+  ],
+  "ext": "js,json",
+  "ignore": ["uploads/**", "node_modules/**", "*.test.js"],
+  "exec": "node scripts/start-all.js",
+  "signal": "SIGTERM",
+  "delay": 1200
+}

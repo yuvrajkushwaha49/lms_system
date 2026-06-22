@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
+const { mapDbError, isDbConnectionError } = db;
 
 const slugify = (value) =>
   String(value || '')
@@ -99,7 +100,8 @@ const registerPlatform = async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Duplicate entry. Email may already be registered.' });
     }
     console.error('registerPlatform error:', error);
-    res.status(500).json({ status: 'error', message: 'Failed', error: error.message });
+    const status = isDbConnectionError(error) ? 503 : 500;
+    res.status(status).json({ status: 'error', message: mapDbError(error) });
   }
 };
 
@@ -131,7 +133,9 @@ const login = async (req, res) => {
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: tokenExpiry });
     res.json({ status: 'success', data: { token, user: payload } });
   } catch (error) {
-    res.status(500).json({ status: 'error', message: 'Failed', error: error.message });
+    console.error('login error:', error?.code || error?.message);
+    const status = isDbConnectionError(error) ? 503 : 500;
+    res.status(status).json({ status: 'error', message: mapDbError(error) });
   }
 };
 

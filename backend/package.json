@@ -4,10 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-  "start": "node server.js",
-  "dev": "nodemon server.js",
-  "dev:network": "nodemon server.js"
-},
+    "start": "node scripts/start-all.js",
+    "start:all": "node scripts/start-all.js",
+    "start:gateway": "node services/gateway/server.js",
+    "start:monolith": "node server.monolith.js",
+    "dev": "nodemon",
+    "dev:monolith": "nodemon --watch controllers --watch routes --watch middlewares --watch config --watch utils server.monolith.js",
+    "db:test": "node scripts/test-db.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -20,6 +24,7 @@
     "express": "^5.2.1",
     "ffmpeg-static": "^5.3.0",
     "helmet": "^8.1.0",
+    "http-proxy-middleware": "^3.0.6",
     "joi": "^18.1.2",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",

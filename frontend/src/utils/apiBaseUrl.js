@@ -1,16 +1,16 @@
 /**
  * Base URL for REST calls and resolvePublicMediaUrl().
- * - In Vite dev with VITE_DEV_PROXY=1, returns "" so requests use the SPA origin and
- *   vite.config.js proxies /api and /uploads to the Node server (avoids net::ERR_CONNECTION_REFUSED
- *   when VITE_API_BASE_URL points at an old LAN IP or the backend only listens on localhost).
- * - In production, uses VITE_API_BASE_URL when set, otherwise http://localhost:5003.
+ * - In Vite dev (default): returns "" so /api and /uploads are proxied to the API gateway (port 5000).
+ * - Set VITE_DEV_PROXY=0 to call VITE_API_BASE_URL directly in dev.
+ * - Production: VITE_API_BASE_URL or http://localhost:5000 (API gateway).
  */
 export function getApiBaseUrl() {
-  if (import.meta.env.DEV && String(import.meta.env.VITE_DEV_PROXY || "").trim() === "1") {
+  const devProxyOff = String(import.meta.env.VITE_DEV_PROXY || "").trim() === "0";
+  if (import.meta.env.DEV && !devProxyOff) {
     return "";
   }
   const raw = import.meta.env.VITE_API_BASE_URL;
   const s = raw == null ? "" : String(raw).trim();
   if (s) return s.replace(/\/$/, "");
-  return "http://localhost:5173";
+  return "http://localhost:5000";
 }

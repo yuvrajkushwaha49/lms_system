@@ -1,0 +1,127 @@
+version: '3.9'
+
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_NAME:-workians_lms}
+    ports:
+      - '3306:3306'
+    volumes:
+      - lms_mysql_data:/var/lib/mysql
+
+  identity:
+    build: .
+    command: node services/identity/server.js
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      DB_NAME: ${DB_NAME:-workians_lms}
+      JWT_SECRET: ${JWT_SECRET}
+      IDENTITY_SERVICE_PORT: 5001
+    depends_on:
+      - mysql
+    volumes:
+      - ./uploads:/app/uploads
+
+  user:
+    build: .
+    command: node services/user/server.js
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      DB_NAME: ${DB_NAME:-workians_lms}
+      JWT_SECRET: ${JWT_SECRET}
+      USER_SERVICE_PORT: 5002
+    depends_on:
+      - mysql
+    volumes:
+      - ./uploads:/app/uploads
+
+  course:
+    build: .
+    command: node services/course/server.js
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      DB_NAME: ${DB_NAME:-workians_lms}
+      JWT_SECRET: ${JWT_SECRET}
+      COURSE_SERVICE_PORT: 5003
+    depends_on:
+      - mysql
+    volumes:
+      - ./uploads:/app/uploads
+
+  community:
+    build: .
+    command: node services/community/server.js
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      DB_NAME: ${DB_NAME:-workians_lms}
+      JWT_SECRET: ${JWT_SECRET}
+      COMMUNITY_SERVICE_PORT: 5004
+    depends_on:
+      - mysql
+    volumes:
+      - ./uploads:/app/uploads
+
+  content:
+    build: .
+    command: node services/content/server.js
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      DB_NAME: ${DB_NAME:-workians_lms}
+      JWT_SECRET: ${JWT_SECRET}
+      CONTENT_SERVICE_PORT: 5005
+    depends_on:
+      - mysql
+    volumes:
+      - ./uploads:/app/uploads
+
+  payment:
+    build: .
+    command: node services/payment/server.js
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      DB_NAME: ${DB_NAME:-workians_lms}
+      JWT_SECRET: ${JWT_SECRET}
+      PAYMENT_SERVICE_PORT: 5006
+    depends_on:
+      - mysql
+
+  gateway:
+    build: .
+    command: node services/gateway/server.js
+    ports:
+      - '${GATEWAY_PORT:-5000}:5000'
+    environment:
+      GATEWAY_PORT: 5000
+      IDENTITY_SERVICE_HOST: identity
+      USER_SERVICE_HOST: user
+      COURSE_SERVICE_HOST: course
+      COMMUNITY_SERVICE_HOST: community
+      CONTENT_SERVICE_HOST: content
+      PAYMENT_SERVICE_HOST: payment
+    depends_on:
+      - identity
+      - user
+      - course
+      - community
+      - content
+      - payment
+    volumes:
+      - ./uploads:/app/uploads
+
+volumes:
+  lms_mysql_data:
