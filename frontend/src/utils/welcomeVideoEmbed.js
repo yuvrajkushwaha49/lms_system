@@ -1,3 +1,6 @@
+import { getApiBaseUrl } from "./apiBaseUrl";
+import { resolvePublicMediaUrl } from "./mediaUrl";
+
 /** @returns {{ type: 'youtube', embedUrl: string } | { type: 'file', src: string } | { type: 'none' }} */
 export function resolveWelcomeVideoPresentation(url) {
   const raw = String(url || "").trim();
@@ -12,14 +15,12 @@ export function resolveWelcomeVideoPresentation(url) {
     return { type: "youtube", embedUrl: `https://www.youtube.com/embed/${watch[1]}` };
   }
 
-  if (/^https?:\/\//i.test(raw) && /\.(mp4|webm|ogg)(\?|#|$)/i.test(raw)) {
-    return { type: "file", src: raw };
-  }
+  const looksLikeFile =
+    /\.(mp4|webm|ogg)(\?|#|$)/i.test(raw) ||
+    /\/uploads\/welcome-video\//i.test(raw);
 
-  /* Uploaded welcome assets (served under /uploads/welcome-video/, same host as API in typical setups). */
-  if (/^https?:\/\//i.test(raw) && /\/uploads\/welcome-video\//i.test(raw)) {
-    return { type: "file", src: raw };
-  }
+  if (!looksLikeFile) return { type: "none" };
 
-  return { type: "none" };
+  const src = resolvePublicMediaUrl(raw, getApiBaseUrl());
+  return src ? { type: "file", src } : { type: "none" };
 }

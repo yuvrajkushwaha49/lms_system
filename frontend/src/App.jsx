@@ -74,6 +74,7 @@ import TrainerAskRyanPage from './pages/trainer/TrainerAskRyanPage';
 import AdminAskRyanManagementPage from './pages/admin/AdminAskRyanManagementPage';
 import AdminMonthlyChallengesManagementPage from './pages/admin/AdminMonthlyChallengesManagementPage';
 import AdminMonthlyChallengeDetailPage from './pages/admin/AdminMonthlyChallengeDetailPage';
+import UpcomingEventsManagementPage from './pages/admin/UpcomingEventsManagementPage';
 
 function App() {
   return (
@@ -182,6 +183,7 @@ function App() {
           <Route path="/dashboard/feed-management/members" element={<SuperAdminFeedByMembersPage />} />
           <Route path="/dashboard/feed-management/wall-of-wins" element={<SuperAdminWallOfWinsPage />} />
           <Route path="/dashboard/feed-management/wall-of-wins/:entryId" element={<AdminWallOfWinsDetailPage />} />
+          <Route path="/dashboard/feed-management/upcoming-events" element={<UpcomingEventsManagementPage />} />
           <Route path="/dashboard/news-management" element={<NewsManagementPage />} />
           <Route path="/dashboard/faqs-management" element={<FaqManagementPage />} />
           <Route path="/dashboard/welcome-video-management" element={<WelcomeVideoManagementPage />} />

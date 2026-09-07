@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router-dom";
 import StudentDashboardSectionPage from "../student/StudentDashboardSectionPage";
 import DashboardSectionPage from "./DashboardSectionPage";
 import { SuggestedVideoListSkeleton, WallOfWinsDetailSkeleton } from "../../components/skeletons/LoadingSkeletons";
+import { resolvePublicMediaUrl } from "../../utils/mediaUrl";
 
 export default function WallOfWinsDetailPage({
   SectionComponent = StudentDashboardSectionPage,
@@ -122,7 +123,7 @@ export default function WallOfWinsDetailPage({
               <div className="lms-card overflow-hidden">
                 <div className="position-relative bg-dark">
                   <img
-                    src={entry.image_url}
+                    src={resolvePublicMediaUrl(entry.image_url, apiBaseUrl)}
                     alt={entry.title || "Wall of Wins image"}
                     style={{ width: "100%", maxHeight: 560, objectFit: "contain", display: "block" }}
                   />
@@ -158,7 +159,7 @@ export default function WallOfWinsDetailPage({
                               className="rounded sell-snack-suggested-thumb"
                               style={{
                                 background: item.image_url
-                                  ? `url(${item.image_url}) center/cover no-repeat`
+                                  ? `url(${resolvePublicMediaUrl(item.image_url, apiBaseUrl)}) center/cover no-repeat`
                                   : "linear-gradient(135deg,#e2e8f0,#f8fafc)",
                               }}
                             />

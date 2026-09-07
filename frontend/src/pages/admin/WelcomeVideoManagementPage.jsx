@@ -6,6 +6,7 @@ import { FiFilm, FiImage, FiUpload, FiVideo } from "react-icons/fi";
 import DashboardSectionPage from "./DashboardSectionPage";
 import CommunityVideoPlayer from "../../components/CommunityVideoPlayer";
 import { resolveWelcomeVideoPresentation } from "../../utils/welcomeVideoEmbed";
+import { resolvePublicMediaUrl } from "../../utils/mediaUrl";
 
 function formatBytes(bytes) {
   const n = Number(bytes);
@@ -62,6 +63,10 @@ export default function WelcomeVideoManagementPage() {
   }, [pendingThumbFile]);
 
   const savedPresentation = useMemo(() => resolveWelcomeVideoPresentation(form.video_url), [form.video_url]);
+  const savedThumbSrc = useMemo(
+    () => resolvePublicMediaUrl(form.thumbnail_url, getApiBaseUrl()),
+    [form.thumbnail_url],
+  );
 
   const applyVideoFile = useCallback((file) => {
     setError("");
@@ -385,7 +390,7 @@ export default function WelcomeVideoManagementPage() {
                         playsInline
                         src={savedPresentation.src}
                         title="Current welcome video"
-                        poster={String(form.thumbnail_url || "").trim() || undefined}
+                        poster={savedThumbSrc || undefined}
                       >
                         <track kind="captions" />
                       </video>
@@ -456,7 +461,7 @@ export default function WelcomeVideoManagementPage() {
                         <p className="small text-muted mb-2">Current saved thumbnail</p>
                         <img
                           className="admin-welcome-video-thumb-preview-img"
-                          src={form.thumbnail_url.trim()}
+                          src={savedThumbSrc}
                           alt=""
                         />
                       </div>

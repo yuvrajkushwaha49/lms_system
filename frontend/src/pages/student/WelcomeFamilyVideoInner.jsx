@@ -3,6 +3,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 
 import { FiBookmark, FiMoreHorizontal, FiShare2, FiStar } from "react-icons/fi";
 import { resolveWelcomeVideoPresentation } from "../../utils/welcomeVideoEmbed";
+import { resolvePublicMediaUrl } from "../../utils/mediaUrl";
 import { WelcomeVideoSkeleton } from "../../components/skeletons/LoadingSkeletons";
 
 const CARD_TITLE = "Welcome to the Sell It family! 💙";
@@ -131,7 +132,9 @@ export default function WelcomeFamilyVideoInner({ showHero = true }) {
               controls
               playsInline
               src={videoPresentation.src}
-              poster={String(data.thumbnail_url || "").trim() || undefined}
+              poster={
+                resolvePublicMediaUrl(data.thumbnail_url, apiBaseUrl) || undefined
+              }
             >
               <track kind="captions" />
             </video>

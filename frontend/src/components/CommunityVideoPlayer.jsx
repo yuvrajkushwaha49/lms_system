@@ -7,6 +7,8 @@ import {
   FiVolume2,
   FiVolumeX,
 } from "react-icons/fi";
+import { getApiBaseUrl } from "../utils/apiBaseUrl";
+import { resolvePublicMediaUrl } from "../utils/mediaUrl";
 
 const VIDEO_PLAYBACK_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 
@@ -26,6 +28,8 @@ const protectedMediaHandlers = {
   onContextMenu: preventProtectedMediaAction,
   onDragStart: preventProtectedMediaAction,
 };
+
+const resolvePlayerSrc = (url) => resolvePublicMediaUrl(url, getApiBaseUrl());
 
 export default function CommunityVideoPlayer({
   src,
@@ -59,9 +63,12 @@ export default function CommunityVideoPlayer({
       .map((variant) => ({
         value: variant.resolution,
         label: variant.resolution,
-        src: variant.media_url,
+        src: resolvePlayerSrc(variant.media_url),
       }));
-    return [{ value: "auto", label: autoQualityLabel, src }, ...readyVariants];
+    return [
+      { value: "auto", label: autoQualityLabel, src: resolvePlayerSrc(src) },
+      ...readyVariants,
+    ];
   }, [src, variants, autoQualityLabel]);
 
   const selectedSource = qualityOptions.find((option) => option.value === selectedQuality) || qualityOptions[0];

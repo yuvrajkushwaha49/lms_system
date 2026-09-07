@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
+import { resolvePublicMediaUrl } from "../../utils/mediaUrl";
 
 import { createPortal } from "react-dom";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
@@ -60,20 +61,9 @@ const sortOptions = [
 const COMMENTS_PAGE_SIZE = 7;
 const FEED_PAGE_SIZE = 7;
 const FEED_BOOKMARKS_STORAGE_KEY = "student_community_feed_bookmarks";
-const UPCOMING_EVENTS = [
-  { month: "MAY", day: "20", title: "LIVE with Ryan Serhant", time: "12:30 - 1:00 AM IST" },
-  { month: "MAY", day: "22", title: "AI Academy: Build Your 'Balls Up' System", time: "12:30 - 1:00 AM IST" },
-  { month: "MAY", day: "22", title: "AI Academy: Build Your 'Balls Up' System", time: "12:30 - 1:00 AM IST" },
-  { month: "MAY", day: "26", title: "Build the Pipeline Part 3: Negotiation + Closer", time: "10:30 - 11:00 PM IST" },
-  { month: "JUN", day: "17", title: "LIVE with Ryan Serhant", time: "12:30 - 1:00 AM IST" },
-];
-const TRENDING_POSTS = [
-  { initials: "EP", title: "G' Day from Coastal San Diego", author: "Etienne Pieterse", tone: "berry" },
-  { initials: "GP", title: "Anyone interested in a weekly 30-min AI meetup?", author: "Glen Primak", tone: "sand" },
-  { initials: "SO", title: "Your Los Angeles Architectural Agent", author: "Stefany Gonzalez", tone: "amber" },
-  { initials: "JF", title: "Your Sell It profile is about to get more work for you.", author: "Julie Fantechi", tone: "rose" },
-  { initials: "KA", title: "Let's connect on instagram", author: "Kat Azimi", tone: "slate" },
-];
+const TRENDING_AVATAR_TONES = ["berry", "sand", "amber", "rose", "slate"];
+const trendingToneForId = (id) =>
+  TRENDING_AVATAR_TONES[Math.abs(Number(id) || 0) % TRENDING_AVATAR_TONES.length];
 
 /** Spaces shown in Create post → "Posting in" (UI; server post body unchanged). */
 const POSTING_SPACES = [
@@ -317,7 +307,9 @@ const resolveVideoPlaybackUrl = (attachment) => {
     readyVariants.find((variant) => variant.resolution === "720p") ||
     readyVariants.find((variant) => variant.resolution === "1080p") ||
     readyVariants.find((variant) => variant.resolution === "360p");
-  return preferredVariant?.media_url || attachment?.media_url || "";
+  const raw = preferredVariant?.media_url || attachment?.media_url || "";
+  // Keep ?token= for <video> (cannot send Authorization header)
+  return resolvePublicMediaUrl(raw, getApiBaseUrl());
 };
 
 const preventProtectedMediaAction = (event) => {
@@ -335,7 +327,9 @@ const resolveAuthenticatedMediaUrl = (src) => {
   try {
     const url = new URL(src, window.location.origin);
     if (url.pathname.startsWith("/api/feed/media/")) {
-      url.search = "";
+      // Always hit SPA origin (Vite → gateway) — never microservice host:port
+      const base = getApiBaseUrl().replace(/\/$/, "");
+      return base ? `${base}${url.pathname}` : `${window.location.origin}${url.pathname}`;
     }
     return url.toString();
   } catch {
@@ -668,6 +662,11 @@ export default function StudentCommunityFeedPage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(false);
+  const [trendingPosts, setTrendingPosts] = useState([]);
+  const [trendingLoading, setTrendingLoading] = useState(false);
+  const recordedViewIdsRef = useRef(new Set());
 
   const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
   const currentUser = useMemo(
@@ -706,6 +705,111 @@ export default function StudentCommunityFeedPage({
       cancelled = true;
     };
   }, [effectiveShowMembersRail, apiBaseUrl]);
+
+  const fetchTrendingPosts = useCallback(async () => {
+    if (!showFeedInsightsRail) {
+      setTrendingPosts([]);
+      return;
+    }
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    setTrendingLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: "5" });
+      if (effectiveFeedSpaceFilter) params.set("space", effectiveFeedSpaceFilter);
+      const res = await fetch(
+        `${apiBaseUrl}/api/feed/trending?${params.toString()}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || payload.status !== "success") {
+        setTrendingPosts([]);
+        return;
+      }
+      setTrendingPosts(Array.isArray(payload.data) ? payload.data : []);
+    } catch {
+      setTrendingPosts([]);
+    } finally {
+      setTrendingLoading(false);
+    }
+  }, [apiBaseUrl, effectiveFeedSpaceFilter, showFeedInsightsRail]);
+
+  useEffect(() => {
+    if (!showFeedInsightsRail) {
+      setUpcomingEvents([]);
+      return undefined;
+    }
+    const token = localStorage.getItem("token");
+    if (!token) return undefined;
+    let cancelled = false;
+    (async () => {
+      setUpcomingEventsLoading(true);
+      try {
+        const res = await fetch(
+          `${apiBaseUrl}/api/upcoming-events?upcoming_only=true`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || payload.status !== "success") {
+          if (!cancelled) setUpcomingEvents([]);
+          return;
+        }
+        if (!cancelled) setUpcomingEvents(Array.isArray(payload.data) ? payload.data : []);
+      } catch {
+        if (!cancelled) setUpcomingEvents([]);
+      } finally {
+        if (!cancelled) setUpcomingEventsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showFeedInsightsRail, apiBaseUrl]);
+
+  useEffect(() => {
+    fetchTrendingPosts();
+  }, [fetchTrendingPosts]);
+
+  const recordPostView = useCallback(
+    async (postId) => {
+      const id = Number(postId);
+      if (!id || recordedViewIdsRef.current.has(id)) return;
+      recordedViewIdsRef.current.add(id);
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      try {
+        await fetch(`${apiBaseUrl}/api/feed/${id}/views`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {
+        recordedViewIdsRef.current.delete(id);
+      }
+    },
+    [apiBaseUrl],
+  );
+
+  useEffect(() => {
+    if (!posts.length) return undefined;
+    const nodes = document.querySelectorAll(
+      "article.student-community-card[data-post-id]",
+    );
+    if (!nodes.length) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const postId = entry.target.getAttribute("data-post-id");
+          if (postId) recordPostView(postId);
+        });
+      },
+      { threshold: 0.55 },
+    );
+
+    nodes.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, [posts, recordPostView]);
 
   const clearMemberPopoverTimer = useCallback(() => {
     if (memberPopoverCloseTimer.current) {
@@ -1215,6 +1319,7 @@ export default function StudentCommunityFeedPage({
             : post,
         ),
       );
+      fetchTrendingPosts();
     } catch (likeError) {
       setError(likeError.message || "Unable to update like.");
     }
@@ -1417,6 +1522,7 @@ export default function StudentCommunityFeedPage({
           COMMENTS_PAGE_SIZE,
         ),
       }));
+      fetchTrendingPosts();
     } catch (commentError) {
       setError(commentError.message || "Unable to add comment.");
     }
@@ -1908,6 +2014,7 @@ export default function StudentCommunityFeedPage({
                   return (
                     <article
                       key={post.id}
+                      data-post-id={post.id}
                       className={`lms-card student-community-card ${isBlockedPost ? "blocked" : ""}`}
                       role="button"
                       tabIndex={0}
@@ -2216,38 +2323,57 @@ export default function StudentCommunityFeedPage({
                   <div className="lms-card student-community-side-card student-community-events-card">
                     <h2>Upcoming events</h2>
                     <div className="student-community-events-list">
-                      {UPCOMING_EVENTS.map((event, index) => (
-                        <div
-                          key={`${event.month}-${event.day}-${index}`}
-                          className="student-community-event-row"
-                        >
-                          <div className="student-community-event-date">
-                            <strong>{event.day}</strong>
-                            <span>{event.month}</span>
+                      {upcomingEventsLoading ? (
+                        <p className="text-muted small mb-0 px-1">Loading events…</p>
+                      ) : upcomingEvents.length === 0 ? (
+                        <p className="text-muted small mb-0 px-1">No upcoming events yet.</p>
+                      ) : (
+                        upcomingEvents.map((event) => (
+                          <div
+                            key={event.id || `${event.month}-${event.day}-${event.title}`}
+                            className="student-community-event-row"
+                          >
+                            <div className="student-community-event-date">
+                              <strong>{event.day}</strong>
+                              <span>{event.month}</span>
+                            </div>
+                            <div className="student-community-event-copy">
+                              <h3>{event.title}</h3>
+                              <p>{event.time_label || event.time || ""}</p>
+                            </div>
                           </div>
-                          <div className="student-community-event-copy">
-                            <h3>{event.title}</h3>
-                            <p>{event.time}</p>
-                          </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </div>
 
                   <div className="lms-card student-community-side-card student-community-trending-card">
                     <h2>Trending posts</h2>
                     <div className="student-community-trending-list">
-                      {TRENDING_POSTS.map((post) => (
-                        <div key={`${post.initials}-${post.title}`} className="student-community-trending-row">
-                          <span className={`student-community-trending-avatar tone-${post.tone}`}>
-                            {post.initials}
-                          </span>
-                          <div className="student-community-trending-copy">
-                            <h3>{post.title}</h3>
-                            <p>{post.author}</p>
-                          </div>
-                        </div>
-                      ))}
+                      {trendingLoading ? (
+                        <p className="text-muted small mb-0 px-1">Loading trending…</p>
+                      ) : trendingPosts.length === 0 ? (
+                        <p className="text-muted small mb-0 px-1">No trending posts yet.</p>
+                      ) : (
+                        trendingPosts.map((post) => (
+                          <button
+                            type="button"
+                            key={post.id}
+                            className="student-community-trending-row"
+                            onClick={() => setSelectedPostId(post.id)}
+                          >
+                            <span
+                              className={`student-community-trending-avatar tone-${trendingToneForId(post.id)}`}
+                            >
+                              {post.initials}
+                            </span>
+                            <div className="student-community-trending-copy">
+                              <h3>{post.title}</h3>
+                              <p>{post.author}</p>
+                            </div>
+                          </button>
+                        ))
+                      )}
                     </div>
                   </div>
                 </>

@@ -5,6 +5,7 @@ import { FiHeart, FiImage, FiMessageCircle, FiPlus, FiRefreshCw, FiUploadCloud }
 import { Link } from "react-router-dom";
 import DashboardSectionPage from "./DashboardSectionPage";
 import { WallOfWinsGridSkeleton } from "../../components/skeletons/LoadingSkeletons";
+import { resolvePublicMediaUrl } from "../../utils/mediaUrl";
 
 const canUploadWallOfWins = (user) => {
   const r = String(user?.role_name || "").toLowerCase();
@@ -225,7 +226,7 @@ export default function SuperAdminWallOfWinsPage() {
             className="wall-of-wins-banner-image"
             style={{
               background: entries[0]?.image_url
-                ? `url(${entries[0].image_url}) center/cover no-repeat`
+                ? `url(${resolvePublicMediaUrl(entries[0].image_url, apiBaseUrl)}) center/cover no-repeat`
                 : "linear-gradient(140deg,#dbeafe,#f1f5f9)",
             }}
           />
@@ -254,7 +255,7 @@ export default function SuperAdminWallOfWinsPage() {
               >
                 <div className="wall-of-wins-card-media">
                   <img
-                    src={entry.image_url}
+                    src={resolvePublicMediaUrl(entry.image_url, apiBaseUrl)}
                     alt={entry.image_name ? `Win photo from ${entry.user_name || "member"}` : "Win photo"}
                     className="wall-of-wins-thumb"
                     loading="lazy"

@@ -55,6 +55,7 @@ const feedManagementLinks = [
   { label: 'Reports', path: '/dashboard/feed-management/reports' },
   { label: 'Feed By Members', path: '/dashboard/feed-management/members' },
   { label: 'Wall of Wins', path: '/dashboard/feed-management/wall-of-wins' },
+  { label: 'Upcoming Events', path: '/dashboard/feed-management/upcoming-events' },
 ];
 
 const welcomeAdminLinks = [

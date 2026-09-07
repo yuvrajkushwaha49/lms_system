@@ -1,8 +1,8 @@
 /**
  * Turn API-stored media URLs into something the browser can load from the SPA origin.
- * - Relative paths (/uploads/...) are prefixed with apiBaseUrl (Vite dev on :5173 cannot serve /uploads).
- * - Absolute http(s) URLs under /uploads/ are re-based onto apiBaseUrl origin so a wrong host/port
- *   (e.g. stored http://localhost:5000/... while the app calls :5003) still works.
+ * - Relative paths (/uploads/..., /api/...) are prefixed with apiBaseUrl (Vite proxy in dev).
+ * - Absolute http(s) URLs under /uploads/ or /api/ are re-based onto apiBaseUrl / page origin
+ *   so a wrong microservice host (e.g. http://127.0.0.1:5004/...) still works via the gateway.
  */
 export function resolvePublicMediaUrl(url, apiBaseUrl) {
   const trimmed = String(url ?? "").trim();
@@ -24,13 +24,20 @@ export function resolvePublicMediaUrl(url, apiBaseUrl) {
     return base ? `${base}${trimmed}` : trimmed;
   }
 
-  if (/^https?:\/\//i.test(trimmed) && base) {
+  if (/^https?:\/\//i.test(trimmed)) {
     try {
       const parsed = new URL(trimmed);
-      if (parsed.pathname.startsWith("/uploads/")) {
-        const originBase = base.match(/^https?:\/\//i) ? base : `http://${base}`;
-        const api = new URL(originBase);
-        return `${api.origin}${parsed.pathname}${parsed.search}${parsed.hash}`;
+      const isAppPath =
+        parsed.pathname.startsWith("/uploads/") || parsed.pathname.startsWith("/api/");
+      if (isAppPath) {
+        if (base) {
+          const originBase = base.match(/^https?:\/\//i) ? base : `http://${base}`;
+          const api = new URL(originBase);
+          return `${api.origin}${parsed.pathname}${parsed.search}${parsed.hash}`;
+        }
+        if (typeof window !== "undefined" && window.location?.origin) {
+          return `${window.location.origin}${parsed.pathname}${parsed.search}${parsed.hash}`;
+        }
       }
     } catch {
       return trimmed;

@@ -40,35 +40,30 @@ const COMMUNITY_NAV_ITEMS = [
     key: "sell",
     label: "Sell It Community",
     path: "/dashboard/student-community",
-    badgeKey: "sell-it-community",
     icon: "arrow",
   },
   {
     key: "dir",
     label: "Member Directory",
     path: "/dashboard/student-members",
-    badgeKey: null,
     icon: "search",
   },
   {
     key: "ref",
     label: "Referral Partners",
     path: "/dashboard/student-community/referral-partners",
-    badgeKey: "referral-partners",
     icon: "🤝",
   },
   {
     key: "list",
     label: "Community Listings",
     path: "/dashboard/student-community/listings",
-    badgeKey: "community-listings",
     icon: "🏠",
   },
   {
     key: "wow",
     label: "Wall of Wins",
     path: "/dashboard/student-wall-of-wins",
-    badgeKey: "wallOfWins",
     icon: "🏆",
   },
 ];
@@ -140,7 +135,6 @@ export default function StudentDashboardSectionPage({
   const [starterMenuOpen, setStarterMenuOpen] = useState(true);
   const [welcomeMenuOpen, setWelcomeMenuOpen] = useState(true);
   const [communityMenuOpen, setCommunityMenuOpen] = useState(true);
-  const [communitySummary, setCommunitySummary] = useState({ feedBySpace: {}, wallOfWins: 0 });
   const [monthlyChallengesMenuOpen, setMonthlyChallengesMenuOpen] = useState(true);
   const [monthlySidebar, setMonthlySidebar] = useState({
     loading: false,
@@ -276,33 +270,6 @@ export default function StudentDashboardSectionPage({
       setCommunityMenuOpen(true);
     }
   }, [isCommunityRouteActive]);
-
-  useEffect(() => {
-    if (!communityMenuOpen) return undefined;
-    const token = localStorage.getItem("token");
-    if (!token) return undefined;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`${apiBaseUrl}/api/feed/summary`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const payload = await res.json();
-        if (!res.ok || payload.status !== "success") return;
-        if (!cancelled) {
-          setCommunitySummary({
-            feedBySpace: payload.data?.feedBySpace || {},
-            wallOfWins: Number(payload.data?.wallOfWins) || 0,
-          });
-        }
-      } catch {
-        if (!cancelled) setCommunitySummary({ feedBySpace: {}, wallOfWins: 0 });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [communityMenuOpen, apiBaseUrl]);
 
   const SidebarLinkLabel = ({ icon: Icon, label, short, collapsed: isCollapsed }) => (
     <>
@@ -676,46 +643,32 @@ export default function StudentDashboardSectionPage({
               </button>
               {showCommunityMenu && (
                 <div className="student-starter-panel-list">
-                  {COMMUNITY_NAV_ITEMS.map((item) => {
-                    const badgeCount =
-                      item.badgeKey === "wallOfWins"
-                        ? communitySummary.wallOfWins
-                        : item.badgeKey != null
-                          ? communitySummary.feedBySpace[item.badgeKey] ?? null
-                          : null;
-                    const showBadge = badgeCount != null && !Number.isNaN(Number(badgeCount));
-                    return (
-                      <NavLink
-                        key={item.key}
-                        to={item.path}
-                        title={collapsed ? item.label : undefined}
-                        className={() =>
-                          `student-starter-panel-link  ${linkIsActive(item.path) ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`
-                        }
-                      >
-                        <span className="student-starter-panel-icon" aria-hidden="true">
-                          {item.icon === "arrow" ? (
-                            <span className="community-sidebar-ico-sell">➤</span>
-                          ) : item.icon === "search" ? (
-                            <FiSearch className="community-sidebar-fi" />
-                          ) : (
-                            item.icon
-                          )}
-                        </span>
-                        {!collapsed && (
-                          <>
-                            <span className="flex-grow-1 text-truncate" style={{ minWidth: 0 }}>
-                              {item.label}
-                            </span>
-                            {showBadge ? (
-                              <span className="student-community-sidebar-count">{badgeCount}</span>
-                            ) : null}
-                          </>
+                  {COMMUNITY_NAV_ITEMS.map((item) => (
+                    <NavLink
+                      key={item.key}
+                      to={item.path}
+                      title={collapsed ? item.label : undefined}
+                      className={() =>
+                        `student-starter-panel-link  ${linkIsActive(item.path) ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`
+                      }
+                    >
+                      <span className="student-starter-panel-icon" aria-hidden="true">
+                        {item.icon === "arrow" ? (
+                          <span className="community-sidebar-ico-sell">➤</span>
+                        ) : item.icon === "search" ? (
+                          <FiSearch className="community-sidebar-fi" />
+                        ) : (
+                          item.icon
                         )}
-                        {collapsed && <span className="visually-hidden">{item.label}</span>}
-                      </NavLink>
-                    );
-                  })}
+                      </span>
+                      {!collapsed && (
+                        <span className="flex-grow-1 text-truncate" style={{ minWidth: 0 }}>
+                          {item.label}
+                        </span>
+                      )}
+                      {collapsed && <span className="visually-hidden">{item.label}</span>}
+                    </NavLink>
+                  ))}
                 </div>
               )}
             </div>

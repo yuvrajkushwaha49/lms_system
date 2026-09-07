@@ -8,6 +8,7 @@ import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
 import wallofwins from "../../assets/Wall of Wins.png";
 import { CommentListSkeleton, WallOfWinsGridSkeleton } from "../../components/skeletons/LoadingSkeletons";
+import { resolvePublicMediaUrl } from "../../utils/mediaUrl";
 
 const PAGE_SIZE = 18;
 
@@ -352,7 +353,7 @@ export default function StudentWallOfWinsPage() {
                   onClick={() => openComments(entry)}
                 >
                   <img
-                    src={entry.image_url}
+                    src={resolvePublicMediaUrl(entry.image_url, apiBaseUrl)}
                     alt={
                       entry.image_name
                         ? `Win photo from ${entry.user_name || "member"}`
@@ -456,7 +457,7 @@ export default function StudentWallOfWinsPage() {
               <div className="wall-of-wins-detail-image">
                 {activeCommentEntry?.image_url ? (
                   <img
-                    src={activeCommentEntry.image_url}
+                    src={resolvePublicMediaUrl(activeCommentEntry.image_url, apiBaseUrl)}
                     alt={
                       activeCommentEntry.image_name
                         ? `Win photo from ${activeCommentEntry.user_name || "member"}`
