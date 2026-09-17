@@ -4,6 +4,7 @@ import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { useNavigate, useParams } from 'react-router-dom';
 import DashboardSectionPage from './DashboardSectionPage';
 import { ProfileHeroSkeleton } from '../../components/skeletons/LoadingSkeletons';
+import ConfirmPopup from '../../components/ConfirmPopup';
 
 function IconMail() {
   return (
@@ -26,11 +27,22 @@ export default function UserDetailPage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [actionBusy, setActionBusy] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const apiBaseUrl = useMemo(
     () => getApiBaseUrl(),
     [],
   );
+
+  const currentUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || 'null');
+    } catch {
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -71,8 +83,77 @@ export default function UserDetailPage() {
     };
   }, [apiBaseUrl, userId, navigate]);
 
+  const handleDeleteUser = async () => {
+    if (!user) return;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    if (Number(currentUser?.id) === Number(user.id)) {
+      setActionError('You cannot delete your own account while logged in.');
+      setConfirmDeleteOpen(false);
+      return;
+    }
+
+    setActionBusy(true);
+    setActionError('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/users/${user.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/login');
+        return;
+      }
+      if (!response.ok || payload.status !== 'success') {
+        throw new Error(payload.message || 'Unable to delete user');
+      }
+      setConfirmDeleteOpen(false);
+      navigate('/dashboard/user-management');
+    } catch (deleteError) {
+      setActionError(deleteError.message || 'Failed to delete user');
+      setConfirmDeleteOpen(false);
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handleToggleStatus = async () => {
+    if (!user) return;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    setActionBusy(true);
+    setActionError('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/users/${user.id}/status`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.status !== 'success') {
+        throw new Error(payload.message || 'Unable to update status');
+      }
+      setUser((prev) => (prev ? { ...prev, status: payload.data?.status || prev.status } : prev));
+    } catch (statusError) {
+      setActionError(statusError.message || 'Failed to update status');
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   const initial = user?.name?.trim()?.[0]?.toUpperCase() || '?';
   const statusLabel = (user?.status || 'active').toUpperCase();
+  const isActive = String(user?.status || 'active').toLowerCase() === 'active';
 
   const backButton = <button type="button" onClick={() => navigate('/dashboard/user-management')} className="btn btn-outline-secondary btn-sm">← Back</button>;
 
@@ -113,34 +194,60 @@ export default function UserDetailPage() {
                     </div>
                   </div>
                   <div className="d-flex flex-wrap gap-2">
-                    <span className="badge text-bg-success">{statusLabel}</span>
-                    <span className="badge text-bg-dark">Calls loaded: 0</span>
-                    <span className="badge text-bg-primary">Page: 1</span>
+                    <span className={`badge ${isActive ? 'text-bg-success' : 'text-bg-secondary'}`}>{statusLabel}</span>
                   </div>
                 </div>
               </div>
             </div>
+            {actionError && <div className="alert alert-danger mb-3">{actionError}</div>}
             <div className="lms-card p-4 p-md-5">
               <div className="row g-4">
                 <div className="col-md">
                   <p className="text-uppercase small text-muted mb-2">Account actions</p>
                   <div className="d-flex flex-wrap gap-2">
-                    <button type="button" className="btn btn-warning">Deactivate</button>
-                    <button type="button" className="btn btn-outline-primary">Change password</button>
-                    <button type="button" className="btn btn-outline-success">Edit details</button>
-                    <button type="button" className="btn btn-outline-dark">Device history</button>
+                    <button
+                      type="button"
+                      className="btn btn-warning"
+                      disabled={actionBusy}
+                      onClick={handleToggleStatus}
+                    >
+                      {isActive ? 'Deactivate' : 'Activate'}
+                    </button>
                   </div>
                 </div>
                 <div className="col-md-auto">
                   <p className="text-uppercase small text-danger mb-2">Danger zone</p>
-                  <button type="button" className="btn btn-danger">Delete user</button>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    disabled={actionBusy}
+                    onClick={() => {
+                      setActionError('');
+                      setConfirmDeleteOpen(true);
+                    }}
+                  >
+                    Delete user
+                  </button>
                 </div>
               </div>
             </div>
           </>
         )}
       </div>
+
+      <ConfirmPopup
+        open={confirmDeleteOpen}
+        title="Delete user?"
+        message={`Delete "${user?.name || 'this user'}" permanently? This cannot be undone.`}
+        confirmLabel="Delete user"
+        cancelLabel="Cancel"
+        confirmVariant="danger"
+        busy={actionBusy}
+        onCancel={() => {
+          if (!actionBusy) setConfirmDeleteOpen(false);
+        }}
+        onConfirm={handleDeleteUser}
+      />
     </DashboardSectionPage>
   );
 }
-

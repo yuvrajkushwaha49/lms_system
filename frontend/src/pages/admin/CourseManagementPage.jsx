@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 
 import { useLocation, useNavigate } from 'react-router-dom';
+import { FiEdit2, FiEye, FiTrash2 } from 'react-icons/fi';
 import DashboardSectionPage from './DashboardSectionPage';
 import { resolvePublicMediaUrl } from '../../utils/mediaUrl';
 import { OmAdminCardGridSkeleton, TableSkeleton } from '../../components/skeletons/LoadingSkeletons';
+import ConfirmPopup from '../../components/ConfirmPopup';
 
 const STANDARD_RECORDED_TYPE_OPTIONS = ['Chapter Wise/Topic Wise', 'Short Course'];
 const OWNING_MANHATTAN_RECORDED_TYPE_OPTIONS = ['Short Course', 'Podcast Episode'];
@@ -28,6 +30,9 @@ export default function CourseManagementPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [courses, setCourses] = useState([]);
   const [isLoadingCourses, setIsLoadingCourses] = useState(false);
@@ -42,6 +47,7 @@ export default function CourseManagementPage() {
     () => getApiBaseUrl(),
     [],
   );
+  const isEditMode = editId != null;
 
   const uploadCourseMediaFile = async (token, file) => {
     const body = new FormData();
@@ -98,6 +104,68 @@ export default function CourseManagementPage() {
     fetchCourses();
   }, []);
 
+  useEffect(() => {
+    if (!feedback) return undefined;
+    const timer = window.setTimeout(() => setFeedback(''), 4000);
+    return () => window.clearTimeout(timer);
+  }, [feedback]);
+
+  const resetFormForCreate = () => {
+    setFormData({
+      title: '',
+      description: '',
+      price: '',
+      deliveryMode: 'Recorded',
+      recordedType: defaultRecordedTypeBySidebar,
+      pricingType: 'Paid',
+      courseType: defaultCourseTypeBySidebar,
+    });
+    setOmVideoFile(null);
+    setOmThumbnailFile(null);
+    setEditId(null);
+  };
+
+  const openCreateModal = () => {
+    setError('');
+    setFeedback('');
+    resetFormForCreate();
+    setShowModal(true);
+  };
+
+  const openEditModal = (course) => {
+    const catalogType = course?.course_type || defaultCourseTypeBySidebar;
+    const isOmCatalog = catalogType === 'OwningManhattan';
+    setEditId(course.id);
+    setFormData({
+      title: course?.title || '',
+      description: course?.description || '',
+      price: String(course?.price ?? ''),
+      deliveryMode: course?.delivery_mode || 'Recorded',
+      recordedType:
+        (isOmCatalog && course?.recorded_type === 'Short Courses'
+          ? 'Short Course'
+          : course?.recorded_type) ||
+        (isOmCatalog ? 'Short Course' : 'Chapter Wise/Topic Wise'),
+      pricingType:
+        course?.pricing_type ||
+        (Number(course?.price) === 0 ? 'Free for Members' : 'Paid'),
+      courseType: catalogType,
+    });
+    setOmVideoFile(null);
+    setOmThumbnailFile(null);
+    setError('');
+    setFeedback('');
+    setShowModal(true);
+  };
+
+  const closeCourseModal = () => {
+    if (isSubmitting) return;
+    setShowModal(false);
+    setEditId(null);
+    setOmVideoFile(null);
+    setOmThumbnailFile(null);
+  };
+
   const handleChange = (event) => {
     const { name, value } = event.target;
     setFormData((prev) => {
@@ -120,7 +188,7 @@ export default function CourseManagementPage() {
     });
   };
 
-  const handleCreateCourse = async (event) => {
+  const handleSaveCourse = async (event) => {
     event.preventDefault();
     setFeedback('');
     setError('');
@@ -141,7 +209,7 @@ export default function CourseManagementPage() {
       return;
     }
 
-    const isOmFlow = sidebarTypeFilter === 'owning-manhattan';
+    const isOmFlow = sidebarTypeFilter === 'owning-manhattan' && !isEditMode;
     if (isOmFlow && (!omVideoFile || !omThumbnailFile)) {
       setError('Please choose a video file and a thumbnail image for Owning Manhattan.');
       return;
@@ -149,25 +217,75 @@ export default function CourseManagementPage() {
 
     setIsSubmitting(true);
     try {
+      const courseBody = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        price: numericPrice,
+        delivery_mode: formData.deliveryMode,
+        recorded_type:
+          formData.deliveryMode === 'Recorded'
+            ? formData.recordedType || 'Chapter Wise/Topic Wise'
+            : null,
+        pricing_type: formData.pricingType,
+        free_for_members: formData.pricingType === 'Free for Members',
+        course_type: formData.courseType,
+      };
+
+      if (isEditMode) {
+        const response = await fetch(`${apiBaseUrl}/api/courses/${editId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(courseBody),
+        });
+        const payload = await response.json();
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          throw new Error('Session expired or unauthorized. Please login again.');
+        }
+        if (!response.ok || payload.status !== 'success') {
+          throw new Error(payload.message || 'Unable to update course');
+        }
+        const updated = payload.data || {
+          id: editId,
+          ...courseBody,
+          free_for_members: courseBody.free_for_members ? 1 : 0,
+        };
+        setCourses((prev) =>
+          prev.map((course) =>
+            String(course.id) === String(editId)
+              ? {
+                  ...course,
+                  ...updated,
+                  title: updated.title ?? courseBody.title,
+                  description: updated.description ?? courseBody.description,
+                  price: updated.price ?? courseBody.price,
+                  delivery_mode: updated.delivery_mode ?? courseBody.delivery_mode,
+                  recorded_type: updated.recorded_type ?? courseBody.recorded_type,
+                  pricing_type: updated.pricing_type ?? courseBody.pricing_type,
+                  course_type: updated.course_type ?? courseBody.course_type,
+                }
+              : course,
+          ),
+        );
+        setFeedback('Course updated successfully.');
+        setShowModal(false);
+        setEditId(null);
+        setOmVideoFile(null);
+        setOmThumbnailFile(null);
+        return;
+      }
+
       const response = await fetch(`${apiBaseUrl}/api/courses`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          title: formData.title.trim(),
-          description: formData.description.trim(),
-          price: numericPrice,
-          delivery_mode: formData.deliveryMode,
-          recorded_type:
-            formData.deliveryMode === 'Recorded'
-              ? formData.recordedType || 'Chapter Wise/Topic Wise'
-              : null,
-          pricing_type: formData.pricingType,
-          free_for_members: formData.pricingType === 'Free for Members',
-          course_type: formData.courseType,
-        }),
+        body: JSON.stringify(courseBody),
       });
 
       const payload = await response.json();
@@ -257,6 +375,51 @@ export default function CourseManagementPage() {
     }
   };
 
+  const openDeletePopup = (course) => {
+    setDeleteTarget(course);
+    setError('');
+  };
+
+  const closeDeletePopup = () => {
+    if (isDeleting) return;
+    setDeleteTarget(null);
+  };
+
+  const confirmDeleteCourse = async () => {
+    if (!deleteTarget) return;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('Session missing. Please login first.');
+      return;
+    }
+    setIsDeleting(true);
+    setError('');
+    setFeedback('');
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/courses/${deleteTarget.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.status !== 'success') {
+        throw new Error(payload.message || 'Failed to delete course.');
+      }
+      setCourses((prev) => prev.filter((course) => String(course.id) !== String(deleteTarget.id)));
+      setOmCourseThumbById((prev) => {
+        const next = { ...prev };
+        delete next[String(deleteTarget.id)];
+        return next;
+      });
+      setFeedback('Course deleted successfully.');
+      setDeleteTarget(null);
+    } catch (deleteError) {
+      setError(deleteError.message || 'Failed to delete course.');
+      setDeleteTarget(null);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const sidebarTypeFilter = useMemo(() => {
     const typeParam = new URLSearchParams(location.search).get('type');
     if (typeParam === 'short-courses') return 'short';
@@ -298,7 +461,7 @@ export default function CourseManagementPage() {
   }, [sidebarTypeFilter]);
 
   useEffect(() => {
-    if (!showModal) return;
+    if (!showModal || isEditMode) return;
     if (sidebarTypeFilter !== 'short' && sidebarTypeFilter !== 'chapter' && sidebarTypeFilter !== 'owning-manhattan') {
       return;
     }
@@ -308,7 +471,7 @@ export default function CourseManagementPage() {
       recordedType: defaultRecordedTypeBySidebar,
       courseType: defaultCourseTypeBySidebar,
     }));
-  }, [showModal, sidebarTypeFilter, defaultRecordedTypeBySidebar, defaultCourseTypeBySidebar]);
+  }, [showModal, isEditMode, sidebarTypeFilter, defaultRecordedTypeBySidebar, defaultCourseTypeBySidebar]);
 
   const filterOnlyCourses = useMemo(() => {
     if (sidebarTypeFilter === 'all') return courses;
@@ -449,7 +612,8 @@ export default function CourseManagementPage() {
   }, [sidebarTypeFilter]);
 
   const listTotalLabel = sidebarTypeFilter === 'all' ? courses.length : filterOnlyCourses.length;
-  const isOmCreateModal = sidebarTypeFilter === 'owning-manhattan';
+  const isOmModal = sidebarTypeFilter === 'owning-manhattan';
+  const isOmCreateFlow = isOmModal && !isEditMode;
 
   const formatDate = (input) => {
     if (!input) return '-';
@@ -500,17 +664,7 @@ export default function CourseManagementPage() {
   };
 
   const openOwningManhattanCreateModal = () => {
-    setError('');
-    setFeedback('');
-    setOmVideoFile(null);
-    setOmThumbnailFile(null);
-    setFormData((prev) => ({
-      ...prev,
-      deliveryMode: 'Recorded',
-      recordedType: defaultRecordedTypeBySidebar,
-      courseType: defaultCourseTypeBySidebar,
-    }));
-    setShowModal(true);
+    openCreateModal();
   };
 
   return (
@@ -564,11 +718,15 @@ export default function CourseManagementPage() {
             </header>
 
             {error ? (
-              <div className="alert alert-danger py-2 px-3 mb-3 rounded-3 border-0 shadow-sm lms-om-admin-alert">{error}</div>
+              <div className="alert alert-danger py-2 px-3 mb-3 rounded-3 border-0 shadow-sm lms-om-admin-alert d-flex align-items-center justify-content-between gap-2">
+                <span>{error}</span>
+                <button type="button" className="btn-close" aria-label="Close" onClick={() => setError('')} />
+              </div>
             ) : null}
             {feedback ? (
-              <div className="alert alert-success py-2 px-3 mb-3 rounded-3 border-0 shadow-sm lms-om-admin-alert">
-                {feedback}
+              <div className="alert alert-success py-2 px-3 mb-3 rounded-3 border-0 shadow-sm lms-om-admin-alert d-flex align-items-center justify-content-between gap-2" role="alert">
+                <span>{feedback}</span>
+                <button type="button" className="btn-close" aria-label="Close" onClick={() => setFeedback('')} />
               </div>
             ) : null}
 
@@ -653,9 +811,27 @@ export default function CourseManagementPage() {
                           {course.recorded_type === 'Short Courses' ? 'Short Course' : course.recorded_type || '—'}
                         </span>
                       </div>
+                      <div className="d-flex flex-wrap gap-2 mt-auto pt-3">
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary btn-sm rounded-pill d-inline-flex align-items-center gap-1 flex-grow-1"
+                          onClick={() => openEditModal(course)}
+                        >
+                          <FiEdit2 size={14} aria-hidden />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger btn-sm rounded-pill d-inline-flex align-items-center gap-1"
+                          onClick={() => openDeletePopup(course)}
+                        >
+                          <FiTrash2 size={14} aria-hidden />
+                          Delete
+                        </button>
+                      </div>
                       <button
                         type="button"
-                        className="btn lms-om-admin-card-btn rounded-pill w-100 mt-auto fw-semibold"
+                        className="btn lms-om-admin-card-btn rounded-pill w-100 mt-2 fw-semibold"
                         disabled={viewLoadingCourseId === String(course.id)}
                         onClick={() =>
                           openAdminFirstVideoOrCourse(course.id, {
@@ -694,19 +870,7 @@ export default function CourseManagementPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => {
-                        setError('');
-                        setFeedback('');
-                        setOmVideoFile(null);
-                        setOmThumbnailFile(null);
-                        setFormData((prev) => ({
-                          ...prev,
-                          deliveryMode: 'Recorded',
-                          recordedType: defaultRecordedTypeBySidebar,
-                          courseType: defaultCourseTypeBySidebar,
-                        }));
-                        setShowModal(true);
-                      }}
+                      onClick={openCreateModal}
                       className="btn btn-warning fw-bold rounded-pill px-4 shadow-sm"
                     >
                       + Add course
@@ -715,8 +879,18 @@ export default function CourseManagementPage() {
                 </div>
               </div>
 
-              {error ? <div className="alert alert-danger py-2 mb-3">{error}</div> : null}
-              {feedback ? <div className="alert alert-success py-2 mb-3">{feedback}</div> : null}
+              {error ? (
+                <div className="alert alert-danger py-2 mb-3 d-flex align-items-center justify-content-between gap-2">
+                  <span>{error}</span>
+                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setError('')} />
+                </div>
+              ) : null}
+              {feedback ? (
+                <div className="alert alert-success py-2 mb-3 d-flex align-items-center justify-content-between gap-2" role="alert">
+                  <span>{feedback}</span>
+                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setFeedback('')} />
+                </div>
+              ) : null}
 
               <div className="lms-card p-3 p-md-4 mb-3 rounded-4 border-0 shadow-sm">
                 <div className="row g-3 mb-3">
@@ -801,7 +975,7 @@ export default function CourseManagementPage() {
                         <th className="py-3 fw-semibold border-0">Description</th>
                         <th className="py-3 fw-semibold border-0">Price</th>
                         <th className="d-none d-md-table-cell py-3 fw-semibold border-0">Created</th>
-                        <th className="text-end pe-4 py-3 fw-semibold border-0">Details</th>
+                        <th className="text-end pe-4 py-3 fw-semibold border-0">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -847,14 +1021,43 @@ export default function CourseManagementPage() {
                             <td><span className="badge rounded-pill text-bg-info">{Number(course.price) === 0 ? 'Free' : formatPrice(course.price)}</span></td>
                             <td className="d-none d-md-table-cell text-muted">{formatDate(course.created_at)}</td>
                             <td className="text-end pe-4">
-                              <button
-                                type="button"
-                                className="btn btn-outline-primary btn-sm rounded-pill px-3"
-                                disabled={viewLoadingCourseId === String(course.id)}
-                                onClick={() => openAdminFirstVideoOrCourse(course.id)}
-                              >
-                                {viewLoadingCourseId === String(course.id) ? '…' : 'View'}
-                              </button>
+                              <div className="d-inline-flex justify-content-end gap-1">
+                                <button
+                                  type="button"
+                                  className="btn btn-outline-primary btn-sm rounded-circle d-inline-flex align-items-center justify-content-center p-0"
+                                  style={{ width: 32, height: 32 }}
+                                  disabled={viewLoadingCourseId === String(course.id)}
+                                  onClick={() => openAdminFirstVideoOrCourse(course.id)}
+                                  title="View"
+                                  aria-label="View"
+                                >
+                                  {viewLoadingCourseId === String(course.id) ? (
+                                    <span aria-hidden>…</span>
+                                  ) : (
+                                    <FiEye size={15} aria-hidden />
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-outline-secondary btn-sm rounded-circle d-inline-flex align-items-center justify-content-center p-0"
+                                  style={{ width: 32, height: 32 }}
+                                  onClick={() => openEditModal(course)}
+                                  title="Edit"
+                                  aria-label="Edit"
+                                >
+                                  <FiEdit2 size={14} aria-hidden />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-outline-danger btn-sm rounded-circle d-inline-flex align-items-center justify-content-center p-0"
+                                  style={{ width: 32, height: 32 }}
+                                  onClick={() => openDeletePopup(course)}
+                                  title="Delete"
+                                  aria-label="Delete"
+                                >
+                                  <FiTrash2 size={14} aria-hidden />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -873,36 +1076,44 @@ export default function CourseManagementPage() {
             style={{ background: 'rgba(15,23,42,0.45)', zIndex: 1200 }}
           >
             <div
-              className={`card shadow-lg border-0 overflow-hidden ${isOmCreateModal ? 'lms-om-admin-modal-card lms-om-admin-modal-card--premium' : ''}`}
-              style={{ width: '100%', maxWidth: isOmCreateModal ? 740 : 720, borderRadius: 18 }}
+              className={`card shadow-lg border-0 overflow-hidden ${isOmModal ? 'lms-om-admin-modal-card lms-om-admin-modal-card--premium' : ''}`}
+              style={{ width: '100%', maxWidth: isOmModal ? 740 : 720, borderRadius: 18 }}
             >
               <div
-                className={`card-header border-0 text-white p-4 ${isOmCreateModal ? 'lms-om-admin-modal-header--premium' : ''}`}
+                className={`card-header border-0 text-white p-4 ${isOmModal ? 'lms-om-admin-modal-header--premium' : ''}`}
                 style={
-                  isOmCreateModal
+                  isOmModal
                     ? undefined
                     : { background: 'linear-gradient(90deg,#071d3d,#0a5dea)' }
                 }
               >
                 <div className="d-flex justify-content-between align-items-start gap-3">
                   <div>
-                    <p className="mb-1 small text-uppercase text-light">{isOmCreateModal ? 'Admin Upload' : 'Course Setup'}</p>
-                    <h2 className="h4 mb-1">{isOmCreateModal ? 'Add Owning Manhattan' : 'Add Course'}</h2>
+                    <p className="mb-1 small text-uppercase text-light">
+                      {isEditMode ? 'Edit Course' : isOmModal ? 'Admin Upload' : 'Course Setup'}
+                    </p>
+                    <h2 className="h4 mb-1">
+                      {isEditMode
+                        ? isOmModal
+                          ? 'Edit Owning Manhattan'
+                          : 'Edit Course'
+                        : isOmModal
+                          ? 'Add Owning Manhattan'
+                          : 'Add Course'}
+                    </h2>
                     <p className="mb-0 text-light small">
-                      {isOmCreateModal
-                        ? 'Publish a catalog episode: details first, then video and thumbnail (saved like Sell It Snacks).'
-                        : 'Create a live or recorded course for your organization.'}
+                      {isEditMode
+                        ? 'Update course details. Video upload stays on the course studio page.'
+                        : isOmModal
+                          ? 'Publish a catalog episode: details first, then video and thumbnail (saved like Sell It Snacks).'
+                          : 'Create a live or recorded course for your organization.'}
                     </p>
                   </div>
                   <button
                     type="button"
                     className="btn btn-sm btn-light rounded-circle d-flex align-items-center justify-content-center"
                     style={{ width: 32, height: 32 }}
-                    onClick={() => {
-                      setShowModal(false);
-                      setOmVideoFile(null);
-                      setOmThumbnailFile(null);
-                    }}
+                    onClick={closeCourseModal}
                     aria-label="Close"
                   >
                     x
@@ -910,13 +1121,13 @@ export default function CourseManagementPage() {
                 </div>
               </div>
 
-              <form onSubmit={handleCreateCourse}>
-                <div className="card-body p-4" style={{ maxHeight: isOmCreateModal ? '68vh' : '65vh', overflowY: 'auto' }}>
+              <form onSubmit={handleSaveCourse}>
+                <div className="card-body p-4" style={{ maxHeight: isOmModal ? '68vh' : '65vh', overflowY: 'auto' }}>
                   <div className="rounded-3 border bg-light p-3 mb-3">
-                    <p className="small text-uppercase text-muted mb-2">{isOmCreateModal ? 'Publishing setup' : 'Course Type'}</p>
+                    <p className="small text-uppercase text-muted mb-2">{isOmModal ? 'Publishing setup' : 'Course Type'}</p>
                     <div className="row g-3">
                       <div className="col-12 col-md-6">
-                        <label className="form-label fw-semibold">{isOmCreateModal ? 'Owning Manhattan' : 'Course Type'}</label>
+                        <label className="form-label fw-semibold">{isOmModal ? 'Owning Manhattan' : 'Course Type'}</label>
                         <select
                           name="courseType"
                           value={formData.courseType}
@@ -964,7 +1175,7 @@ export default function CourseManagementPage() {
                   </div>
 
                   <div className="rounded-3 border p-3 mb-3">
-                    <p className="small text-uppercase text-muted mb-2">{isOmCreateModal ? 'Episode details' : 'Course Details'}</p>
+                    <p className="small text-uppercase text-muted mb-2">{isOmModal ? 'Episode details' : 'Course Details'}</p>
                     <div className="row g-3 mb-3">
                       <div className="col-12 col-md-6">
                         <label className="form-label fw-semibold">Pricing Type</label>
@@ -980,7 +1191,7 @@ export default function CourseManagementPage() {
                       </div>
                     </div>
                     <div className="mb-3">
-                      <label className="form-label fw-semibold">{isOmCreateModal ? 'Episode title' : 'Title'}</label>
+                      <label className="form-label fw-semibold">{isOmModal ? 'Episode title' : 'Title'}</label>
                       <input
                         type="text"
                         name="title"
@@ -988,7 +1199,7 @@ export default function CourseManagementPage() {
                         onChange={handleChange}
                         required
                         className="form-control"
-                        placeholder={isOmCreateModal ? 'Episode headline for members' : 'Course title'}
+                        placeholder={isOmModal ? 'Episode headline for members' : 'Course title'}
                       />
                     </div>
                     <div className="mb-3">
@@ -1000,10 +1211,10 @@ export default function CourseManagementPage() {
                         required
                         className="form-control"
                         rows={4}
-                        placeholder={isOmCreateModal ? 'Brief Owning Manhattan description' : 'Brief course description'}
+                        placeholder={isOmModal ? 'Brief Owning Manhattan description' : 'Brief course description'}
                       />
                     </div>
-                    {isOmCreateModal && (
+                    {isOmCreateFlow && (
                       <div className="rounded-3 border p-3 mb-3">
                         <p className="small text-uppercase text-muted mb-2">Media files</p>
                         <div className="mb-3">
@@ -1056,23 +1267,24 @@ export default function CourseManagementPage() {
                   <div className="d-flex justify-content-end gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        setShowModal(false);
-                        setOmVideoFile(null);
-                        setOmThumbnailFile(null);
-                      }}
+                      onClick={closeCourseModal}
                       className="btn btn-outline-secondary px-4"
+                      disabled={isSubmitting}
                     >
                       Cancel
                     </button>
                     <button type="submit" disabled={isSubmitting} className="btn btn-primary px-4">
                       {isSubmitting
-                        ? isOmCreateModal
-                          ? 'Uploading...'
-                          : 'Creating...'
-                        : isOmCreateModal
-                          ? 'Publish episode'
-                          : 'Create course'}
+                        ? isEditMode
+                          ? 'Saving...'
+                          : isOmCreateFlow
+                            ? 'Uploading...'
+                            : 'Creating...'
+                        : isEditMode
+                          ? 'Save Changes'
+                          : isOmCreateFlow
+                            ? 'Publish episode'
+                            : 'Create course'}
                     </button>
                   </div>
                 </div>
@@ -1080,6 +1292,22 @@ export default function CourseManagementPage() {
             </div>
           </div>
         )}
+
+        <ConfirmPopup
+          open={Boolean(deleteTarget)}
+          title="Delete course?"
+          message={
+            deleteTarget
+              ? `Delete “${deleteTarget.title}”? This will remove related lessons and videos.`
+              : ''
+          }
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          confirmVariant="danger"
+          busy={isDeleting}
+          onConfirm={confirmDeleteCourse}
+          onCancel={closeDeletePopup}
+        />
       </div>
     </DashboardSectionPage>
   );

@@ -668,6 +668,195 @@ const createSnack = async (req, res) => {
   }
 };
 
+const resolveSnacksMediaPath = (mediaUrl) => {
+  const raw = String(mediaUrl || '').trim();
+  if (!raw) return null;
+  try {
+    const pathname = /^https?:\/\//i.test(raw) ? new URL(raw).pathname : raw;
+    const marker = '/uploads/snacks-media/';
+    const idx = pathname.indexOf(marker);
+    if (idx === -1) return null;
+    const relative = pathname.slice(idx + marker.length).replace(/^[/\\]+/, '');
+    if (!relative || relative.includes('..')) return null;
+    return path.join(__dirname, '..', 'uploads', 'snacks-media', relative);
+  } catch {
+    return null;
+  }
+};
+
+const safeUnlink = (filePath) => {
+  if (!filePath) return;
+  try {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  } catch {
+    /* ignore cleanup errors */
+  }
+};
+
+const updateSnack = async (req, res) => {
+  try {
+    await ensureSnacksTable();
+    const snackId = Number(req.params.snackId);
+    const orgId = resolveOrgId(req.user);
+    if (Number.isNaN(snackId)) {
+      return res.status(400).json({ status: 'error', message: 'Invalid snack id.' });
+    }
+    if (!orgId) {
+      return res.status(400).json({ status: 'error', message: 'Organization context missing in token.' });
+    }
+
+    const [existingRows] = await db.query(
+      'SELECT * FROM sell_it_snacks WHERE id = ? AND org_id = ? LIMIT 1',
+      [snackId, orgId],
+    );
+    if (!existingRows.length) {
+      return res.status(404).json({ status: 'error', message: 'Sell It Snack not found.' });
+    }
+    const existing = existingRows[0];
+
+    const category = String(req.body.category ?? existing.category).trim();
+    const title = String(req.body.title ?? existing.title).trim();
+    const description = String(req.body.description ?? existing.description ?? '').trim();
+    const videoFile = Array.isArray(req.files?.video) ? req.files.video[0] : null;
+    const thumbnailFile = Array.isArray(req.files?.thumbnail) ? req.files.thumbnail[0] : null;
+
+    if (!SNACK_CATEGORIES.includes(category)) {
+      return res.status(400).json({ status: 'error', message: 'Invalid snack category.' });
+    }
+    if (!title) {
+      return res.status(400).json({ status: 'error', message: 'Title is required.' });
+    }
+
+    const nextVideoUrl = videoFile ? toUploadUrl(req, videoFile.filename) : existing.video_url;
+    const nextVideoName = videoFile ? videoFile.originalname || null : existing.video_name;
+    const nextThumbnailUrl = thumbnailFile
+      ? toUploadUrl(req, thumbnailFile.filename)
+      : existing.thumbnail_url;
+    const nextThumbnailName = thumbnailFile
+      ? thumbnailFile.originalname || null
+      : existing.thumbnail_name;
+    const nextProcessingStatus = videoFile ? 'processing' : existing.processing_status;
+
+    await db.query(
+      `UPDATE sell_it_snacks
+       SET category = ?, title = ?, description = ?, video_url = ?, thumbnail_url = ?,
+           video_name = ?, thumbnail_name = ?, processing_status = ?
+       WHERE id = ? AND org_id = ?`,
+      [
+        category,
+        title,
+        description || null,
+        nextVideoUrl,
+        nextThumbnailUrl,
+        nextVideoName,
+        nextThumbnailName,
+        nextProcessingStatus || 'ready',
+        snackId,
+        orgId,
+      ],
+    );
+
+    if (videoFile) {
+      const variantRows = VIDEO_VARIANTS.map((variant) => [
+        orgId,
+        snackId,
+        variant.resolution,
+        'pending',
+      ]);
+      await db.query(
+        `INSERT INTO sell_it_snack_video_variants
+         (org_id, snack_id, resolution, status)
+         VALUES ?
+         ON DUPLICATE KEY UPDATE status = VALUES(status), media_url = NULL, error_message = NULL`,
+        [variantRows],
+      );
+      processSnackVideoVariants({
+        req,
+        orgId,
+        snackId,
+        inputPath: videoFile.path,
+      }).catch((error) => {
+        console.error('sell it snack video reprocess error:', error);
+      });
+      safeUnlink(resolveSnacksMediaPath(existing.video_url));
+    }
+
+    if (thumbnailFile) {
+      safeUnlink(resolveSnacksMediaPath(existing.thumbnail_url));
+    }
+
+    const [freshRows] = await db.query('SELECT * FROM sell_it_snacks WHERE id = ? AND org_id = ? LIMIT 1', [
+      snackId,
+      orgId,
+    ]);
+    const [withVariants] = await attachSnackVariants(orgId, freshRows);
+    const [withCounts] = await attachSnackCounts(orgId, [withVariants]);
+    return res.json({
+      status: 'success',
+      data: serializeSnack(withCounts),
+    });
+  } catch (e) {
+    return res.status(500).json({ status: 'error', message: e.message || 'Failed to update Sell It Snack.' });
+  }
+};
+
+const deleteSnack = async (req, res) => {
+  try {
+    await ensureSnacksTable();
+    const snackId = Number(req.params.snackId);
+    const orgId = resolveOrgId(req.user);
+    if (Number.isNaN(snackId)) {
+      return res.status(400).json({ status: 'error', message: 'Invalid snack id.' });
+    }
+    if (!orgId) {
+      return res.status(400).json({ status: 'error', message: 'Organization context missing in token.' });
+    }
+
+    const [existingRows] = await db.query(
+      'SELECT id, video_url, thumbnail_url FROM sell_it_snacks WHERE id = ? AND org_id = ? LIMIT 1',
+      [snackId, orgId],
+    );
+    if (!existingRows.length) {
+      return res.status(404).json({ status: 'error', message: 'Sell It Snack not found.' });
+    }
+    const existing = existingRows[0];
+
+    const [variantRows] = await db.query(
+      'SELECT media_url FROM sell_it_snack_video_variants WHERE org_id = ? AND snack_id = ?',
+      [orgId, snackId],
+    );
+
+    const [result] = await db.query('DELETE FROM sell_it_snacks WHERE id = ? AND org_id = ?', [
+      snackId,
+      orgId,
+    ]);
+    if (!result.affectedRows) {
+      return res.status(404).json({ status: 'error', message: 'Sell It Snack not found.' });
+    }
+
+    safeUnlink(resolveSnacksMediaPath(existing.video_url));
+    safeUnlink(resolveSnacksMediaPath(existing.thumbnail_url));
+    (variantRows || []).forEach((row) => safeUnlink(resolveSnacksMediaPath(row.media_url)));
+    const variantDir = path.join(
+      __dirname,
+      '..',
+      'uploads',
+      'snacks-media',
+      'video-variants',
+      String(snackId),
+    );
+    try {
+      if (fs.existsSync(variantDir)) fs.rmSync(variantDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+
+    return res.json({ status: 'success', data: { id: snackId } });
+  } catch (e) {
+    return res.status(500).json({ status: 'error', message: e.message || 'Failed to delete Sell It Snack.' });
+  }
+};
+
 const toggleSnackLike = async (req, res) => {
   try {
     await ensureSnacksTable();
@@ -1067,6 +1256,8 @@ module.exports = {
   getSnackComments,
   getSnackSuggestions,
   createSnack,
+  updateSnack,
+  deleteSnack,
   toggleSnackLike,
   createSnackComment,
   updateSnackComment,

@@ -457,6 +457,56 @@ const deleteGalleryFolder = async (req, res) => {
   }
 };
 
+const updateGalleryFolder = async (req, res) => {
+  try {
+    await ensureAllGalleryTables();
+    if (!canManageGallery(req.user)) {
+      return res.status(403).json({ status: 'error', message: 'Access denied.' });
+    }
+    const orgId = resolveOrgId(req.user);
+    const folderId = Number(req.params.folderId);
+    if (!orgId || Number.isNaN(folderId)) {
+      return res.status(400).json({ status: 'error', message: 'Invalid request.' });
+    }
+
+    const existing = await getFolderRow(orgId, folderId);
+    if (!existing) {
+      return res.status(404).json({ status: 'error', message: 'Folder not found.' });
+    }
+
+    const name =
+      req.body?.name !== undefined ? String(req.body.name ?? '').trim() : String(existing.name || '').trim();
+    const description =
+      req.body?.description !== undefined
+        ? String(req.body.description ?? '').trim().slice(0, 1000)
+        : String(existing.description || '');
+    if (!name) {
+      return res.status(400).json({ status: 'error', message: 'Folder name is required.' });
+    }
+
+    let nextActive = Number(existing.is_active ?? 1) === 1 ? 1 : 0;
+    if (req.body?.is_active !== undefined || req.body?.isActive !== undefined) {
+      const raw = req.body.is_active !== undefined ? req.body.is_active : req.body.isActive;
+      nextActive = raw === true || raw === 1 || raw === '1' || String(raw).toLowerCase() === 'true' ? 1 : 0;
+    }
+
+    await db.query(
+      `UPDATE gallery_folders SET name = ?, description = ?, is_active = ? WHERE id = ? AND org_id = ?`,
+      [name.slice(0, 255), description, nextActive, folderId, orgId],
+    );
+
+    if (nextActive === 1 && Number(existing.is_active ?? 1) === 0) {
+      // Restoring a folder does not auto-restore previously hidden images.
+    }
+
+    const row = await getFolderRow(orgId, folderId);
+    const data = await mapFolderRow(row, { likedByMe: false });
+    return res.json({ status: 'success', data });
+  } catch (e) {
+    return res.status(500).json({ status: 'error', message: e.message || 'Failed to update folder.' });
+  }
+};
+
 const getGalleryFolderImages = async (req, res) => {
   try {
     await ensureAllGalleryTables();
@@ -808,6 +858,7 @@ module.exports = {
   getGalleryFolders,
   createGalleryFolder,
   getGalleryFolder,
+  updateGalleryFolder,
   deleteGalleryFolder,
   getGalleryFolderImages,
   uploadGalleryImages,

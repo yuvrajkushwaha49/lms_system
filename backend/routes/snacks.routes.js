@@ -46,5 +46,14 @@ router.post(
   ]),
   snacksController.createSnack,
 );
+router.patch(
+  '/:snackId',
+  upload.fields([
+    { name: 'video', maxCount: 1 },
+    { name: 'thumbnail', maxCount: 1 },
+  ]),
+  snacksController.updateSnack,
+);
+router.delete('/:snackId', snacksController.deleteSnack);
 
 module.exports = router;

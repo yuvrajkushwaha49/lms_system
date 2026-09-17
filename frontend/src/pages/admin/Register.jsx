@@ -8,17 +8,19 @@ import mobilePreview from "../../assets/mobl_1.png";
 export default function Register() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    business_name: "",
-    org_name: "",
+    name: "",
     email: "",
     phone: "",
-    address: "",
-    ceo_name: "",
     password: "",
     confirm_password: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [registerMessage, setRegisterMessage] = useState("");
+  const [resendBusy, setResendBusy] = useState(false);
+  const [resendNote, setResendNote] = useState("");
+  const [resendError, setResendError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -26,6 +28,29 @@ export default function Register() {
 
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  const handleResendVerification = async () => {
+    if (!registeredEmail || resendBusy) return;
+    setResendBusy(true);
+    setResendNote("");
+    setResendError("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/auth/resend-verification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: registeredEmail }),
+      });
+      const payload = await response.json();
+      if (!response.ok || payload.status !== "success") {
+        throw new Error(payload.message || "Could not resend verification email.");
+      }
+      setResendNote(payload.message || "Verification email sent. Please check your inbox.");
+    } catch (resendErr) {
+      setResendError(resendErr.message);
+    } finally {
+      setResendBusy(false);
+    }
+  };
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -38,12 +63,9 @@ export default function Register() {
       }
 
       const payloadToSend = {
-        business_name: formData.business_name,
-        org_name: formData.org_name,
+        name: formData.name,
         email: formData.email,
         phone: formData.phone,
-        address: formData.address,
-        ceo_name: formData.ceo_name,
         password: formData.password,
       };
 
@@ -56,16 +78,70 @@ export default function Register() {
       const payload = await response.json();
 
       if (!response.ok || payload.status !== "success") {
+        if (payload.code === "EMAIL_ALREADY_VERIFIED") {
+          throw new Error(
+            payload.message ||
+              "This email is already verified. Please log in or use Forgot Password.",
+          );
+        }
         throw new Error(payload.message || "Registration failed");
       }
 
-      navigate("/login");
+      setRegisteredEmail(payload?.data?.email || formData.email);
+      setRegisterMessage(
+        payload.message ||
+          "Account created. Please check your email and verify before logging in.",
+      );
+      setResendNote("");
+      setResendError("");
     } catch (registerError) {
       setError(registerError.message);
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (registeredEmail) {
+    return (
+      <main className="login-shell register-shell">
+        <div className="login-pattern login-pattern-left" aria-hidden="true" />
+        <div className="login-pattern login-pattern-right" aria-hidden="true" />
+        <section className="login-stage register-stage">
+          <section className="login-form-panel" style={{ margin: "0 auto" }}>
+            <div className="login-form-card register-form-card">
+              <div className="login-form-head register-form-head">
+                <h2>Check your email</h2>
+                <p>Verify your account to finish signup</p>
+              </div>
+              <div className="alert alert-success py-2 mb-4">{registerMessage}</div>
+              {resendNote && <div className="alert alert-success py-2 mb-4">{resendNote}</div>}
+              {resendError && <div className="alert alert-danger py-2 mb-4">{resendError}</div>}
+              <p className="mb-3">
+                We sent a verification link to <strong>{registeredEmail}</strong>. Open that
+                email and click <strong>Verify email</strong>, then come back to log in.
+              </p>
+              <div className="d-flex flex-column gap-2">
+                <button
+                  type="button"
+                  className="btn btn-outline-primary w-100"
+                  disabled={resendBusy}
+                  onClick={handleResendVerification}
+                >
+                  {resendBusy ? "Sending..." : "Resend verification link"}
+                </button>
+                <button type="button" className="btn login-submit-btn" onClick={() => navigate("/login")}>
+                  Go to Login
+                </button>
+              </div>
+              <p className="login-signup-copy register-login-copy mt-3 mb-0">
+                Didn&apos;t get the email? Click <strong>Resend verification link</strong> above.
+              </p>
+            </div>
+          </section>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="login-shell register-shell">
@@ -98,41 +174,37 @@ export default function Register() {
           <div className="login-form-card register-form-card">
             <div className="login-form-head register-form-head">
               <h2>Create Account</h2>
-              <p>Register your business to get started</p>
+              <p>Sign up as a student to access your learning panel</p>
             </div>
 
-            {error && <div className="alert alert-danger py-2 mb-4">{error}</div>}
+            {error && (
+              <div className="alert alert-danger py-2 mb-4">
+                {error}
+                {/forgot password/i.test(error) && (
+                  <div className="mt-2">
+                    <Link to="/forgot-password" className="login-inline-link">
+                      Go to Forgot Password
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
 
             <form onSubmit={handleRegister} className="login-form-body register-form-body">
               <div className="register-grid">
-                <div className="login-field">
-                  <label htmlFor="business_name" className="form-label">
-                    Business Name
+                <div className="login-field register-grid-full">
+                  <label htmlFor="name" className="form-label">
+                    Full Name
                   </label>
                   <input
-                    id="business_name"
+                    id="name"
                     type="text"
-                    name="business_name"
-                    value={formData.business_name}
+                    name="name"
+                    value={formData.name}
                     onChange={handleChange}
                     className="form-control form-control-lg login-input"
-                    placeholder="Enter business name"
-                    required
-                  />
-                </div>
-
-                <div className="login-field">
-                  <label htmlFor="org_name" className="form-label">
-                    Organization Name
-                  </label>
-                  <input
-                    id="org_name"
-                    type="text"
-                    name="org_name"
-                    value={formData.org_name}
-                    onChange={handleChange}
-                    className="form-control form-control-lg login-input"
-                    placeholder="Enter organization name"
+                    placeholder="Enter your full name"
+                    autoComplete="name"
                     required
                   />
                 </div>
@@ -148,7 +220,7 @@ export default function Register() {
                     value={formData.email}
                     onChange={handleChange}
                     className="form-control form-control-lg login-input"
-                    placeholder="admin@gmail.com"
+                    placeholder="you@example.com"
                     autoComplete="email"
                     required
                   />
@@ -166,39 +238,7 @@ export default function Register() {
                     onChange={handleChange}
                     className="form-control form-control-lg login-input"
                     placeholder="Enter phone number"
-                    required
-                  />
-                </div>
-
-                <div className="login-field register-grid-full">
-                  <label htmlFor="address" className="form-label">
-                    Address
-                  </label>
-                  <input
-                    id="address"
-                    type="text"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    className="form-control form-control-lg login-input"
-                    placeholder="Enter business address"
-                    required
-                  />
-                </div>
-
-                <div className="login-field">
-                  <label htmlFor="ceo_name" className="form-label">
-                    CEO Name
-                  </label>
-                  <input
-                    id="ceo_name"
-                    type="text"
-                    name="ceo_name"
-                    value={formData.ceo_name}
-                    onChange={handleChange}
-                    className="form-control form-control-lg login-input"
-                    placeholder="Enter CEO name"
-                    required
+                    autoComplete="tel"
                   />
                 </div>
 
@@ -216,6 +256,7 @@ export default function Register() {
                       className="form-control form-control-lg login-input login-password-input"
                       placeholder="Create password"
                       autoComplete="new-password"
+                      minLength={6}
                       required
                     />
                     <button
@@ -229,7 +270,7 @@ export default function Register() {
                   </div>
                 </div>
 
-                <div className="login-field register-grid-full">
+                <div className="login-field">
                   <label htmlFor="confirm_password" className="form-label">
                     Confirm Password
                   </label>
@@ -243,6 +284,7 @@ export default function Register() {
                       className="form-control form-control-lg login-input login-password-input"
                       placeholder="Confirm password"
                       autoComplete="new-password"
+                      minLength={6}
                       required
                     />
                     <button
@@ -262,7 +304,7 @@ export default function Register() {
                 disabled={isLoading}
                 className="btn login-submit-btn register-submit-btn"
               >
-                {isLoading ? "Creating Account..." : "Register Now"}
+                {isLoading ? "Creating Account..." : "Create Student Account"}
               </button>
 
               <p className="login-signup-copy register-login-copy">
@@ -278,4 +320,3 @@ export default function Register() {
     </main>
   );
 }
-

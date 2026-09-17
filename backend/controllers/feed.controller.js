@@ -4,6 +4,7 @@ const { spawn } = require('child_process');
 const ffmpegPath = require('ffmpeg-static');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
+const { toPublicUrl, toPublicUploadUrl: buildPublicUploadUrl } = require('../shared/publicUrl');
 
 const VIDEO_VARIANTS = [
   { resolution: '360p', height: 360 },
@@ -50,8 +51,7 @@ const resolveMediaType = (mimetype = '') => {
   return 'document';
 };
 
-const toPublicUploadUrl = (req, relativePath) =>
-  `${req.protocol}://${req.get('host')}/uploads/${relativePath.replace(/\\/g, '/')}`;
+const toPublicUploadUrl = (req, relativePath) => buildPublicUploadUrl(relativePath);
 
 const getMediaTokenSecret = () => process.env.MEDIA_URL_SECRET || process.env.JWT_SECRET;
 
@@ -104,7 +104,7 @@ const buildFeedMediaUrl = (req, kind, id, orgId) => {
     variant: `/api/feed/media/variants/${id}`,
     post: `/api/feed/media/posts/${id}`,
   };
-  return `${req.protocol}://${req.get('host')}${routeByKind[kind]}?token=${encodeURIComponent(token)}`;
+  return `${toPublicUrl(routeByKind[kind])}?token=${encodeURIComponent(token)}`;
 };
 
 const resolveFeedMediaFilePath = (mediaUrl = '') => {
@@ -126,6 +126,11 @@ const resolveFeedMediaFilePath = (mediaUrl = '') => {
     return null;
   }
   return absolutePath;
+};
+
+const feedMediaFileExists = (mediaUrl = '') => {
+  const absolutePath = resolveFeedMediaFilePath(mediaUrl);
+  return Boolean(absolutePath && fs.existsSync(absolutePath));
 };
 
 const streamFileWithRange = (req, res, filePath, mimeType, fileName) => {
@@ -302,6 +307,22 @@ const ensureFeedTables = async () => {
   await db.query(
     "ALTER TABLE member_feed_posts ADD COLUMN IF NOT EXISTS posting_space VARCHAR(64) NOT NULL DEFAULT 'sell-it-community'",
   );
+  await db.query(
+    'ALTER TABLE member_feed_posts ADD COLUMN IF NOT EXISTS views_count INT NOT NULL DEFAULT 0',
+  );
+
+  await db.query(
+    `CREATE TABLE IF NOT EXISTS member_feed_views (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      org_id INT NOT NULL,
+      post_id INT NOT NULL,
+      user_id INT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_member_feed_view (org_id, post_id, user_id),
+      INDEX idx_member_feed_views_post (org_id, post_id),
+      CONSTRAINT fk_member_feed_views_post FOREIGN KEY (post_id) REFERENCES member_feed_posts(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  );
 
   await db.query(
     `CREATE TABLE IF NOT EXISTS member_feed_likes (
@@ -457,26 +478,43 @@ const serializeReport = (report, attachments = []) => ({
   post_attachments: attachments,
 });
 
-const serializeVariant = (variant, req, orgId) => ({
-  id: variant.id,
-  resolution: variant.resolution,
-  media_url: variant.status === 'ready' && variant.media_url
-    ? buildFeedMediaUrl(req, 'variant', variant.id, orgId)
-    : null,
-  status: variant.status,
-  error_message: variant.error_message,
-});
+const serializeVariant = (variant, req, orgId) => {
+  if (variant.status === 'ready' && variant.media_url && !feedMediaFileExists(variant.media_url)) {
+    return {
+      id: variant.id,
+      resolution: variant.resolution,
+      media_url: null,
+      status: 'failed',
+      error_message: variant.error_message || 'Media file missing on server.',
+    };
+  }
+  return {
+    id: variant.id,
+    resolution: variant.resolution,
+    media_url: variant.status === 'ready' && variant.media_url
+      ? buildFeedMediaUrl(req, 'variant', variant.id, orgId)
+      : null,
+    status: variant.status,
+    error_message: variant.error_message,
+  };
+};
 
-const serializeAttachment = (attachment, req, orgId) => ({
-  id: attachment.id,
-  media_url: attachment.media_url ? buildFeedMediaUrl(req, 'attachment', attachment.id, orgId) : null,
-  media_type: attachment.media_type,
-  media_name: attachment.media_name,
-  media_mime: attachment.media_mime,
-  media_size: attachment.media_size,
-  sort_order: attachment.sort_order,
-  video_variants: (attachment.video_variants || []).map((variant) => serializeVariant(variant, req, orgId)),
-});
+const serializeAttachment = (attachment, req, orgId) => {
+  // Skip attachments whose file is not on disk (avoids browser 404 spam)
+  if (attachment.media_url && !feedMediaFileExists(attachment.media_url)) {
+    return null;
+  }
+  return {
+    id: attachment.id,
+    media_url: attachment.media_url ? buildFeedMediaUrl(req, 'attachment', attachment.id, orgId) : null,
+    media_type: attachment.media_type,
+    media_name: attachment.media_name,
+    media_mime: attachment.media_mime,
+    media_size: attachment.media_size,
+    sort_order: attachment.sort_order,
+    video_variants: (attachment.video_variants || []).map((variant) => serializeVariant(variant, req, orgId)),
+  };
+};
 
 const FEED_POSTING_SPACES = new Set([
   'meet-greet',
@@ -489,8 +527,12 @@ const FEED_POSTING_SPACES = new Set([
 
 const serializePost = (post, comments = [], req = null) => {
   const orgId = post.org_id;
-  const attachments = (post.attachments || []).map((attachment) => serializeAttachment(attachment, req, orgId));
-  const signedPostMediaUrl = post.media_url ? buildFeedMediaUrl(req, 'post', post.id, orgId) : null;
+  const attachments = (post.attachments || [])
+    .map((attachment) => serializeAttachment(attachment, req, orgId))
+    .filter(Boolean);
+  const postMediaExists = !post.media_url || feedMediaFileExists(post.media_url);
+  const signedPostMediaUrl =
+    postMediaExists && post.media_url ? buildFeedMediaUrl(req, 'post', post.id, orgId) : null;
 
   return {
     id: post.id,
@@ -500,10 +542,10 @@ const serializePost = (post, comments = [], req = null) => {
     sub_heading: post.sub_heading,
     content: post.content,
     media_url: attachments[0]?.media_url || signedPostMediaUrl,
-    media_type: post.media_type,
-    media_name: post.media_name,
-    media_mime: post.media_mime,
-    media_size: post.media_size,
+    media_type: attachments[0]?.media_type || (signedPostMediaUrl ? post.media_type : null),
+    media_name: attachments[0]?.media_name || (signedPostMediaUrl ? post.media_name : null),
+    media_mime: attachments[0]?.media_mime || (signedPostMediaUrl ? post.media_mime : null),
+    media_size: attachments[0]?.media_size || (signedPostMediaUrl ? post.media_size : null),
     processing_status: post.processing_status || 'ready',
     is_blocked: Boolean(post.is_blocked),
     blocked_at: post.blocked_at || null,
@@ -512,6 +554,7 @@ const serializePost = (post, comments = [], req = null) => {
     updated_at: post.updated_at,
     likes_count: Number(post.likes_count || 0),
     comments_count: Number(post.comments_count || 0),
+    views_count: Number(post.views_count || 0),
     is_liked: Boolean(post.is_liked),
     posting_space: post.posting_space || 'sell-it-community',
     attachments,
@@ -679,6 +722,131 @@ const getFeedSpaceSummary = async (req, res) => {
     return res.json({ status: 'success', data: { feedBySpace, wallOfWins } });
   } catch (e) {
     return res.status(500).json({ status: 'error', message: e.message || 'Failed to load feed summary.' });
+  }
+};
+
+const getTrendingFeedPosts = async (req, res) => {
+  try {
+    await ensureFeedTables();
+    const orgId = resolveOrgId(req.user);
+    if (!orgId) {
+      return res.status(400).json({ status: 'error', message: 'Organization context missing in token.' });
+    }
+
+    const requestedLimit = Number(req.query.limit || 5);
+    const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.floor(requestedLimit), 1), 20) : 5;
+
+    const rawSpace = req.query.space;
+    const requestedSpace = String(Array.isArray(rawSpace) ? rawSpace[0] : rawSpace ?? '').trim();
+    const applySpaceFilter = Boolean(requestedSpace && FEED_POSTING_SPACES.has(requestedSpace));
+    const spaceSql = applySpaceFilter ? ' AND p.posting_space = ?' : '';
+    const params = applySpaceFilter ? [orgId, requestedSpace] : [orgId];
+
+    // Score: likes*3 + comments*2 + views*1
+    const [rows] = await db.query(
+      `SELECT p.id, p.user_id, p.user_name, p.heading, p.sub_heading, p.content, p.created_at,
+        COALESCE(p.views_count, 0) AS views_count,
+        COALESCE(l.like_count, 0) AS likes_count,
+        COALESCE(c.comment_count, 0) AS comments_count,
+        (
+          COALESCE(l.like_count, 0) * 3
+          + COALESCE(c.comment_count, 0) * 2
+          + COALESCE(p.views_count, 0) * 1
+        ) AS trend_score
+       FROM member_feed_posts p
+       LEFT JOIN (
+         SELECT org_id, post_id, COUNT(*) AS like_count
+         FROM member_feed_likes
+         GROUP BY org_id, post_id
+       ) l ON l.org_id = p.org_id AND l.post_id = p.id
+       LEFT JOIN (
+         SELECT org_id, post_id, COUNT(*) AS comment_count
+         FROM member_feed_comments
+         GROUP BY org_id, post_id
+       ) c ON c.org_id = p.org_id AND c.post_id = p.id
+       WHERE p.org_id = ?
+         AND p.processing_status = 'ready'
+         AND COALESCE(p.is_blocked, 0) = 0
+         ${spaceSql}
+       ORDER BY trend_score DESC, p.created_at DESC, p.id DESC
+       LIMIT ${limit}`,
+      params,
+    );
+
+    const data = rows.map((row) => {
+      const name = String(row.user_name || 'Member').trim();
+      const initials = name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase() || '')
+        .join('') || 'M';
+      return {
+        id: Number(row.id),
+        title: row.heading || row.sub_heading || 'Untitled post',
+        author: name || 'Member',
+        initials,
+        likes_count: Number(row.likes_count || 0),
+        comments_count: Number(row.comments_count || 0),
+        views_count: Number(row.views_count || 0),
+        trend_score: Number(row.trend_score || 0),
+        created_at: row.created_at,
+      };
+    });
+
+    return res.json({ status: 'success', data });
+  } catch (e) {
+    return res.status(500).json({ status: 'error', message: e.message || 'Failed to load trending posts.' });
+  }
+};
+
+const recordFeedPostView = async (req, res) => {
+  try {
+    await ensureFeedTables();
+    const orgId = resolveOrgId(req.user);
+    const userId = Number(req.user?.id);
+    const postId = Number(req.params.postId);
+    if (!orgId || !userId || Number.isNaN(postId)) {
+      return res.status(400).json({ status: 'error', message: 'Invalid view request.' });
+    }
+
+    const [posts] = await db.query(
+      `SELECT id, COALESCE(views_count, 0) AS views_count
+       FROM member_feed_posts
+       WHERE id = ? AND org_id = ? AND processing_status = 'ready' AND COALESCE(is_blocked, 0) = 0
+       LIMIT 1`,
+      [postId, orgId],
+    );
+    if (!posts.length) {
+      return res.status(404).json({ status: 'error', message: 'Post not found.' });
+    }
+
+    // One unique view per user per post
+    const [insertResult] = await db.query(
+      `INSERT IGNORE INTO member_feed_views (org_id, post_id, user_id)
+       VALUES (?, ?, ?)`,
+      [orgId, postId, userId],
+    );
+
+    let viewsCount = Number(posts[0].views_count || 0);
+    if (insertResult.affectedRows > 0) {
+      await db.query(
+        'UPDATE member_feed_posts SET views_count = COALESCE(views_count, 0) + 1 WHERE id = ? AND org_id = ?',
+        [postId, orgId],
+      );
+      viewsCount += 1;
+    }
+
+    return res.json({
+      status: 'success',
+      data: {
+        post_id: postId,
+        views_count: viewsCount,
+        counted: insertResult.affectedRows > 0,
+      },
+    });
+  } catch (e) {
+    return res.status(500).json({ status: 'error', message: e.message || 'Failed to record view.' });
   }
 };
 
@@ -886,7 +1054,7 @@ const createFeedPost = async (req, res) => {
     const files = Array.isArray(req.files) ? req.files : (req.file ? [req.file] : []);
     const hasVideoUpload = files.some((uploadedFile) => resolveMediaType(uploadedFile.mimetype || '') === 'video');
     const file = files[0] || null;
-    const mediaUrl = file ? `${req.protocol}://${req.get('host')}/uploads/feed-media/${file.filename}` : null;
+    const mediaUrl = file ? buildPublicUploadUrl(`feed-media/${file.filename}`) : null;
     const mediaType = file ? resolveMediaType(file.mimetype || '') : null;
 
     const [result] = await db.query(
@@ -918,7 +1086,7 @@ const createFeedPost = async (req, res) => {
     const attachments = [];
     for (const [index, uploadedFile] of files.entries()) {
       const attachmentMediaType = resolveMediaType(uploadedFile.mimetype || '');
-      const attachmentUrl = `${req.protocol}://${req.get('host')}/uploads/feed-media/${uploadedFile.filename}`;
+      const attachmentUrl = buildPublicUploadUrl(`feed-media/${uploadedFile.filename}`);
       const [attachmentResult] = await db.query(
         `INSERT INTO member_feed_post_attachments
         (org_id, post_id, media_url, media_type, media_name, media_mime, media_size, sort_order)
@@ -1529,6 +1697,8 @@ module.exports = {
   streamFeedVariantMedia,
   streamFeedPostMedia,
   getFeedPosts,
+  getTrendingFeedPosts,
+  recordFeedPostView,
   getFeedSpaceSummary,
   createFeedPost,
   toggleFeedPostLike,

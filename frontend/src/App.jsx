@@ -9,6 +9,9 @@ import DashboardSectionPage from './pages/admin/DashboardSectionPage';
 import UserManagementPage from './pages/admin/UserManagementPage';
 import UserDetailPage from './pages/admin/UserDetailPage';
 import Register from './pages/admin/Register';
+import VerifyEmail from './pages/admin/VerifyEmail';
+import ForgotPassword from './pages/admin/ForgotPassword';
+import ResetPassword from './pages/admin/ResetPassword';
 import StudentPanel from './pages/student/StudentPanel';
 import StudentCourseDetailPage from './pages/student/StudentCourseDetailPage';
 import StudentDashboard from './pages/student/SutdentDashboard';
@@ -75,14 +78,21 @@ import AdminAskRyanManagementPage from './pages/admin/AdminAskRyanManagementPage
 import AdminMonthlyChallengesManagementPage from './pages/admin/AdminMonthlyChallengesManagementPage';
 import AdminMonthlyChallengeDetailPage from './pages/admin/AdminMonthlyChallengeDetailPage';
 import UpcomingEventsManagementPage from './pages/admin/UpcomingEventsManagementPage';
+import DanielGLandingPage from './pages/public/DanielGLandingPage';
+import ComingSoonPage from './pages/public/ComingSoonPage';
+import StudentNavVisibilityPage from './pages/admin/StudentNavVisibilityPage';
 
 function App() {
   return (
     <div className="min-vh-100">
       <Router>
         <Routes>
-          <Route path="/" element={<Login />} />
+          <Route path="/" element={<DanielGLandingPage />} />
+          <Route path="/coming-soon" element={<ComingSoonPage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/dashboard" element={<Navigate to="/dashboard/user-management" replace />} />
           <Route path="/dashboard/student-panel" element={<StudentPanel />} />
           <Route path="/dashboard/student-course" element={<StudentPanel />} />
@@ -187,6 +197,7 @@ function App() {
           <Route path="/dashboard/news-management" element={<NewsManagementPage />} />
           <Route path="/dashboard/faqs-management" element={<FaqManagementPage />} />
           <Route path="/dashboard/welcome-video-management" element={<WelcomeVideoManagementPage />} />
+          <Route path="/dashboard/student-nav-visibility" element={<StudentNavVisibilityPage />} />
           <Route path="/dashboard/welcome-admin/:section" element={<AdminWelcomeNavPlaceholderPage />} />
           <Route path="/dashboard/ask-ryan-management" element={<AdminAskRyanManagementPage />} />
           <Route path="/dashboard/monthly-challenges-management" element={<AdminMonthlyChallengesManagementPage />} />

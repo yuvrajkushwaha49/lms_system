@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const db = require('../config/db');
+const { toPublicUploadUrl } = require('../shared/publicUrl');
 
 const resolveOrgId = (user) => user?.org_id || user?.business_id || null;
 
@@ -94,12 +95,27 @@ const resolveStoredImagePath = (imageUrl = '') => {
   return absolutePath;
 };
 
+const normalizeWallImageUrl = (imageUrl) => {
+  const raw = String(imageUrl || '').trim();
+  if (!raw) return '';
+  let pathname = raw;
+  try {
+    pathname = new URL(raw).pathname;
+  } catch {
+    pathname = raw.split('?')[0];
+  }
+  const marker = '/uploads/wall-of-wins/';
+  const idx = pathname.indexOf(marker);
+  if (idx === -1) return raw.startsWith('/') ? raw : raw;
+  return toPublicUploadUrl(`wall-of-wins/${pathname.slice(idx + marker.length)}`);
+};
+
 const serializeEntry = (row) => ({
   id: row.id,
   user_id: row.user_id,
   user_name: row.user_name,
   title: row.title || '',
-  image_url: row.image_url,
+  image_url: normalizeWallImageUrl(row.image_url),
   image_name: row.image_name,
   image_mime: row.image_mime,
   image_size: row.image_size,
@@ -414,7 +430,7 @@ const createWallWin = async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Only image files are allowed on Wall of Wins.' });
     }
 
-    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/wall-of-wins/${file.filename}`;
+    const imageUrl = toPublicUploadUrl(`wall-of-wins/${file.filename}`);
 
     const [result] = await db.query(
       `INSERT INTO wall_of_wins_entries

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { StudentHeaderSearchContext } from "../../contexts/StudentHeaderSearchContext";
 import { SidebarLinksSkeleton } from "../../components/skeletons/LoadingSkeletons";
@@ -32,6 +32,21 @@ import {
   STUDENT_MONTHLY_CHALLENGES_PATH,
 } from "../../utils/studentMonthlyChallengeMeta";
 import LearningCenterSidebarSection from "../../components/LearningCenterSidebarSection";
+import {
+  studentSidebarSession,
+  syncMonthlySidebarCache,
+  syncSidebarCollapsed,
+} from "../../utils/studentSidebarSession";
+import {
+  COMMUNITY_NAV_KEY_BY_ITEM,
+  STARTER_NAV_KEY_BY_PATH,
+  TOP_NAV_KEY_BY_ITEM,
+  WELCOME_NAV_KEY_BY_PATH,
+  defaultStudentNavVisibility,
+  isNavVisible,
+  readCachedStudentNavVisibility,
+  writeCachedStudentNavVisibility,
+} from "../../utils/studentNavVisibility";
 
 const MONTHLY_CHALLENGE_ROW_EMOJIS = ["📱", "💼", "🎯", "📊", "✨", "📲"];
 
@@ -39,59 +54,64 @@ const COMMUNITY_NAV_ITEMS = [
   {
     key: "sell",
     label: "Sell It Community",
+    short: "Sell It",
     path: "/dashboard/student-community",
     icon: "arrow",
   },
   {
     key: "dir",
     label: "Member Directory",
+    short: "Members",
     path: "/dashboard/student-members",
     icon: "search",
   },
   {
     key: "ref",
     label: "Referral Partners",
+    short: "Referral",
     path: "/dashboard/student-community/referral-partners",
     icon: "🤝",
   },
   {
     key: "list",
     label: "Community Listings",
+    short: "Listings",
     path: "/dashboard/student-community/listings",
     icon: "🏠",
   },
   {
     key: "wow",
     label: "Wall of Wins",
+    short: "Wins",
     path: "/dashboard/student-wall-of-wins",
     icon: "🏆",
   },
 ];
 
-const STORAGE_KEY = "student_dashboard_sidebar_collapsed";
-
 const studentNavItems = [];
 
 const welcomeNavItems = [
-  { label: "Start Here", icon: "🆕", short: "SH", path: "/dashboard/student-start-here" },
-  { label: "Meet + Greet", icon: "👋", short: "MG", path: "/dashboard/student-meet-greet" },
-  { label: "Ask Ryan Anything", icon: "s.", short: "AR", path: "/dashboard/student-ask-ryan" },
-  { label: "Owning Manhattan", icon: "🏙", short: "OM", path: "/dashboard/student-owning-manhattan" },
-  // { label: "Community Input", icon: "✏️", short: "CI", path: "/dashboard/student-community" },
+  { label: "Start Here", icon: "🆕", short: "Start", path: "/dashboard/student-start-here" },
+  { label: "Meet + Greet", icon: "👋", short: "Meet", path: "/dashboard/student-meet-greet" },
+  { label: "Ask Ryan Anything", icon: "s.", short: "Ask", path: "/dashboard/student-ask-ryan" },
+  { label: "Owning Manhattan", icon: "🏙", short: "Owning", path: "/dashboard/student-owning-manhattan" },
+  { label: "Community Input", icon: "✏️", short: "Input", path: "/coming-soon?feature=Community%20Input" },
+  { label: "Welcome to the Sell It family! 💙", icon: "💙", short: "Family", path: "/dashboard/student-welcome-family" },
 ];
 
 const starterNavItems = [
-  { label: "Start Here", icon: "🆕", short: "SH", path: "/dashboard/start-here-starter" },
-  // { label: "Live Workshops", icon: "🎬", short: "LW", path: "/dashboard/student-live-workshops" },
-  { label: "Sell It Snacks", icon: "🍿", short: "SS", path: "/dashboard/student-sell-it-snacks" },
-  { label: "Wall of Wins", icon: "🏆", short: "WW", path: "/dashboard/student-wall-of-wins" },
-  { label: "FAQs", icon: "❓", short: "FAQ", path: "/dashboard/student-faqs" },
+  { label: "Start Here", icon: "🆕", short: "Start", path: "/dashboard/start-here-starter" },
+  { label: "Live Workshops", icon: "🎬", short: "Live", path: "/dashboard/student-live-workshops" },
+  { label: "Sell It Snacks", icon: "🍿", short: "Snacks", path: "/dashboard/student-sell-it-snacks" },
+  { label: "Wall of Wins", icon: "🏆", short: "Wins", path: "/dashboard/student-wall-of-wins" },
+  { label: "FAQs", icon: "❓", short: "FAQs", path: "/dashboard/student-faqs" },
 ];
 
 const topHeaderLinks = [
   { key: "home", label: "Home", path: "/dashboard/student-dashboard" },
   { key: "courses", label: "Courses", path: "/dashboard/student-course" },
-  { key: "events", label: "Events", path: "/dashboard/student-workshops" },
+  { key: "events", label: "Events", path: "/dashboard/student-live-workshops" },
+  { key: "leaderboard", label: "Leaderboard", path: "/coming-soon?feature=Leaderboard" },
 ];
 
 export default function StudentDashboardSectionPage({
@@ -106,7 +126,8 @@ export default function StudentDashboardSectionPage({
 }) {
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const sidebarRef = useRef(null);
+  const [collapsed, setCollapsed] = useState(() => Boolean(studentSidebarSession.collapsed));
   const [showBookmarkPanel, setShowBookmarkPanel] = useState(false);
   const [activeBookmarkTab, setActiveBookmarkTab] = useState("posts");
   const [showMessagePanel, setShowMessagePanel] = useState(false);
@@ -132,19 +153,138 @@ export default function StudentDashboardSectionPage({
     (event) => setHeaderSearch(event.target.value),
     [setHeaderSearch],
   );
-  const [starterMenuOpen, setStarterMenuOpen] = useState(true);
-  const [welcomeMenuOpen, setWelcomeMenuOpen] = useState(true);
-  const [communityMenuOpen, setCommunityMenuOpen] = useState(true);
-  const [monthlyChallengesMenuOpen, setMonthlyChallengesMenuOpen] = useState(true);
-  const [monthlySidebar, setMonthlySidebar] = useState({
+  const [starterMenuOpen, setStarterMenuOpen] = useState(
+    () => studentSidebarSession.starterMenuOpen,
+  );
+  const [welcomeMenuOpen, setWelcomeMenuOpen] = useState(
+    () => studentSidebarSession.welcomeMenuOpen,
+  );
+  const [communityMenuOpen, setCommunityMenuOpen] = useState(
+    () => studentSidebarSession.communityMenuOpen,
+  );
+  const [monthlyChallengesMenuOpen, setMonthlyChallengesMenuOpen] = useState(
+    () => studentSidebarSession.monthlyChallengesMenuOpen,
+  );
+  const [navVisibility, setNavVisibility] = useState(
+    () => readCachedStudentNavVisibility() || defaultStudentNavVisibility(),
+  );
+  const [navVisibilityReady, setNavVisibilityReady] = useState(
+    () => Boolean(readCachedStudentNavVisibility()),
+  );
+  const [monthlySidebar, setMonthlySidebar] = useState(() => ({
     loading: false,
-    meta: [],
-    labels: {},
-  });
+    meta: studentSidebarSession.monthlySidebar.meta || [],
+    labels: studentSidebarSession.monthlySidebar.labels || {},
+  }));
 
   const apiBaseUrl = useMemo(
     () => getApiBaseUrl(),
     [],
+  );
+
+  const navOn = useCallback((key) => isNavVisible(navVisibility, key), [navVisibility]);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setNavVisibilityReady(true);
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${apiBaseUrl}/api/student-nav-visibility`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const payload = await res.json();
+        if (!cancelled && res.ok && payload.status === "success" && payload.data?.visibility) {
+          const next = writeCachedStudentNavVisibility(payload.data.visibility);
+          setNavVisibility((prev) => {
+            try {
+              if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
+            } catch {
+              /* fall through */
+            }
+            return next;
+          });
+        }
+      } catch {
+        /* keep cache / defaults */
+      } finally {
+        if (!cancelled) setNavVisibilityReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBaseUrl]);
+
+  useLayoutEffect(() => {
+    const el = sidebarRef.current;
+    if (!el) return undefined;
+    el.scrollTop = studentSidebarSession.scrollTop || 0;
+    const onScroll = () => {
+      studentSidebarSession.scrollTop = el.scrollTop;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    studentSidebarSession.starterMenuOpen = starterMenuOpen;
+  }, [starterMenuOpen]);
+
+  useEffect(() => {
+    studentSidebarSession.welcomeMenuOpen = welcomeMenuOpen;
+  }, [welcomeMenuOpen]);
+
+  useEffect(() => {
+    studentSidebarSession.communityMenuOpen = communityMenuOpen;
+  }, [communityMenuOpen]);
+
+  useEffect(() => {
+    studentSidebarSession.monthlyChallengesMenuOpen = monthlyChallengesMenuOpen;
+  }, [monthlyChallengesMenuOpen]);
+
+  useEffect(() => {
+    syncSidebarCollapsed(collapsed);
+  }, [collapsed]);
+
+  const visibleStarterNavItems = useMemo(
+    () =>
+      starterNavItems.filter((item) => {
+        const key = STARTER_NAV_KEY_BY_PATH[item.path];
+        return key ? navOn(key) : true;
+      }),
+    [navOn],
+  );
+
+  const visibleWelcomeNavItems = useMemo(
+    () =>
+      welcomeNavItems.filter((item) => {
+        const basePath = item.path.split("?")[0];
+        const key = WELCOME_NAV_KEY_BY_PATH[basePath];
+        return key ? navOn(key) : true;
+      }),
+    [navOn],
+  );
+
+  const visibleCommunityNavItems = useMemo(
+    () =>
+      COMMUNITY_NAV_ITEMS.filter((item) => {
+        const key = COMMUNITY_NAV_KEY_BY_ITEM[item.key];
+        return key ? navOn(key) : true;
+      }),
+    [navOn],
+  );
+
+  const visibleTopHeaderLinks = useMemo(
+    () =>
+      topHeaderLinks.filter((item) => {
+        const key = TOP_NAV_KEY_BY_ITEM[item.key];
+        return key ? navOn(key) : true;
+      }),
+    [navOn],
   );
 
   const isMonthlyChallengesRoute = pathname.startsWith(STUDENT_MONTHLY_CHALLENGES_PATH);
@@ -153,9 +293,19 @@ export default function StudentDashboardSectionPage({
     if (!monthlyChallengesMenuOpen && !isMonthlyChallengesRoute) return undefined;
     const token = localStorage.getItem("token");
     if (!token) return undefined;
+
+    const hasCache = (studentSidebarSession.monthlySidebar.meta || []).length > 0;
+    // Skip refetch for a short window after a successful load (route clicks remount this page)
+    const fetchedAt = studentSidebarSession.monthlySidebar.fetchedAt || 0;
+    if (hasCache && Date.now() - fetchedAt < 60_000) {
+      return undefined;
+    }
+
     let cancelled = false;
     (async () => {
-      setMonthlySidebar((s) => ({ ...s, loading: true }));
+      if (!hasCache) {
+        setMonthlySidebar((s) => ({ ...s, loading: true }));
+      }
       try {
         const [coursesRes, labelsRes] = await Promise.all([
           fetch(`${apiBaseUrl}/api/courses`, {
@@ -178,26 +328,26 @@ export default function StudentDashboardSectionPage({
             labels = labelsArrayToMap(labelsPayload.data);
           }
         }
-        if (!cancelled) setMonthlySidebar({ loading: false, meta, labels });
+        if (!cancelled) {
+          const cached = syncMonthlySidebarCache({ meta, labels });
+          setMonthlySidebar({
+            loading: false,
+            meta: cached.meta,
+            labels: cached.labels,
+          });
+        }
       } catch {
-        if (!cancelled) setMonthlySidebar({ loading: false, meta: [], labels: {} });
+        if (!cancelled && !hasCache) {
+          setMonthlySidebar({ loading: false, meta: [], labels: {} });
+        } else if (!cancelled) {
+          setMonthlySidebar((s) => ({ ...s, loading: false }));
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [monthlyChallengesMenuOpen, isMonthlyChallengesRoute, apiBaseUrl]);
-
-  useEffect(() => {
-    if (!monthlyChallengesMenuOpen && !isMonthlyChallengesRoute) {
-      setMonthlySidebar({ loading: false, meta: [], labels: {} });
-    }
-  }, [monthlyChallengesMenuOpen, isMonthlyChallengesRoute]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
-  }, [collapsed]);
-
   useEffect(() => {
     if (!isHeaderSearchControlled) {
       setInternalHeaderSearch("");
@@ -217,29 +367,31 @@ export default function StudentDashboardSectionPage({
     if (path === "/dashboard/student-course" && isStartHereCourseDetail) return false;
     if (path === "/dashboard/student-owning-manhattan" && isOwningManhattanCourseDetail) return true;
     if (path === "/dashboard/student-course" && isOwningManhattanCourseDetail) return false;
-    return pathname === path || pathname.startsWith(`${path}/`);
+    if (pathname === path) return true;
+    // Sell It Community hub must not stay active on nested community routes
+    // (referral-partners, listings, etc.)
+    if (path === "/dashboard/student-community") return false;
+    return pathname.startsWith(`${path}/`);
   };
-  const isCommunityRouteActive = COMMUNITY_NAV_ITEMS.some((item) => linkIsActive(item.path));
+  const isCommunityRouteActive = visibleCommunityNavItems.some((item) => linkIsActive(item.path));
   const showCommunityMenu = communityMenuOpen;
   const showMonthlyChallengesMenu = monthlyChallengesMenuOpen;
   const isMonthlyChallengesNavActive = linkIsActive(STUDENT_MONTHLY_CHALLENGES_PATH);
-  const isStarterRouteActive = starterNavItems.some((item) => linkIsActive(item.path));
-  const isWelcomeRouteActive = welcomeNavItems.some((item) => linkIsActive(item.path));
+  const isStarterRouteActive = visibleStarterNavItems.some((item) => linkIsActive(item.path.split("?")[0]));
+  const isWelcomeRouteActive = visibleWelcomeNavItems.some((item) => linkIsActive(item.path.split("?")[0]));
   const showStarterMenu = starterMenuOpen;
   const showWelcomeMenu = welcomeMenuOpen;
-  const activeTopHeaderKey = pathname.startsWith("/dashboard/student-owning-manhattan") || isOwningManhattanCourseDetail
-    ? "owning-manhattan"
-    : pathname.startsWith("/dashboard/student-course") ||
+  const activeTopHeaderKey = pathname.startsWith("/dashboard/student-course") ||
       pathname.startsWith(STUDENT_MONTHLY_CHALLENGES_PATH)
       ? "courses"
-      : pathname.startsWith("/dashboard/student-workshops")
+      : pathname.startsWith("/dashboard/student-live-workshops")
         ? "events"
-        : pathname.startsWith("/dashboard/feed") ||
-          pathname.startsWith("/dashboard/student-community") ||
-          pathname.startsWith("/dashboard/student-members") ||
-          pathname.startsWith("/dashboard/student-wall-of-wins")
+        : pathname.startsWith("/coming-soon") &&
+            new URLSearchParams(search).get("feature") === "Leaderboard"
           ? "leaderboard"
-          : "home";
+          : pathname === "/dashboard/student-dashboard" || pathname === "/dashboard"
+            ? "home"
+            : null;
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const userInitial =
     String(user?.name || "S")
@@ -276,7 +428,11 @@ export default function StudentDashboardSectionPage({
       <span className="lms-nav-icon-wrap" aria-hidden="true">
         <Icon className="lms-nav-icon" />
       </span>
-      {isCollapsed ? <span className="lms-nav-short">{short}</span> : <span>{label}</span>}
+      {isCollapsed ? (
+        <span className="lms-nav-underlabel">{short || label}</span>
+      ) : (
+        <span>{label}</span>
+      )}
     </>
   );
 
@@ -343,6 +499,7 @@ export default function StudentDashboardSectionPage({
     <StudentHeaderSearchContext.Provider value={headerSearchContextValue}>
       <div className="d-flex min-vh-100">
         <aside
+          ref={sidebarRef}
           className={`d-none d-lg-flex flex-column text-white lms-bg-purple lms-sidebar ${collapsed ? "lms-sidebar-collapsed" : ""}`}
         >
           <div className="lms-sidebar-top">
@@ -351,18 +508,22 @@ export default function StudentDashboardSectionPage({
             </div>
             <button
               type="button"
-              onClick={() => { }}
+              onClick={() => setCollapsed((current) => !current)}
               className="lms-sidebar-toggle"
-              disabled
-              title="Sidebar always expanded"
-              aria-expanded={true}
-              aria-label="Sidebar always expanded"
+              title={collapsed ? "Expand menu" : "Minimize menu"}
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? "Expand sidebar" : "Minimize sidebar"}
             >
               <FiMenu />
             </button>
           </div>
 
           <div className="side-bars">
+            {!navVisibilityReady ? (
+              <SidebarLinksSkeleton count={collapsed ? 3 : 6} />
+            ) : (
+              <>
+            {navOn("feed") && (
             <NavLink
               to="/dashboard/feed"
               title={collapsed ? "Feed" : undefined}
@@ -370,124 +531,116 @@ export default function StudentDashboardSectionPage({
                 `lms-nav-link student-sidebar-feed-link ${collapsed ? "lms-nav-link-collapsed" : ""} ${linkIsActive("/dashboard/feed") ? "active" : ""}`
               }
             >
-              <SidebarLinkLabel icon={FiLayers} label="Feed" short="FD" collapsed={collapsed} />
+              <SidebarLinkLabel icon={FiLayers} label="Feed" short="Feed" collapsed={collapsed} />
             </NavLink>
-            </div>
+            )}
 
+            {navOn("sell_it_starter") && visibleStarterNavItems.length > 0 && (
             <div className={`student-starter-panel ${collapsed ? "collapsed" : ""}`}>
-              {collapsed ? (
-                <NavLink
-                  to="/dashboard/student-start-here"
-                  title="Sell It Starter"
-                  className={`lms-nav-link lms-nav-link-collapsed ${isStarterRouteActive ? "active" : ""}`}
-                >
-                  <span className="lms-nav-icon-wrap" aria-hidden="true">
-                    <FiGrid className="lms-nav-icon" />
-                  </span>
-                  <span className="lms-nav-short">SI</span>
-                </NavLink>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    className="student-starter-panel-head"
-                    onClick={() => setStarterMenuOpen((prev) => !prev)}
-                    aria-expanded={showStarterMenu}
-                  >
+              <button
+                type="button"
+                className={`student-starter-panel-head ${isStarterRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
+                onClick={() => setStarterMenuOpen((prev) => !prev)}
+                title="Sell It Starter"
+                aria-expanded={showStarterMenu}
+              >
+                {collapsed ? (
+                  <>
+                    <span className="lms-nav-icon-wrap" aria-hidden="true">
+                      <FiGrid className="lms-nav-icon" />
+                    </span>
+                    <span className="lms-nav-underlabel">Starter</span>
+                    <span className="student-starter-panel-more is-collapsed-chevron" aria-hidden="true">
+                      {showStarterMenu ? <FiChevronDown /> : <FiChevronRight />}
+                    </span>
+                  </>
+                ) : (
+                  <>
                     <span className="student-starter-panel-title">Sell It Starter</span>
                     <span className="student-starter-panel-more" aria-hidden="true">
                       {showStarterMenu ? <FiChevronDown /> : <FiChevronRight />}
                     </span>
-                  </button>
-                  {showStarterMenu && (
-                    <div className="student-starter-panel-list">
-                      {starterNavItems.map((item) => {
-                        return (
-                          <NavLink
-                            key={`starter-panel-${item.label}`}
-                            to={item.path}
-                            className={`student-starter-panel-link ${linkIsActive(item.path) ? "active" : ""}`}
-                          >
-                            <span className="student-starter-panel-icon" aria-hidden="true">
-                              {item.icon}
-                            </span>
-                            <span className="student-starter-panel-label">{item.label}</span>
-                            {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
-                            {item.label === "Sell It Snacks" && <span className="student-starter-panel-count">1</span>}
-                          </NavLink>
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
+                  </>
+                )}
+              </button>
+              {showStarterMenu && (
+                <div className={`student-starter-panel-list ${collapsed ? "is-collapsed-rail" : ""}`}>
+                  {visibleStarterNavItems.map((item) => (
+                    <NavLink
+                      key={`starter-panel-${item.label}`}
+                      to={item.path}
+                      title={collapsed ? item.label : undefined}
+                      className={`student-starter-panel-link ${collapsed ? "is-collapsed-rail" : ""} ${linkIsActive(item.path) ? "active" : ""}`}
+                    >
+                      <span className="student-starter-panel-icon" aria-hidden="true">
+                        {item.icon}
+                      </span>
+                      {collapsed ? (
+                        <span className="lms-nav-underlabel">{item.short || item.label}</span>
+                      ) : (
+                        <>
+                          <span className="student-starter-panel-label">{item.label}</span>
+                          {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
+                        </>
+                      )}
+                    </NavLink>
+                  ))}
+                </div>
               )}
             </div>
+            )}
 
+            {navOn("welcome") && visibleWelcomeNavItems.length > 0 && (
             <div className={`student-starter-panel ${collapsed ? "collapsed" : ""}`}>
-              {collapsed ? (
-                <NavLink
-                  to="/dashboard/student-start-here"
-                  title="Welcome"
-                  className={`lms-nav-link lms-nav-link-collapsed ${isWelcomeRouteActive ? "active" : ""}`}
-                >
-                  <span className="lms-nav-icon-wrap" aria-hidden="true">
-                    <FiHome className="lms-nav-icon" />
-                  </span>
-                  <span className="lms-nav-short">W</span>
-                </NavLink>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    className="student-starter-panel-head"
-                    onClick={() => setWelcomeMenuOpen((prev) => !prev)}
-                    aria-expanded={showWelcomeMenu}
-                  >
+              <button
+                type="button"
+                className={`student-starter-panel-head ${isWelcomeRouteActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
+                onClick={() => setWelcomeMenuOpen((prev) => !prev)}
+                title="Welcome"
+                aria-expanded={showWelcomeMenu}
+              >
+                {collapsed ? (
+                  <>
+                    <span className="lms-nav-icon-wrap" aria-hidden="true">
+                      <FiHome className="lms-nav-icon" />
+                    </span>
+                    <span className="lms-nav-underlabel">Welcome</span>
+                    <span className="student-starter-panel-more is-collapsed-chevron" aria-hidden="true">
+                      {showWelcomeMenu ? <FiChevronDown /> : <FiChevronRight />}
+                    </span>
+                  </>
+                ) : (
+                  <>
                     <span className="student-starter-panel-title">Welcome!</span>
                     <span className="student-starter-panel-more" aria-hidden="true">
                       {showWelcomeMenu ? <FiChevronDown /> : <FiChevronRight />}
                     </span>
-                  </button>
-                  {showWelcomeMenu && (
-                    <div className="student-starter-panel-list">
-                      {welcomeNavItems.map((item) => {
-                        const isCommunityInput = item.label === "Community Input";
-                        if (isCommunityInput) {
-                          return (
-                            <button
-                              key={`welcome-panel-${item.path}`}
-                              type="button"
-                              className="student-starter-panel-link student-starter-panel-link-disabled"
-                              title="Coming soon"
-                              disabled
-                            >
-                              <span className="student-starter-panel-icon" aria-hidden="true">
-                                {item.icon}
-                              </span>
-                              <span className="student-starter-panel-label">{item.label}</span>
-                              <span className="student-starter-soon-badge">Coming soon</span>
-                            </button>
-                          );
-                        }
-                        return (
-                          <NavLink
-                            key={`welcome-panel-${item.path}`}
-                            to={item.path}
-                            className={`student-starter-panel-link ${linkIsActive(item.path) ? "active" : ""}`}
-                          >
-                            <span className="student-starter-panel-icon" aria-hidden="true">
-                              {item.icon}
-                            </span>
-                            <span className="student-starter-panel-label">{item.label}</span>
-                            {item.label === "Start Here" && <span className="student-starter-panel-badge">NEW</span>}
-                          </NavLink>
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
+                  </>
+                )}
+              </button>
+              {showWelcomeMenu && (
+                <div className={`student-starter-panel-list ${collapsed ? "is-collapsed-rail" : ""}`}>
+                  {visibleWelcomeNavItems.map((item) => (
+                    <NavLink
+                      key={`welcome-panel-${item.path}`}
+                      to={item.path}
+                      title={collapsed ? item.label : undefined}
+                      className={`student-starter-panel-link ${collapsed ? "is-collapsed-rail" : ""} ${linkIsActive(item.path.split("?")[0]) ? "active" : ""}`}
+                    >
+                      <span className="student-starter-panel-icon" aria-hidden="true">
+                        {item.icon}
+                      </span>
+                      {collapsed ? (
+                        <span className="lms-nav-underlabel">{item.short || item.label}</span>
+                      ) : (
+                        <span className="student-starter-panel-label">{item.label}</span>
+                      )}
+                    </NavLink>
+                  ))}
+                </div>
               )}
             </div>
+            )}
 
 
 
@@ -504,7 +657,7 @@ export default function StudentDashboardSectionPage({
                     <span className="lms-nav-icon-wrap" aria-hidden="true">
                       <FiHome className="lms-nav-icon" />
                     </span>
-                    <span className="lms-nav-short">W</span>
+                    <span className="lms-nav-underlabel">Welcome</span>
                   </>
                 ) : (
                   <>
@@ -520,43 +673,20 @@ export default function StudentDashboardSectionPage({
               </button>
               {showWelcomeMenu && (
                 <div className="student-starter-panel-list">
-                  {welcomeNavItems.map((item) => {
-                    const isCommunityInput = item.label === "Community Input";
-                    if (isCommunityInput) {
-                      return (
-                        <button
-                          key={`welcome-nav-${item.path}`}
-                          type="button"
-                          className={`student-starter-link student-starter-link-disabled ${collapsed ? "justify-content-center" : ""}`}
-                          title={collapsed ? `${item.label} (Coming soon)` : "Coming soon"}
-                          disabled
-                        >
-                          <span className="student-starter-panel-icon" aria-hidden="true">{item.icon}</span>
-                          {!collapsed && (
-                            <>
-                              <span>{item.label}</span>
-                              <span className="student-starter-soon-badge">Coming soon</span>
-                            </>
-                          )}
-                          {collapsed && <span className="visually-hidden">{item.label} coming soon</span>}
-                        </button>
-                      );
-                    }
-                    return (
-                      <NavLink
-                        key={`welcome-nav-${item.path}`}
-                        to={item.path}
-                        title={collapsed ? item.label : undefined}
-                        className={() =>
-                          `student-starter-link ${linkIsActive(item.path) ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`
-                        }
-                      >
-                        <span className="student-starter-panel-icon" aria-hidden="true">{item.icon}</span>
-                        {!collapsed && <span>{item.label}</span>}
-                        {collapsed && <span className="visually-hidden">{item.label}</span>}
-                      </NavLink>
-                    );
-                  })}
+                  {visibleWelcomeNavItems.map((item) => (
+                    <NavLink
+                      key={`welcome-nav-${item.path}`}
+                      to={item.path}
+                      title={collapsed ? item.label : undefined}
+                      className={() =>
+                        `student-starter-link ${linkIsActive(item.path.split("?")[0]) ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`
+                      }
+                    >
+                      <span className="student-starter-panel-icon" aria-hidden="true">{item.icon}</span>
+                      {!collapsed && <span>{item.label}</span>}
+                      {collapsed && <span className="visually-hidden">{item.label}</span>}
+                    </NavLink>
+                  ))}
                 </div>
               )}
             </div>
@@ -574,7 +704,7 @@ export default function StudentDashboardSectionPage({
                     <span className="lms-nav-icon-wrap" aria-hidden="true">
                       <FiGrid className="lms-nav-icon" />
                     </span>
-                    <span className="lms-nav-short">SI</span>
+                    <span className="lms-nav-underlabel">Starter</span>
                   </>
                 ) : (
                   <>
@@ -590,7 +720,7 @@ export default function StudentDashboardSectionPage({
               </button>
               {showStarterMenu && (
                 <div className="student-starter-panel-list">
-                  {starterNavItems.map((item) => (
+                  {visibleStarterNavItems.map((item) => (
                     <NavLink
                       key={item.path}
                       to={item.path}
@@ -614,6 +744,7 @@ export default function StudentDashboardSectionPage({
             </div>
 
 
+            {navOn("community") && visibleCommunityNavItems.length > 0 && (
             <div className={`student-starter-panel  ${collapsed ? "collapsed" : ""}`}>
               <button
                 type="button"
@@ -627,7 +758,10 @@ export default function StudentDashboardSectionPage({
                     <span className="lms-nav-icon-wrap" aria-hidden="true">
                       <FiUsers className="lms-nav-icon" />
                     </span>
-                    <span className="lms-nav-short">CM</span>
+                    <span className="lms-nav-underlabel">Community</span>
+                    <span className="student-starter-panel-more is-collapsed-chevron" aria-hidden="true">
+                      {showCommunityMenu ? <FiChevronDown /> : <FiChevronRight />}
+                    </span>
                   </>
                 ) : (
                   <>
@@ -642,14 +776,14 @@ export default function StudentDashboardSectionPage({
                 )}
               </button>
               {showCommunityMenu && (
-                <div className="student-starter-panel-list">
-                  {COMMUNITY_NAV_ITEMS.map((item) => (
+                <div className={`student-starter-panel-list ${collapsed ? "is-collapsed-rail" : ""}`}>
+                  {visibleCommunityNavItems.map((item) => (
                     <NavLink
                       key={item.key}
                       to={item.path}
                       title={collapsed ? item.label : undefined}
                       className={() =>
-                        `student-starter-panel-link  ${linkIsActive(item.path) ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`
+                        `student-starter-panel-link ${collapsed ? "is-collapsed-rail" : ""} ${linkIsActive(item.path) ? "active" : ""}`
                       }
                     >
                       <span className="student-starter-panel-icon" aria-hidden="true">
@@ -661,18 +795,21 @@ export default function StudentDashboardSectionPage({
                           item.icon
                         )}
                       </span>
-                      {!collapsed && (
+                      {collapsed ? (
+                        <span className="lms-nav-underlabel">{item.short || item.label}</span>
+                      ) : (
                         <span className="flex-grow-1 text-truncate" style={{ minWidth: 0 }}>
                           {item.label}
                         </span>
                       )}
-                      {collapsed && <span className="visually-hidden">{item.label}</span>}
                     </NavLink>
                   ))}
                 </div>
               )}
             </div>
-            {/* <div className={`student-starter-panel  ${collapsed ? "collapsed" : ""}`}>
+            )}
+            {navOn("monthly_challenges") && (
+            <div className={`student-starter-panel  ${collapsed ? "collapsed" : ""}`}>
               <button
                 type="button"
                 className={`student-starter-panel-head   ${isMonthlyChallengesNavActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
@@ -682,10 +819,13 @@ export default function StudentDashboardSectionPage({
               >
                 {collapsed ? (
                   <>
-                    <span className="student-starter-panel-title" aria-hidden="true">
+                    <span className="lms-nav-icon-wrap" aria-hidden="true">
                       <FiCalendar className="lms-nav-icon" />
                     </span>
-                    <span className="lms-nav-short">MO</span>
+                    <span className="lms-nav-underlabel">Monthly</span>
+                    <span className="student-starter-panel-more is-collapsed-chevron" aria-hidden="true">
+                      {showMonthlyChallengesMenu ? <FiChevronDown /> : <FiChevronRight />}
+                    </span>
                   </>
                 ) : (
                   <>
@@ -693,12 +833,12 @@ export default function StudentDashboardSectionPage({
 
                       <span>Monthly Challenges</span>
                     </span>
-                    <span className="student-starter-panel-more" aria-hidden="true">                   {showStarterMenu ? <FiChevronDown /> : <FiChevronRight />}                 </span>
+                    <span className="student-starter-panel-more" aria-hidden="true">                   {showMonthlyChallengesMenu ? <FiChevronDown /> : <FiChevronRight />}                 </span>
                   </>
                 )}
               </button>
               {showMonthlyChallengesMenu && (
-                <div className="student-starter-panel-list">
+                <div className={`student-starter-panel-list ${collapsed ? "is-collapsed-rail" : ""}`}>
                   {monthlySidebar.loading ? (
                     <SidebarLinksSkeleton count={collapsed ? 2 : 4} />
                   ) : monthlySidebar.meta.length === 0 ? (
@@ -715,22 +855,27 @@ export default function StudentDashboardSectionPage({
                       const tip = `${displayTitleForMonthKey(key, monthlySidebar.labels)} — ${count} course${count === 1 ? "" : "s"}`;
                       const emoji =
                         MONTHLY_CHALLENGE_ROW_EMOJIS[index % MONTHLY_CHALLENGE_ROW_EMOJIS.length];
+                      const shortLabel = (displayTitleForMonthKey(key, monthlySidebar.labels) || line || key)
+                        .replace(/^Monthly\s+/i, "")
+                        .split(/\s+/)[0]
+                        .slice(0, 8);
                       return (
                         <Link
                           key={`mc-month-${key}`}
                           to={`${STUDENT_MONTHLY_CHALLENGES_PATH}?month=${encodeURIComponent(key)}`}
                           title={tip}
-                          className={`student-starter-panel-link    ${isMonthActive ? "active" : ""} ${collapsed ? "justify-content-center" : ""}`}
+                          className={`student-starter-panel-link ${collapsed ? "is-collapsed-rail" : ""} ${isMonthActive ? "active" : ""}`}
                         >
                           <span className="student-starter-panel-icon" aria-hidden="true">
                             {emoji}
                           </span>
-                          {!collapsed && (
+                          {collapsed ? (
+                            <span className="lms-nav-underlabel">{shortLabel}</span>
+                          ) : (
                             <span className="text-truncate" style={{ maxWidth: "11.5rem" }}>
                               {line}
                             </span>
                           )}
-                          {collapsed && <span className="visually-hidden">{line}</span>}
                         </Link>
                       );
                     })
@@ -738,6 +883,8 @@ export default function StudentDashboardSectionPage({
                 </div>
               )}
             </div>
+            )}
+            {navOn("join_us_live") && (
             <NavLink
               to="/dashboard/student-live-workshops"
               title={collapsed ? "Join Us LIVE" : undefined}
@@ -745,10 +892,17 @@ export default function StudentDashboardSectionPage({
                 `lms-nav-link student-sidebar-live-link ${collapsed ? "lms-nav-link-collapsed" : ""} ${linkIsActive("/dashboard/student-live-workshops") ? "active" : ""}`
               }
             >
-              <SidebarLinkLabel icon={FiAward} label="Join Us LIVE" short="LV" collapsed={collapsed} />
+              <SidebarLinkLabel icon={FiAward} label="Join Us LIVE" short="Live" collapsed={collapsed} />
             </NavLink>
-            <LearningCenterSidebarSection variant="student" collapsed={collapsed} />
-            {!collapsed && (
+            )}
+            {navOn("learning_center") && (
+              <LearningCenterSidebarSection
+                variant="student"
+                collapsed={collapsed}
+                navVisibility={navVisibility}
+              />
+            )}
+            {!collapsed && navOn("links_contact") && (
               <div className="student-sidebar-links-group">
                 <div className="student-sidebar-links-label">Links</div>
                 <button
@@ -773,6 +927,8 @@ export default function StudentDashboardSectionPage({
                 <SidebarLinkLabel {...item} collapsed={collapsed} />
               </NavLink>
             ))}
+              </>
+            )}
 
 
 
@@ -788,31 +944,36 @@ export default function StudentDashboardSectionPage({
             </div>
           )}
 
-          {/* <div className="lms-sidebar-footer">
-          <button
-            type="button"
-            onClick={handleLogout}
-            className={`lms-sidebar-logout ${collapsed ? "is-collapsed" : ""}`}
-            title="Logout"
-          >
-            {collapsed ? "⎋" : "Logout"}
-          </button>
-        </div> */}
+          {navVisibilityReady && navOn("logout") && (
+          <div className="lms-sidebar-footer">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className={`lms-sidebar-logout ${collapsed ? "is-collapsed" : ""}`}
+              title="Logout"
+            >
+              <FiLogOut aria-hidden="true" />
+              <span className={collapsed ? "lms-nav-underlabel" : undefined}>Logout</span>
+            </button>
+          </div>
+          )}
         </aside>
 
-        <div className="flexss-fs p-3 p-sm-4 position-relative">
+        <div className={`flexss-fs p-3 p-sm-4 position-relative${collapsed ? " is-sidebar-collapsed" : ""}`}>
           <div className="student-panel-top-header mb-4">
             <div className="student-panel-top-nav">
-              {topHeaderLinks.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  className={`student-top-nav-link ${activeTopHeaderKey === item.key ? "active" : ""}`}
-                  onClick={() => navigate(item.path)}
-                >
-                  {item.label}
-                </button>
-              ))}
+              {navVisibilityReady
+                ? visibleTopHeaderLinks.map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      className={`student-top-nav-link ${activeTopHeaderKey === item.key ? "active" : ""}`}
+                      onClick={() => navigate(item.path)}
+                    >
+                      {item.label}
+                    </button>
+                  ))
+                : null}
             </div>
             <div className="student-panel-top-actions">
               <div className="student-search-chip">

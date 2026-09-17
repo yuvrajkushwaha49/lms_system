@@ -11,6 +11,7 @@ app.use('/api/faqs', require('../../routes/faqs.routes'));
 app.use('/api/snacks', require('../../routes/snacks.routes'));
 app.use('/api/ask-ryan', require('../../routes/askRyan.routes'));
 app.use('/api/welcome-video', require('../../routes/welcomeVideo.routes'));
+app.use('/api/student-nav-visibility', require('../../routes/studentNavVisibility.routes'));
 app.use('/api/start-here-steps', require('../../routes/startHereSteps.routes'));
 
 attachErrorHandler(app, 'content-service');

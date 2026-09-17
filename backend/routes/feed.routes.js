@@ -34,12 +34,14 @@ router.get('/media/:attachmentId', feedController.streamFeedAttachmentMedia);
 
 router.use(verifyToken);
 router.get('/summary', feedController.getFeedSpaceSummary);
+router.get('/trending', feedController.getTrendingFeedPosts);
 router.get('/', feedController.getFeedPosts);
 router.get('/reports/comments', feedController.getFeedCommentReportsList);
 router.get('/reports', feedController.getFeedPostReports);
 router.get('/reports/:reportId', feedController.getFeedPostReportDetail);
 router.patch('/reports/:reportId/block-post', feedController.blockReportedFeedPost);
 router.post('/', upload.array('media', 12), feedController.createFeedPost);
+router.post('/:postId/views', feedController.recordFeedPostView);
 router.post('/:postId/likes/toggle', feedController.toggleFeedPostLike);
 router.post('/:postId/reports', feedController.createFeedPostReport);
 router.post('/:postId/comments', feedController.createFeedPostComment);

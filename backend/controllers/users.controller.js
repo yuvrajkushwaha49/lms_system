@@ -492,15 +492,32 @@ const deleteUser = async (req, res) => {
     if (Number.isNaN(id)) {
       return res.status(400).json({ status: 'error', message: 'Invalid user id.' });
     }
+    if (Number(req.user?.id) === id) {
+      return res.status(400).json({ status: 'error', message: 'You cannot delete your own account.' });
+    }
+
     const businessId = await resolveBusinessIdFromTokenOrUser(req.user);
+    const [existing] = businessId
+      ? await db.query('SELECT id, email FROM users WHERE id = ? AND business_id = ? LIMIT 1', [id, businessId])
+      : await db.query('SELECT id, email FROM users WHERE id = ? LIMIT 1', [id]);
+    if (!existing.length) {
+      return res.status(404).json({ status: 'error', message: 'User not found.' });
+    }
+
     const [result] = businessId
       ? await db.query('DELETE FROM users WHERE id = ? AND business_id = ?', [id, businessId])
       : await db.query('DELETE FROM users WHERE id = ?', [id]);
     if (!result.affectedRows) {
       return res.status(404).json({ status: 'error', message: 'User not found.' });
     }
-    return res.json({ status: 'success' });
+    return res.json({ status: 'success', message: 'User deleted successfully.' });
   } catch (e) {
+    if (e && (e.code === 'ER_ROW_IS_REFERENCED_2' || e.code === 'ER_ROW_IS_REFERENCED')) {
+      return res.status(409).json({
+        status: 'error',
+        message: 'This user cannot be deleted because related records still exist. Deactivate the account instead.',
+      });
+    }
     return res.status(500).json({ status: 'error', message: e.message || 'Failed to delete user.' });
   }
 };

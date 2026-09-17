@@ -422,7 +422,20 @@ const updateCourse = async (req, res) => {
     if (!result.affectedRows) {
       return res.status(404).json({ status: 'error', message: 'Course not found.' });
     }
-    return res.json({ status: 'success' });
+    return res.json({
+      status: 'success',
+      data: {
+        id: courseId,
+        title: String(title).trim(),
+        description: description || null,
+        price: numericPrice,
+        delivery_mode: normalizedDeliveryMode,
+        recorded_type: normalizedRecordedType,
+        pricing_type: normalizedPricingType,
+        free_for_members: freeForMembers ? 1 : 0,
+        course_type: resolvedCourseType,
+      },
+    });
   } catch (e) {
     return res.status(500).json({ status: 'error', message: e.message || 'Failed to update course.' });
   }

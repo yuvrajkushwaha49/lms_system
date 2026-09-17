@@ -11,17 +11,53 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [accountNotFound, setAccountNotFound] = useState(false);
+  const [resendBusy, setResendBusy] = useState(false);
 
   const apiBaseUrl = getApiBaseUrl();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    setNeedsVerification(false);
+    setAccountNotFound(false);
+  };
+
+  const handleResendVerification = async () => {
+    if (!formData.email) return;
+    setResendBusy(true);
+    setInfo('');
+    setError('');
+    setAccountNotFound(false);
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email }),
+      });
+      const payload = await response.json();
+      if (!response.ok || payload.status !== 'success') {
+        if (payload.code === 'ACCOUNT_NOT_FOUND') {
+          setAccountNotFound(true);
+        }
+        throw new Error(payload.message || 'Could not resend verification email.');
+      }
+      setInfo(payload.message || 'Verification email sent.');
+    } catch (resendError) {
+      setError(resendError.message);
+    } finally {
+      setResendBusy(false);
+    }
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setInfo('');
+    setNeedsVerification(false);
+    setAccountNotFound(false);
 
     try {
       const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
@@ -33,6 +69,12 @@ export default function Login() {
       const payload = await response.json();
 
       if (!response.ok || payload.status !== 'success') {
+        if (response.status === 403 || payload.code === 'EMAIL_NOT_VERIFIED') {
+          setNeedsVerification(true);
+        }
+        if (payload.code === 'ACCOUNT_NOT_FOUND') {
+          setAccountNotFound(true);
+        }
         throw new Error(payload.message || 'Login failed. Please verify credentials.');
       }
 
@@ -91,6 +133,30 @@ export default function Login() {
             </div>
 
             {error && <div className="alert alert-danger py-2 mb-4">{error}</div>}
+            {info && <div className="alert alert-success py-2 mb-4">{info}</div>}
+            {accountNotFound && (
+              <div className="mb-4">
+                <button
+                  type="button"
+                  className="btn login-submit-btn w-100"
+                  onClick={() => navigate('/register')}
+                >
+                  Create Account
+                </button>
+              </div>
+            )}
+            {needsVerification && (
+              <div className="mb-4">
+                <button
+                  type="button"
+                  className="btn btn-outline-primary w-100"
+                  disabled={resendBusy || !formData.email}
+                  onClick={handleResendVerification}
+                >
+                  {resendBusy ? 'Sending...' : 'Resend verification email'}
+                </button>
+              </div>
+            )}
 
             <form onSubmit={handleLogin} className="login-form-body">
               <div className="login-field">

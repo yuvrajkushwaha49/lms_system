@@ -39,11 +39,13 @@ const wallOfWinsRoutes = require('./routes/wallOfWins.routes');
 const faqsRoutes = require('./routes/faqs.routes');
 const messagesRoutes = require('./routes/messages.routes');
 const welcomeVideoRoutes = require('./routes/welcomeVideo.routes');
+const studentNavVisibilityRoutes = require('./routes/studentNavVisibility.routes');
 const startHereStepsRoutes = require('./routes/startHereSteps.routes');
 const askRyanRoutes = require('./routes/askRyan.routes');
 const monthlyChallengeMonthsRoutes = require('./routes/monthlyChallengeMonths.routes');
 const documentCenterRoutes = require('./routes/documentCenter.routes');
 const galleryRoutes = require('./routes/gallery.routes');
+const upcomingEventsRoutes = require('./routes/upcomingEvents.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -57,11 +59,13 @@ app.use('/api/wall-of-wins', wallOfWinsRoutes);
 app.use('/api/faqs', faqsRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/welcome-video', welcomeVideoRoutes);
+app.use('/api/student-nav-visibility', studentNavVisibilityRoutes);
 app.use('/api/start-here-steps', startHereStepsRoutes);
 app.use('/api/ask-ryan', askRyanRoutes);
 app.use('/api/monthly-challenge-months', monthlyChallengeMonthsRoutes);
 app.use('/api/document-center', documentCenterRoutes);
 app.use('/api/gallery', galleryRoutes);
+app.use('/api/upcoming-events', upcomingEventsRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

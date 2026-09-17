@@ -19,8 +19,23 @@ app.use(
 app.use(cors());
 app.use(morgan('dev'));
 
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'api-gateway',
+    mode: 'microservices',
+    message: 'LMS API gateway. Frontend is usually on http://localhost:5173 — API routes live under /api/*.',
+    health: '/health',
+  });
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'api-gateway', mode: 'microservices' });
+});
+
+// Cursor / Chrome DevTools sometimes probe this on open ports — avoid noisy 404 logs.
+app.get('/json/version', (req, res) => {
+  res.status(204).end();
 });
 
 app.use('/uploads/feed-media', (req, res) => {

@@ -3,6 +3,8 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { FiBriefcase, FiChevronDown, FiChevronRight, FiImage, FiMoreHorizontal, FiZap } from "react-icons/fi";
 import { STUDENT_MONTHLY_CHALLENGES_PATH } from "../utils/studentMonthlyChallengeMeta";
 
+import { LEARNING_NAV_KEY_BY_ITEM, isNavVisible } from "../utils/studentNavVisibility";
+
 function studentShortActive(pathname) {
   return pathname.startsWith("/dashboard/student-sell-it-snacks");
 }
@@ -64,24 +66,28 @@ const STUDENT_ITEMS = [
   {
     key: "short",
     label: "Sell It Short Courses",
+    short: "Short",
     to: "/dashboard/student-sell-it-snacks",
     icon: "zap",
   },
   {
     key: "signature",
     label: "Signature Courses",
+    short: "Courses",
     to: "/dashboard/student-course",
     icon: "grad",
   },
   {
     key: "docs",
     label: "Documents & Templates",
+    short: "Docs",
     to: "/dashboard/student-document-center",
     icon: "briefcase",
   },
   {
     key: "gallery",
     label: "Gallery",
+    short: "Gallery",
     to: "/dashboard/student-gallery",
     icon: "gallery",
   },
@@ -91,36 +97,44 @@ const ADMIN_ITEMS = [
   {
     key: "short",
     label: "Sell It Short Courses",
+    short: "Short",
     to: "/dashboard/sell-it-snacks-management",
     icon: "zap",
   },
   {
     key: "signature",
     label: "Signature Courses",
+    short: "Courses",
     to: "/dashboard/course-management",
     icon: "grad",
   },
   {
     key: "docs",
     label: "Documents & Templates",
+    short: "Docs",
     to: "/dashboard/document-center-management",
     icon: "briefcase",
   },
   {
     key: "gallery",
     label: "Gallery Management",
+    short: "Gallery",
     to: "/dashboard/gallery-management",
     icon: "gallery",
   },
 ];
 
-export default function LearningCenterSidebarSection({ variant, collapsed }) {
+export default function LearningCenterSidebarSection({ variant, collapsed, navVisibility }) {
   const { pathname, search } = useLocation();
-  const [open, setOpen] = useState(variant === "admin");
+  const [open, setOpen] = useState(true);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreWrapRef = useRef(null);
 
-  const items = variant === "admin" ? ADMIN_ITEMS : STUDENT_ITEMS;
+  const items = (variant === "admin" ? ADMIN_ITEMS : STUDENT_ITEMS).filter((item) => {
+    if (variant !== "student") return true;
+    const key = LEARNING_NAV_KEY_BY_ITEM[item.key];
+    return key ? isNavVisible(navVisibility, key) : true;
+  });
   const helpTo = variant === "admin" ? "/dashboard/faqs-management" : "/dashboard/student-faqs";
   const anyActive = anyLearningActive(variant, pathname, search);
 
@@ -166,50 +180,56 @@ export default function LearningCenterSidebarSection({ variant, collapsed }) {
     );
   };
 
-  if (collapsed) {
-    return (
-      <div className="lms-learning-center lms-learning-center--collapsed">
-        <NavLink
-          to={items[0].to}
-          title="Learning Center"
-          className={() => `lms-nav-link lms-nav-link-collapsed ${anyActive ? "active" : ""}`}
-        >
-          <span className="lms-nav-icon-wrap" aria-hidden>
-            <FiZap className="lms-nav-icon" />
-          </span>
-          <span className="lms-nav-short">LC</span>
-        </NavLink>
-      </div>
-    );
-  }
+  if (variant === "student" && items.length === 0) return null;
 
   return (
-    <div className="student-starter-panel  ">
-        <button
-          type="button"
-          className="student-starter-panel-head  "
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-        >
-          <span className="student-starter-panel-title">Learning Center</span>
-          <span className="lms-learning-center-chevron" aria-hidden>
-            {open ? <FiChevronDown /> : <FiChevronRight />}
-          </span>
-        </button>
-       
-  
-      {open ? (
-        <div className="student-starter-panel-list">
+    <div className={`student-starter-panel ${collapsed ? "collapsed" : ""}`}>
+      <button
+        type="button"
+        className={`student-starter-panel-head ${anyActive ? "active" : ""} ${collapsed ? "lms-nav-link-collapsed collapsed" : ""}`}
+        onClick={() => setOpen((v) => !v)}
+        title="Learning Center"
+        aria-expanded={open}
+      >
+        {collapsed ? (
+          <>
+            <span className="lms-nav-icon-wrap" aria-hidden>
+              <FiZap className="lms-nav-icon" />
+            </span>
+            <span className="lms-nav-underlabel">Learning</span>
+            <span className="student-starter-panel-more is-collapsed-chevron" aria-hidden>
+              {open ? <FiChevronDown /> : <FiChevronRight />}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="student-starter-panel-title">Learning Center</span>
+            <span className="lms-learning-center-chevron" aria-hidden>
+              {open ? <FiChevronDown /> : <FiChevronRight />}
+            </span>
+          </>
+        )}
+      </button>
+
+      {open && items.length > 0 ? (
+        <div className={`student-starter-panel-list ${collapsed ? "is-collapsed-rail" : ""}`}>
           {items.map((item) => {
             const active = learningRouteActive(variant, item.key, pathname, search);
             return (
               <NavLink
                 key={item.key}
                 to={item.to}
-                className={() => `student-starter-panel-link      ${active ? "is-active" : ""}`}
+                title={collapsed ? item.label : undefined}
+                className={() =>
+                  `student-starter-panel-link ${collapsed ? "is-collapsed-rail" : ""} ${active ? "is-active active" : ""}`
+                }
               >
                 {renderIcon(item.icon)}
-                <span className="lms-learning-center-label">{item.label}</span>
+                {collapsed ? (
+                  <span className="lms-nav-underlabel">{item.short || item.label}</span>
+                ) : (
+                  <span className="lms-learning-center-label">{item.label}</span>
+                )}
               </NavLink>
             );
           })}

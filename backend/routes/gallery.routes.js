@@ -42,6 +42,7 @@ const router = express.Router();
 router.get('/folders', verifyToken, galleryController.getGalleryFolders);
 router.post('/folders', verifyToken, adminOnly, galleryController.createGalleryFolder);
 router.get('/folders/:folderId', verifyToken, galleryController.getGalleryFolder);
+router.patch('/folders/:folderId', verifyToken, adminOnly, galleryController.updateGalleryFolder);
 router.delete('/folders/:folderId', verifyToken, adminOnly, galleryController.deleteGalleryFolder);
 router.post('/folders/:folderId/like', verifyToken, galleryController.likeGalleryFolder);
 router.get('/folders/:folderId/comments', verifyToken, galleryController.getGalleryFolderComments);

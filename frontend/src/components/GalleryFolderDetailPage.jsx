@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { FiArrowLeft, FiHeart, FiImage, FiTrash2, FiUpload, FiX } from "react-icons/fi";
+import { FiArrowLeft, FiEdit2, FiHeart, FiImage, FiTrash2, FiUpload, FiX } from "react-icons/fi";
 import { getApiBaseUrl } from "../utils/apiBaseUrl";
 import { resolvePublicMediaUrl } from "../utils/mediaUrl";
 import GalleryCommentSection from "./GalleryCommentSection";
+import ConfirmPopup from "./ConfirmPopup";
 
 export default function GalleryFolderDetailPage({ variant }) {
   const isAdmin = variant === "admin";
@@ -22,6 +23,14 @@ export default function GalleryFolderDetailPage({ variant }) {
   const [notice, setNotice] = useState("");
   const [uploading, setUploading] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editActive, setEditActive] = useState(true);
+  const [savingFolder, setSavingFolder] = useState(false);
+  const [deleteImageTarget, setDeleteImageTarget] = useState(null);
+  const [deleteFolderOpen, setDeleteFolderOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const showNotice = useCallback((msg) => {
     setNotice(msg);
@@ -131,7 +140,11 @@ export default function GalleryFolderDetailPage({ variant }) {
         throw new Error(payload.message || "Upload failed.");
       }
       showNotice(`${(payload.data || []).length} image(s) uploaded.`);
-      await loadFolder();
+      if (Array.isArray(payload.data) && payload.data.length) {
+        setImages((prev) => [...prev, ...payload.data]);
+      } else {
+        await loadFolder();
+      }
     } catch (e) {
       showNotice(e.message || "Upload failed.");
     } finally {
@@ -140,11 +153,54 @@ export default function GalleryFolderDetailPage({ variant }) {
     }
   };
 
-  const deleteImage = async (img) => {
-    if (!isAdmin || !img) return;
-    if (!window.confirm("Remove this image from the gallery?")) return;
+  const openEditFolder = () => {
+    if (!folder) return;
+    setEditName(folder.name || "");
+    setEditDesc(folder.description || "");
+    setEditActive(folder.isActive !== false);
+    setShowEditModal(true);
+  };
+
+  const saveFolderEdits = async () => {
+    if (!folder) return;
+    const name = editName.trim();
+    if (!name) return;
     const token = localStorage.getItem("token");
     if (!token) return;
+    setSavingFolder(true);
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/gallery/folders/${folder.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name,
+          description: editDesc.trim(),
+          is_active: editActive,
+        }),
+      });
+      const payload = await res.json();
+      if (!res.ok || payload.status !== "success") {
+        throw new Error(payload.message || "Could not update folder.");
+      }
+      setFolder((prev) => (prev ? { ...prev, ...payload.data } : prev));
+      setShowEditModal(false);
+      showNotice("Folder updated.");
+    } catch (e) {
+      showNotice(e.message || "Could not update folder.");
+    } finally {
+      setSavingFolder(false);
+    }
+  };
+
+  const confirmDeleteImage = async () => {
+    if (!isAdmin || !deleteImageTarget) return;
+    const img = deleteImageTarget;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    setIsDeleting(true);
     try {
       const res = await fetch(`${apiBaseUrl}/api/gallery/images/${img.id}`, {
         method: "DELETE",
@@ -156,17 +212,22 @@ export default function GalleryFolderDetailPage({ variant }) {
         return;
       }
       if (selectedImage?.id === img.id) setSelectedImage(null);
-      await loadFolder();
+      setImages((prev) => prev.filter((x) => String(x.id) !== String(img.id)));
+      setDeleteImageTarget(null);
+      showNotice("Image removed.");
     } catch {
       showNotice("Could not delete image.");
+      setDeleteImageTarget(null);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  const deleteFolder = async () => {
+  const confirmDeleteFolder = async () => {
     if (!isAdmin || !folder) return;
-    if (!window.confirm("Hide this folder and all its images?")) return;
     const token = localStorage.getItem("token");
     if (!token) return;
+    setIsDeleting(true);
     try {
       const res = await fetch(`${apiBaseUrl}/api/gallery/folders/${folder.id}`, {
         method: "DELETE",
@@ -175,11 +236,15 @@ export default function GalleryFolderDetailPage({ variant }) {
       const payload = await res.json();
       if (!res.ok || payload.status !== "success") {
         showNotice(payload.message || "Could not delete folder.");
+        setDeleteFolderOpen(false);
         return;
       }
       navigate(listPath);
     } catch {
       showNotice("Could not delete folder.");
+      setDeleteFolderOpen(false);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -265,6 +330,14 @@ export default function GalleryFolderDetailPage({ variant }) {
                 />
                 <button
                   type="button"
+                  className="gallery-btn-secondary"
+                  onClick={openEditFolder}
+                >
+                  <FiEdit2 aria-hidden />
+                  Edit folder
+                </button>
+                <button
+                  type="button"
                   className="gallery-btn-primary"
                   disabled={uploading}
                   onClick={() => fileInputRef.current?.click()}
@@ -272,7 +345,7 @@ export default function GalleryFolderDetailPage({ variant }) {
                   <FiUpload aria-hidden />
                   {uploading ? "Uploading…" : "Upload images"}
                 </button>
-                <button type="button" className="gallery-btn-danger" onClick={deleteFolder}>
+                <button type="button" className="gallery-btn-danger" onClick={() => setDeleteFolderOpen(true)}>
                   <FiTrash2 aria-hidden />
                   Delete folder
                 </button>
@@ -309,7 +382,12 @@ export default function GalleryFolderDetailPage({ variant }) {
                         View
                       </button>
                       {isAdmin ? (
-                        <button type="button" className="gallery-image-delete" onClick={() => deleteImage(img)} aria-label="Delete">
+                        <button
+                          type="button"
+                          className="gallery-image-delete"
+                          onClick={() => setDeleteImageTarget(img)}
+                          aria-label="Delete"
+                        >
                           <FiTrash2 aria-hidden />
                         </button>
                       ) : null}
@@ -367,6 +445,96 @@ export default function GalleryFolderDetailPage({ variant }) {
           </div>
         </div>
       ) : null}
+
+      {showEditModal && isAdmin ? (
+        <div className="gallery-modal-layer" role="presentation">
+          <button
+            type="button"
+            className="gallery-modal-backdrop"
+            aria-label="Close"
+            onClick={() => !savingFolder && setShowEditModal(false)}
+          />
+          <div className="gallery-modal" role="dialog" aria-modal="true">
+            <h2 className="gallery-modal-title">Edit folder</h2>
+            <label className="gallery-field">
+              <span>Folder name</span>
+              <input
+                type="text"
+                className="form-control"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+              />
+            </label>
+            <label className="gallery-field">
+              <span>Description (optional)</span>
+              <textarea
+                className="form-control"
+                rows={3}
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+              />
+            </label>
+            <label className="gallery-field gallery-field-check">
+              <input
+                type="checkbox"
+                checked={editActive}
+                onChange={(e) => setEditActive(e.target.checked)}
+              />
+              <span>Visible to members</span>
+            </label>
+            <div className="gallery-modal-actions">
+              <button
+                type="button"
+                className="gallery-btn-secondary"
+                disabled={savingFolder}
+                onClick={() => setShowEditModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="gallery-btn-primary"
+                disabled={savingFolder || !editName.trim()}
+                onClick={saveFolderEdits}
+              >
+                {savingFolder ? "Saving…" : "Save changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <ConfirmPopup
+        open={Boolean(deleteImageTarget)}
+        title="Remove image?"
+        message="Remove this image from the gallery?"
+        confirmLabel="Remove"
+        cancelLabel="Cancel"
+        confirmVariant="danger"
+        busy={isDeleting}
+        onConfirm={confirmDeleteImage}
+        onCancel={() => {
+          if (!isDeleting) setDeleteImageTarget(null);
+        }}
+      />
+
+      <ConfirmPopup
+        open={deleteFolderOpen}
+        title="Hide folder?"
+        message={
+          folder
+            ? `Hide “${folder.name}” and its images from members?`
+            : "Hide this folder and all its images?"
+        }
+        confirmLabel="Hide"
+        cancelLabel="Cancel"
+        confirmVariant="danger"
+        busy={isDeleting}
+        onConfirm={confirmDeleteFolder}
+        onCancel={() => {
+          if (!isDeleting) setDeleteFolderOpen(false);
+        }}
+      />
     </div>
   );
 }

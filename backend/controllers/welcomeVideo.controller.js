@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { toPublicUploadUrl } = require('../shared/publicUrl');
 
 const resolveOrgId = (user) => user?.org_id || user?.business_id || null;
 
@@ -79,14 +80,14 @@ const upsertWelcomeVideo = async (req, res) => {
 
     let videoUrl = String(req.body?.video_url ?? '').trim().slice(0, 2000);
     if (videoFile) {
-      videoUrl = `${req.protocol}://${req.get('host')}/uploads/welcome-video/${videoFile.filename}`;
+      videoUrl = toPublicUploadUrl(`welcome-video/${videoFile.filename}`);
     } else if (!videoUrl) {
       videoUrl = String(existing.video_url || '').trim().slice(0, 2000);
     }
 
     let thumbnailUrl = String(req.body?.thumbnail_url ?? '').trim().slice(0, 2000);
     if (thumbnailFile) {
-      thumbnailUrl = `${req.protocol}://${req.get('host')}/uploads/welcome-video/${thumbnailFile.filename}`;
+      thumbnailUrl = toPublicUploadUrl(`welcome-video/${thumbnailFile.filename}`);
     } else if (!thumbnailUrl) {
       thumbnailUrl = String(existing.thumbnail_url || '').trim().slice(0, 2000);
     }

@@ -14,6 +14,7 @@ import {
   FiLogOut,
   FiMenu,
   FiMessageCircle,
+  FiSettings,
   FiUserCheck,
   FiUsers,
 } from 'react-icons/fi';
@@ -23,17 +24,18 @@ import LearningCenterSidebarSection from '../../components/LearningCenterSidebar
 const STORAGE_KEY = 'dashboard_sidebar_collapsed';
 
 const navItems = [
-  { label: 'User Management', short: 'UM', path: '/dashboard/user-management', icon: FiUsers },
-  { label: 'Members Management', short: 'MB', path: '/dashboard/members-management', icon: FiUserCheck },
-  { label: 'Trainer Management', short: 'TR', path: '/dashboard/trainer-management', icon: FiBriefcase },
-  { label: 'Monthly Challenges', short: 'MC', path: '/dashboard/monthly-challenges-management', icon: FiCalendar },
-  { label: 'Workshop Management', short: 'WS', path: '/dashboard/workshop-management', icon: FiGrid },
-  { label: 'Gallery Management', short: 'GL', path: '/dashboard/gallery-management', icon: FiImage },
-  { label: 'Community', short: 'CM', path: '/dashboard/admin-community', icon: FiMessageCircle },
-  { label: 'Feed Management', short: 'FD', path: '/dashboard/feed-management', icon: FiLayers },
-  { label: 'FAQs Management', short: 'FQ', path: '/dashboard/faqs-management', icon: FiHelpCircle },
-  { label: 'News Management', short: 'NW', path: '/dashboard/news-management', icon: FiFileText },
-  { label: 'Partner Management', short: 'PR', path: '/dashboard/partner-management', icon: FiBriefcase },
+  { label: 'User Management', short: 'Users', path: '/dashboard/user-management', icon: FiUsers },
+  { label: 'Members Management', short: 'Members', path: '/dashboard/members-management', icon: FiUserCheck },
+  { label: 'Trainer Management', short: 'Trainers', path: '/dashboard/trainer-management', icon: FiBriefcase },
+  { label: 'Monthly Challenges', short: 'Monthly', path: '/dashboard/monthly-challenges-management', icon: FiCalendar },
+  { label: 'Workshop Management', short: 'Workshops', path: '/dashboard/workshop-management', icon: FiGrid },
+  { label: 'Gallery Management', short: 'Gallery', path: '/dashboard/gallery-management', icon: FiImage },
+  { label: 'Community', short: 'Community', path: '/dashboard/admin-community', icon: FiMessageCircle },
+  { label: 'Feed Management', short: 'Feed', path: '/dashboard/feed-management', icon: FiLayers },
+  { label: 'FAQs Management', short: 'FAQs', path: '/dashboard/faqs-management', icon: FiHelpCircle },
+  { label: 'Student Navbar', short: 'Navbar', path: '/dashboard/student-nav-visibility', icon: FiSettings },
+  { label: 'News Management', short: 'News', path: '/dashboard/news-management', icon: FiFileText },
+  { label: 'Partner Management', short: 'Partners', path: '/dashboard/partner-management', icon: FiBriefcase },
 ];
 
 const communityAdminLinks = [
@@ -42,28 +44,28 @@ const communityAdminLinks = [
     key: 'sell-it-community',
     label: 'Sell It Community',
     children: [
-      { label: 'Recently Sell It Community', path: '/dashboard/admin-community/recent' },
-      { label: 'Reports', path: '/dashboard/admin-community/reports' },
+      { label: 'Recently Sell It Community', short: 'Recent', path: '/dashboard/admin-community/recent' },
+      { label: 'Reports', short: 'Reports', path: '/dashboard/admin-community/reports' },
     ],
   },
-  { type: 'link', label: 'Referral Partners', path: '/dashboard/admin-community/referral-partners' },
-  { type: 'link', label: 'Community Listings', path: '/dashboard/admin-community/listings' },
+  { type: 'link', label: 'Referral Partners', short: 'Referral', path: '/dashboard/admin-community/referral-partners' },
+  { type: 'link', label: 'Community Listings', short: 'Listings', path: '/dashboard/admin-community/listings' },
 ];
 
 const feedManagementLinks = [
-  { label: 'Recently Feed', path: '/dashboard/feed-management/recent' },
-  { label: 'Reports', path: '/dashboard/feed-management/reports' },
-  { label: 'Feed By Members', path: '/dashboard/feed-management/members' },
-  { label: 'Wall of Wins', path: '/dashboard/feed-management/wall-of-wins' },
-  { label: 'Upcoming Events', path: '/dashboard/feed-management/upcoming-events' },
+  { label: 'Recently Feed', short: 'Recent', path: '/dashboard/feed-management/recent' },
+  { label: 'Reports', short: 'Reports', path: '/dashboard/feed-management/reports' },
+  { label: 'Feed By Members', short: 'Members', path: '/dashboard/feed-management/members' },
+  { label: 'Wall of Wins', short: 'Wins', path: '/dashboard/feed-management/wall-of-wins' },
+  { label: 'Upcoming Events', short: 'Events', path: '/dashboard/feed-management/upcoming-events' },
 ];
 
 const welcomeAdminLinks = [
-  { label: 'Start Here', path: '/dashboard/welcome-admin/start-here' },
-  { label: 'Meet + Greet', path: '/dashboard/welcome-admin/meet-greet' },
-  { label: 'Ask Ryan Anything', path: '/dashboard/welcome-admin/ask-ryan' },
-  { label: 'Owning Manhattan', path: '/dashboard/course-management?type=owning-manhattan' },
-  { label: 'Community Input', path: '/dashboard/admin-community/recent' },
+  { label: 'Start Here', short: 'Start', path: '/dashboard/welcome-admin/start-here' },
+  { label: 'Meet + Greet', short: 'Meet', path: '/dashboard/welcome-admin/meet-greet' },
+  { label: 'Ask Ryan Anything', short: 'Ask', path: '/dashboard/welcome-admin/ask-ryan' },
+  { label: 'Owning Manhattan', short: 'Owning', path: '/dashboard/course-management?type=owning-manhattan' },
+  { label: 'Community Input', short: 'Input', path: '/dashboard/admin-community/recent' },
 ];
 
 function SidebarLinkLabel({ icon: Icon, label, short, collapsed }) {
@@ -72,9 +74,25 @@ function SidebarLinkLabel({ icon: Icon, label, short, collapsed }) {
       <span className="lms-nav-icon-wrap" aria-hidden="true">
         <Icon className="lms-nav-icon" />
       </span>
-      {collapsed ? <span className="lms-nav-short">{short}</span> : <span>{label}</span>}
+      {collapsed ? (
+        <span className="lms-nav-underlabel">{short || label}</span>
+      ) : (
+        <span>{label}</span>
+      )}
     </>
   );
+}
+
+function flattenCommunityLinks(entries) {
+  const out = [];
+  entries.forEach((entry) => {
+    if (entry.type === 'group' && entry.children) {
+      entry.children.forEach((child) => out.push(child));
+    } else if (entry.type === 'link') {
+      out.push(entry);
+    }
+  });
+  return out;
 }
 
 export default function DashboardSectionPage({ title, children }) {
@@ -126,6 +144,7 @@ export default function DashboardSectionPage({ title, children }) {
   const showCommunityMenu = communityMenuOpen || isCommunityAdminRouteActive;
   const showFeedMenu = feedMenuOpen || isFeedRouteActive;
   const showWelcomeMenu = welcomeMenuOpen || isWelcomeAdminRouteActive;
+  const communityFlatLinks = flattenCommunityLinks(communityAdminLinks);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0');
@@ -167,13 +186,7 @@ export default function DashboardSectionPage({ title, children }) {
       <aside className={`d-none d-lg-flex flex-column text-white lms-bg-purple lms-sidebar ${collapsed ? 'lms-sidebar-collapsed' : ''}`}>
         <div className="lms-sidebar-top">
           <div className={`lms-sidebar-brand ${collapsed ? 'is-collapsed' : ''}`}>
-            <div className="lms-sidebar-brand-mark">W</div>
-            {!collapsed && (
-              <div className="lms-sidebar-brand-copy">
-                <img src={logo} alt="Workians" className="lms-sidebar-logo" />
-                <span className="lms-sidebar-overline">Admin Workspace</span>
-              </div>
-            )}
+            <img src={logo} alt="Workians" className="lms-sidebar-logo" />
           </div>
           <button
             type="button"
@@ -187,121 +200,133 @@ export default function DashboardSectionPage({ title, children }) {
           </button>
         </div>
 
-        {!collapsed && <div className="lms-sidebar-section-label">Navigation</div>}
-
         <nav className="lms-sidebar-nav">
-          {collapsed ? (
-            <NavLink
-              to="/dashboard/welcome-admin/start-here"
+          <div className={`student-starter-panel ${collapsed ? 'collapsed' : ''}`}>
+            <button
+              type="button"
+              className={`student-starter-panel-head ${isWelcomeAdminRouteActive ? 'active' : ''} ${collapsed ? 'lms-nav-link-collapsed collapsed' : ''}`}
+              onClick={() => setWelcomeMenuOpen((prev) => !prev)}
               title="Welcome"
-              className={() => `lms-nav-link lms-nav-link-collapsed ${isWelcomeAdminRouteActive ? 'active' : ''}`}
+              aria-expanded={showWelcomeMenu}
             >
-              <span className="lms-nav-icon-wrap" aria-hidden="true">
-                <FiHeart className="lms-nav-icon" />
-              </span>
-              <span className="lms-nav-short">W</span>
-            </NavLink>
-          ) : (
-            <div className="lms-nav-group">
-              <button
-                type="button"
-                className={`lms-nav-link lms-nav-link-button ${isWelcomeAdminRouteActive ? 'active' : ''}`}
-                onClick={() => setWelcomeMenuOpen((prev) => !prev)}
-                aria-expanded={showWelcomeMenu}
-              >
-                <span className="lms-nav-link-main">
+              {collapsed ? (
+                <>
                   <span className="lms-nav-icon-wrap" aria-hidden="true">
                     <FiHeart className="lms-nav-icon" />
                   </span>
-                  <span>Welcome!</span>
-                </span>
-                <span className="lms-nav-chevron" aria-hidden="true">
-                  {showWelcomeMenu ? <FiChevronDown /> : <FiChevronRight />}
-                </span>
-              </button>
-              {showWelcomeMenu && (
-                <div className="lms-nav-submenu">
-                  {welcomeAdminLinks.map((link) => {
-                    const omWelcomeActive =
-                      link.path.includes('type=owning-manhattan') && isOwningManhattanCourseAdmin;
-                    const welcomeActive = welcomeLinkIsActive(link.path) || omWelcomeActive;
-                    return (
-                      <Link
-                        key={link.path}
-                        to={link.path}
-                        className={`lms-nav-sublink ${welcomeActive ? 'active' : ''}`}
-                      >
-                        {link.label}
-                      </Link>
-                    );
-                  })}
-                </div>
+                  <span className="lms-nav-underlabel">Welcome</span>
+                  <span className="student-starter-panel-more is-collapsed-chevron" aria-hidden="true">
+                    {showWelcomeMenu ? <FiChevronDown /> : <FiChevronRight />}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="student-starter-panel-title">Welcome!</span>
+                  <span className="student-starter-panel-more" aria-hidden="true">
+                    {showWelcomeMenu ? <FiChevronDown /> : <FiChevronRight />}
+                  </span>
+                </>
               )}
-            </div>
-          )}
+            </button>
+            {showWelcomeMenu && (
+              <div className={`student-starter-panel-list ${collapsed ? 'is-collapsed-rail' : ''}`}>
+                {welcomeAdminLinks.map((link) => {
+                  const omWelcomeActive =
+                    link.path.includes('type=owning-manhattan') && isOwningManhattanCourseAdmin;
+                  const welcomeActive = welcomeLinkIsActive(link.path) || omWelcomeActive;
+                  return (
+                    <Link
+                      key={link.path}
+                      to={link.path}
+                      title={collapsed ? link.label : undefined}
+                      className={`student-starter-panel-link ${collapsed ? 'is-collapsed-rail' : ''} ${welcomeActive ? 'active' : ''}`}
+                    >
+                      {collapsed ? (
+                        <span className="lms-nav-underlabel">{link.short || link.label}</span>
+                      ) : (
+                        <span className="student-starter-panel-label">{link.label}</span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <LearningCenterSidebarSection variant="admin" collapsed={collapsed} />
+
           {navItems.map((item) => {
             if (item.path === '/dashboard/admin-community') {
-              if (collapsed) {
-                return (
-                  <NavLink
-                    key={item.path}
-                    to="/dashboard/admin-community/recent"
-                    title={item.label}
-                    className={() =>
-                      `lms-nav-link lms-nav-link-collapsed ${isCommunityAdminRouteActive ? 'active' : ''}`
-                    }
-                  >
-                    <SidebarLinkLabel {...item} collapsed />
-                  </NavLink>
-                );
-              }
               return (
-                <div key={item.path} className="lms-nav-group">
+                <div key={item.path} className={`student-starter-panel ${collapsed ? 'collapsed' : ''}`}>
                   <button
                     type="button"
-                    className={`lms-nav-link lms-nav-link-button ${isCommunityAdminRouteActive ? 'active' : ''}`}
+                    className={`student-starter-panel-head ${isCommunityAdminRouteActive ? 'active' : ''} ${collapsed ? 'lms-nav-link-collapsed collapsed' : ''}`}
                     onClick={() => setCommunityMenuOpen((prev) => !prev)}
+                    title={item.label}
                     aria-expanded={showCommunityMenu}
                   >
-                    <span className="lms-nav-link-main">
-                      <SidebarLinkLabel {...item} />
-                    </span>
-                    <span className="lms-nav-chevron" aria-hidden="true">
-                      {showCommunityMenu ? <FiChevronDown /> : <FiChevronRight />}
-                    </span>
+                    {collapsed ? (
+                      <>
+                        <span className="lms-nav-icon-wrap" aria-hidden="true">
+                          <item.icon className="lms-nav-icon" />
+                        </span>
+                        <span className="lms-nav-underlabel">{item.short}</span>
+                        <span className="student-starter-panel-more is-collapsed-chevron" aria-hidden="true">
+                          {showCommunityMenu ? <FiChevronDown /> : <FiChevronRight />}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="student-starter-panel-title">{item.label}</span>
+                        <span className="student-starter-panel-more" aria-hidden="true">
+                          {showCommunityMenu ? <FiChevronDown /> : <FiChevronRight />}
+                        </span>
+                      </>
+                    )}
                   </button>
                   {showCommunityMenu && (
-                    <div className="lms-nav-submenu">
-                      {communityAdminLinks.map((entry) => {
-                        if (entry.type === 'group' && entry.children) {
-                          return (
-                            <div key={entry.key} className="lms-nav-submenu-group">
-                              <div className="lms-nav-submenu-label">{entry.label}</div>
-                              {entry.children.map((child) => (
-                                <Link
-                                  key={child.path}
-                                  to={child.path}
-                                  className={`lms-nav-sublink lms-nav-sublink-nested ${
-                                    communityChildIsActive(child.path) ? 'active' : ''
-                                  }`}
-                                >
-                                  {child.label}
-                                </Link>
-                              ))}
-                            </div>
-                          );
-                        }
-                        return (
-                          <Link
-                            key={entry.path}
-                            to={entry.path}
-                            className={`lms-nav-sublink ${pathname === entry.path ? 'active' : ''}`}
-                          >
-                            {entry.label}
-                          </Link>
-                        );
-                      })}
+                    <div className={`student-starter-panel-list ${collapsed ? 'is-collapsed-rail' : ''}`}>
+                      {collapsed
+                        ? communityFlatLinks.map((link) => (
+                            <Link
+                              key={link.path}
+                              to={link.path}
+                              title={link.label}
+                              className={`student-starter-panel-link is-collapsed-rail ${communityChildIsActive(link.path) || pathname === link.path ? 'active' : ''}`}
+                            >
+                              <span className="lms-nav-underlabel">{link.short || link.label}</span>
+                            </Link>
+                          ))
+                        : communityAdminLinks.map((entry) => {
+                            if (entry.type === 'group' && entry.children) {
+                              return (
+                                <div key={entry.key} className="lms-nav-submenu-group">
+                                  <div className="lms-nav-submenu-label">{entry.label}</div>
+                                  {entry.children.map((child) => (
+                                    <Link
+                                      key={child.path}
+                                      to={child.path}
+                                      className={`student-starter-panel-link ${
+                                        communityChildIsActive(child.path) ? 'active' : ''
+                                      }`}
+                                    >
+                                      <span className="student-starter-panel-label">{child.label}</span>
+                                    </Link>
+                                  ))}
+                                </div>
+                              );
+                            }
+                            return (
+                              <Link
+                                key={entry.path}
+                                to={entry.path}
+                                className={`student-starter-panel-link ${pathname === entry.path ? 'active' : ''}`}
+                              >
+                                <span className="student-starter-panel-label">{entry.label}</span>
+                              </Link>
+                            );
+                          })}
                     </div>
                   )}
                 </div>
@@ -309,42 +334,48 @@ export default function DashboardSectionPage({ title, children }) {
             }
 
             if (item.path === '/dashboard/feed-management') {
-              if (collapsed) {
-                return (
-                  <NavLink
-                    key={item.path}
-                    to="/dashboard/feed-management/recent"
-                    title={item.label}
-                    className={() => `lms-nav-link lms-nav-link-collapsed ${isFeedRouteActive ? 'active' : ''}`}
-                  >
-                    <SidebarLinkLabel {...item} collapsed />
-                  </NavLink>
-                );
-              }
               return (
-                <div key={item.path} className="lms-nav-group">
+                <div key={item.path} className={`student-starter-panel ${collapsed ? 'collapsed' : ''}`}>
                   <button
                     type="button"
-                    className={`lms-nav-link lms-nav-link-button ${isFeedRouteActive ? 'active' : ''}`}
+                    className={`student-starter-panel-head ${isFeedRouteActive ? 'active' : ''} ${collapsed ? 'lms-nav-link-collapsed collapsed' : ''}`}
                     onClick={() => setFeedMenuOpen((prev) => !prev)}
+                    title={item.label}
                     aria-expanded={showFeedMenu}
                   >
-                    <span className="lms-nav-link-main">
-                      <SidebarLinkLabel {...item} />
-                    </span>
-                    <span className="lms-nav-chevron" aria-hidden="true">
-                      {showFeedMenu ? <FiChevronDown /> : <FiChevronRight />}
-                    </span>
+                    {collapsed ? (
+                      <>
+                        <span className="lms-nav-icon-wrap" aria-hidden="true">
+                          <item.icon className="lms-nav-icon" />
+                        </span>
+                        <span className="lms-nav-underlabel">{item.short}</span>
+                        <span className="student-starter-panel-more is-collapsed-chevron" aria-hidden="true">
+                          {showFeedMenu ? <FiChevronDown /> : <FiChevronRight />}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="student-starter-panel-title">{item.label}</span>
+                        <span className="student-starter-panel-more" aria-hidden="true">
+                          {showFeedMenu ? <FiChevronDown /> : <FiChevronRight />}
+                        </span>
+                      </>
+                    )}
                   </button>
                   {showFeedMenu && (
-                    <div className="lms-nav-submenu">
+                    <div className={`student-starter-panel-list ${collapsed ? 'is-collapsed-rail' : ''}`}>
                       {feedManagementLinks.map((link) => (
                         <Link
                           key={link.path}
                           to={link.path}
-                          className={`lms-nav-sublink ${pathname === link.path ? 'active' : ''}`}
+                          title={collapsed ? link.label : undefined}
+                          className={`student-starter-panel-link ${collapsed ? 'is-collapsed-rail' : ''} ${pathname === link.path ? 'active' : ''}`}
                         >
-                          {link.label}
+                          {collapsed ? (
+                            <span className="lms-nav-underlabel">{link.short || link.label}</span>
+                          ) : (
+                            <span className="student-starter-panel-label">{link.label}</span>
+                          )}
                         </Link>
                       ))}
                     </div>
@@ -384,12 +415,12 @@ export default function DashboardSectionPage({ title, children }) {
             title="Logout"
           >
             <FiLogOut aria-hidden="true" />
-            {!collapsed && <span>Logout</span>}
+            <span className={collapsed ? 'lms-nav-underlabel' : undefined}>Logout</span>
           </button>
         </div>
       </aside>
 
-      <main className="flex-grow-1 p-3 p-sm-4 marg-20">
+      <main className={`flex-grow-1 p-3 p-sm-4 marg-20${collapsed ? ' is-sidebar-collapsed' : ''}`}>
         {children ? (
           children
         ) : (
@@ -404,4 +435,3 @@ export default function DashboardSectionPage({ title, children }) {
     </div>
   );
 }
-
