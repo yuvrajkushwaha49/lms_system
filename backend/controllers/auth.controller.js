@@ -187,11 +187,11 @@ async function issueAndSendVerification(user, { passwordHash } = {}) {
 }
 
 async function ensureRolesSeeded() {
-  await db.query(
-    `INSERT INTO roles (name)
-     VALUES ('CEO'), ('Admin'), ('Instructor'), ('Student')
-     ON DUPLICATE KEY UPDATE name = VALUES(name)`,
-  );
+    await db.query(
+      `INSERT INTO roles (name)
+       VALUES ('CEO'), ('Admin'), ('Instructor'), ('Student')
+       ON DUPLICATE KEY UPDATE name = VALUES(name)`,
+    );
 }
 
 async function resolveDefaultBusinessId() {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from "react";
+import { FiBookmark, FiBookOpen, FiCheck, FiChevronDown, FiClock, FiLayers, FiPlay } from "react-icons/fi";
 import { getApiBaseUrl } from "../../utils/apiBaseUrl";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import StudentDashboardSectionPage from "./StudentDashboardSectionPage";
@@ -8,6 +9,7 @@ import CourseAdaptiveVideo from "../../components/CourseAdaptiveVideo.jsx";
 import { REPORT_REASONS } from "../../constants/reportReasons";
 import { resolvePublicMediaUrl } from "../../utils/mediaUrl";
 import { CourseVideoPlayerSkeleton, CourseWelcomeSkeleton } from "../../components/skeletons/LoadingSkeletons";
+import sellItStarterHero from "../../assets/sellit-starter.png";
 
 const toDurationLabel = (seconds) => {
   const totalSeconds = Number(seconds);
@@ -87,11 +89,13 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
   const [courseCommentReplyDraft, setCourseCommentReplyDraft] = useState("");
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(true);
   const [openSections, setOpenSections] = useState({});
+  const [courseDetailTab, setCourseDetailTab] = useState("content");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const progressSyncRef = useRef({});
   const resumeSeekRef = useRef(null);
   const omCinemaBootstrappedRef = useRef(false);
+  const startHereBootstrappedRef = useRef(false);
 
   const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
@@ -265,6 +269,7 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
 
   useEffect(() => {
     omCinemaBootstrappedRef.current = false;
+    startHereBootstrappedRef.current = false;
   }, [courseId]);
 
   useEffect(() => {
@@ -451,7 +456,7 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
         setCourseCommentReplyDraft("");
         setCourseCommentReplyParentId(null);
       } else {
-        setCommentDraft("");
+      setCommentDraft("");
       }
     } catch (commentError) {
       setError(commentError.message);
@@ -914,6 +919,17 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
   const isDocContent = (lesson) => resolveContentType(lesson) === "doc";
   const activeVideo =
     videos.find((video) => String(video.id) === String(activeVideoId)) || null;
+  const activeLessonNumber = activeVideo
+    ? videos.findIndex((video) => String(video.id) === String(activeVideo.id)) + 1
+    : 0;
+  const courseHeroImage =
+    resolvePublicMediaUrl(
+      course?.thumbnail_url || course?.thumbnail_data_url || "",
+      apiBaseUrl,
+    ) || sellItStarterHero;
+  const courseDescription =
+    String(course?.description || course?.short_description || "").trim() ||
+    "Learn real estate skills, sales strategies and grow with confidence.";
   const activeVideoLikes = activeVideo
     ? videoLikesMap[String(activeVideo.id)] || { count: 0, liked: false }
     : { count: 0, liked: false };
@@ -1093,6 +1109,28 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
     openVideoWithResume(fallbackVideo.id, fallbackProgress);
   };
 
+  useEffect(() => {
+    if (!fromStartHereStarter || autoOpenPlayerMode) return undefined;
+    if (isLoading || videos.length === 0 || error) return undefined;
+    if (startHereBootstrappedRef.current || isPlayerOpen) return undefined;
+    const timer = window.setTimeout(() => {
+      if (startHereBootstrappedRef.current) return;
+      startHereBootstrappedRef.current = true;
+      handleContinueLearning();
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [
+    fromStartHereStarter,
+    autoOpenPlayerMode,
+    isLoading,
+    videos,
+    error,
+    isPlayerOpen,
+    lastWatchedVideo,
+    completedVideoMap,
+    videoProgressMetaMap,
+  ]);
+
   const allSectionsOpen =
     sectionGroups.length > 0 &&
     sectionGroups.every((section) => Boolean(openSections[section.title]));
@@ -1116,7 +1154,7 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
 
   const renderOmCinemaEngagementPanel = () => {
     if (!activeVideo) return null;
-    return (
+  return (
       <div className="px-4 py-3 border-top student-interaction-panel">
         <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
           <div className="d-flex align-items-center gap-2">
@@ -1125,29 +1163,29 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
               style={{ width: 38, height: 38 }}
             >
               {(course?.title || "O").charAt(0).toUpperCase()}
-            </div>
+          </div>
             <div>
               <p className="mb-0 fw-semibold">{course?.title || "Owning Manhattan"}</p>
               <p className="mb-0 text-muted small">Owning Manhattan</p>
-            </div>
+        </div>
           </div>
         </div>
         <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
           <div className="d-flex align-items-center gap-2">
-            <button
-              type="button"
+                <button
+                  type="button"
               className={`btn btn-sm rounded-pill ${activeVideoLikes.liked ? "btn-dark" : "btn-outline-secondary"}`}
               onClick={() => toggleVideoLike(activeVideo.id)}
-            >
+                >
               👍 {activeVideoLikes.count}
-            </button>
-            <button
-              type="button"
+                </button>
+                <button
+                  type="button"
               className={`btn btn-sm rounded-pill ${mediaBookmarkedMap[String(activeVideo.id)] ? "btn-dark" : "btn-outline-secondary"}`}
               onClick={() => toggleMediaBookmark(activeVideo.id)}
-            >
+                >
               {mediaBookmarkedMap[String(activeVideo.id)] ? "★ Saved" : "☆ Save"}
-            </button>
+                </button>
           </div>
           <span className="text-muted small fw-semibold">
             {activeVideoComments.length} Comments
@@ -1166,15 +1204,15 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
           />
           <button type="button" className="btn btn-primary" onClick={() => addComment(activeVideo.id)}>
             Comment
-          </button>
+                </button>
         </div>
         <div className="student-comments-list sell-snack-comments-scroll">
           {activeVideoComments.length === 0 ? (
             <p className="text-muted small mb-0">No comments yet.</p>
           ) : (
             activeVideoComments.map((c) => renderCourseVideoCommentNode(c, activeVideo.id, 0))
-          )}
-        </div>
+              )}
+            </div>
         {activeVideoProcessing ? (
           <div className="alert alert-info py-2 mb-0 mt-2">
             HD qualities are processing. Original video is available now.
@@ -1278,11 +1316,11 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
         onRemoveBookmarkMedia={removeMediaBookmark}
       >
         <div className="container-fluid px-0 sell-snack-detail-page"  >
-          <div className="d-flex justify-content-between align-items-center mb-3">
+                <div className="d-flex justify-content-between align-items-center mb-3">
             <Link to={coursesListPath} className="btn btn-outline-secondary btn-sm">
               Back to Owning Manhattan
             </Link>
-          </div>
+                </div>
 
           {isLoading ? (
             <div className="lms-card p-0 mb-3 border-0 overflow-hidden" style={snackStyleCardShadow}>
@@ -1323,11 +1361,11 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
                       >
                         {activeVideo.title || course?.title || "Owning Manhattan"}
                       </h2>
-                    </div>
-                  </div>
+                </div>
+              </div>
                   <div className="position-relative bg-dark">{renderOmCinemaPlayer()}</div>
                   {renderOmCinemaEngagementPanel()}
-                </div>
+            </div>
               </div>
               <div className="col-xl-4">
                 <div className="lms-card py-4 px-3 sell-snack-suggested-sidebar">
@@ -1373,7 +1411,7 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
                                     <p className="mb-0 small text-muted mt-1">
                                       👍 {Number(item.likes_count || 0)} · 💬 {Number(item.comments_count || 0)}
                                     </p>
-                                  </div>
+                </div>
                                 </button>
                               </li>
                             );
@@ -1417,16 +1455,16 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
                                   </p>
                                   <p className="mb-0 small text-muted mt-1">
                                     👍 {Number(likeEntry.count || 0)} · 👁 {viewCount}
-                                  </p>
-                                </div>
+                  </p>
+                </div>
                               </button>
                             </li>
                           );
                         })}
                       </ul>
                     )}
-                  </div>
-                </div>
+              </div>
+            </div>
               </div>
             </div>
           )}
@@ -1453,17 +1491,7 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
       bookmarkMediaFiles={mediaBookmarkItems}
       onRemoveBookmarkMedia={removeMediaBookmark}
     >
-      <div
-        className="container-fluid px-0 student-course-detail-page"
-        style={{ maxWidth: 1140 }}
-      >
-        <div className="border-bottom pb-3 mb-4">
-          <div className="d-flex justify-content-between align-items-center gap-3 flex-wrap">
-            <h1 className="h3 mb-0  txts-sty">{course?.title || "Course"}</h1>
-           
-          </div>
-        </div>
-
+      <div className="container-fluid px-0 student-course-detail-page student-learning-page">
         {error && <div className="alert alert-danger mb-3">{error}</div>}
         {courseCommentNotice && (
           <div className="alert alert-success mb-3">{courseCommentNotice}</div>
@@ -1473,142 +1501,178 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
           <CourseWelcomeSkeleton />
         ) : (
           <>
-            <div className="d-flex justify-content-between align-items-center mb-4 student-course-welcome">
-              <h2 className="display-6 fw-bold mb-0">Welcome, {userName}</h2>
-
-              {progressPercent === 100 ? (
-                <button
-                  type="button"
-                  className="btn btn-success rounded-pill px-4 fw-semibold"
-                  onClick={handleContinueLearning}
-                  disabled
-                >
-                  Complete Course
-                </button>
-              ) : progressPercent > 0 ? (
-                <button
-                  type="button"
-                  className="btn btn-primary rounded-pill px-4 fw-semibold"
-                  onClick={handleContinueLearning}
-                >
-                  Continue
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn btn-outline-Start rounded-pill px-4 fw-semibold"
-                  onClick={handleContinueLearning}
-                >
-                  Start
-                </button>
-              )}
-            </div>
-
-            <div className="mb-4">
-              <h3 className="h4 fw-bold mb-3">Progress</h3>
-              <div className="lms-card p-4 student-progress-card">
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <p className="mb-0 fs-5">
+            <section
+              className="student-learning-hero"
+              style={{
+                "--learning-hero-image": `url(${JSON.stringify(courseHeroImage)})`,
+              }}
+            >
+              <div
+                className="student-learning-hero-copy"
+                style={{ "--learning-progress": `${progressPercent}%` }}
+                aria-label={`Progress ${progressPercent}%`}
+              >
+                <h1 className="student-learning-hero-title">
+                  {course?.title || "Sell It Starter"}
+                </h1>
+                <p className="student-learning-hero-lede">{courseDescription}</p>
+                <ul className="student-learning-hero-meta">
+                  <li>
+                    <FiLayers aria-hidden="true" />
+                    {sectionGroups.length} section
+                    {sectionGroups.length === 1 ? "" : "s"}
+                  </li>
+                  <li>
+                    <FiPlay aria-hidden="true" />
+                    {videos.length} lesson{videos.length === 1 ? "" : "s"}
+                  </li>
+                  <li>
+                    <FiClock aria-hidden="true" />
+                    {toDurationLabel(totalDurationSeconds)} total
+                  </li>
+                  <li>
+                    <FiCheck aria-hidden="true" />
                     Completed {completedLessons} of {videos.length} lessons
-                  </p>
-                  <strong className="fs-5">{progressPercent}%</strong>
-                </div>
-                <div
-                  className="progress student-progress-track"
-                  style={{ height: 10 }}
-                >
-                  <div
-                    className="progress-bar bg-dark"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
+                  </li>
+                </ul>
               </div>
-            </div>
-
-            {!fromStartHereStarter && (
-              <div className="row g-3 mb-4">
-                <div className="col-12 col-md-4">
-                  <div className="lms-card p-3 student-summary-card">
-                    <p className="small text-uppercase text-muted mb-1">
-                      Sections
-                    </p>
-                    <p className="h4 mb-0 fw-bold">{sectionGroups.length}</p>
-                  </div>
-                </div>
-                <div className="col-12 col-md-4">
-                  <div className="lms-card p-3 student-summary-card">
-                    <p className="small text-uppercase text-muted mb-1">
-                      Lessons
-                    </p>
-                    <p className="h4 mb-0 fw-bold">{videos.length}</p>
-                  </div>
-                </div>
-                <div className="col-12 col-md-4">
-                  <div className="lms-card p-3 student-summary-card">
-                    <p className="small text-uppercase text-muted mb-1">
-                      Total Duration
-                    </p>
-                    <p className="h4 mb-0 fw-bold">
-                      {toDurationLabel(totalDurationSeconds)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="mb-3">
-              <h3 className="h3 fw-bold mb-1">Content</h3>
-              <div className="d-flex justify-content-between align-items-center text-muted flex-wrap gap-2">
-                <span>
-                  {sectionGroups.length} sections • {videos.length} lessons •{" "}
-                  {toDurationLabel(totalDurationSeconds)}
+              <div className="student-learning-hero-visual" aria-hidden="true">
+                <span className="student-learning-hero-script">
+                  Learn
+                  <br />
+                  Apply
+                  <br />
+                  Grow
                 </span>
+              </div>
+            </section>
+
+            {/* <div className="student-learning-tabs-row">
+              <div
+                className="student-learning-tabs"
+                role="tablist"
+                aria-label="Course sections"
+              >
+                {[
+                  { key: "content", label: "Content" },
+                  { key: "about", label: "About" },
+                  { key: "resources", label: "Resources" },
+                  { key: "discussion", label: "Discussion" },
+                ].map((tab) => (
+                <button
+                    key={tab.key}
+                  type="button"
+                    role="tab"
+                    aria-selected={courseDetailTab === tab.key}
+                    className={`student-learning-tab${
+                      courseDetailTab === tab.key ? " is-active" : ""
+                    }`}
+                    onClick={() => setCourseDetailTab(tab.key)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              {courseDetailTab === "content" ? (
                 <button
                   type="button"
-                  className="btn btn-sm btn-outline-secondary rounded-pill px-3"
+                  className="student-learning-expand-btn"
                   onClick={toggleAllSections}
                 >
                   {allSectionsOpen
                     ? "Collapse all sections"
                     : "Expand all sections"}
+                  <FiChevronDown aria-hidden="true" />
                 </button>
-              </div>
-            </div>
+              ) : null}
+            </div> */}
 
-            {isPlayerOpen && activeVideo ? (
-              <div className="row g-3 align-items-start">
+            {courseDetailTab !== "content" ? (
+              <div className="lms-card student-learning-tab-panel">
+                {courseDetailTab === "about" ? (
+                  <>
+                    <h3>About this course</h3>
+                    <p className="mb-0">{courseDescription}</p>
+                  </>
+                ) : courseDetailTab === "resources" ? (
+                  <>
+                    <h3>Resources</h3>
+                    <p className="mb-0 text-muted">
+                      Course resources will appear here as they are added.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3>Discussion</h3>
+                    <p className="mb-0 text-muted">
+                      Open a lesson to join the discussion and leave comments.
+                    </p>
+                  </>
+                )}
+              </div>
+            ) : isPlayerOpen && activeVideo ? (
+              <div className="row g-3 align-items-start student-learning-layout">
                 <div className="col-12 col-xl-8">
-                  <div
-                    className="lms-card p-0 overflow-hidden border-0 student-video-shell"
-                    style={{ boxShadow: "0 10px 28px rgba(15,23,42,0.08)" }}
-                  >
-                    <div
-                      className="d-flex justify-content-between align-items-center p-3 border-bottom gap-3 flex-wrap"
-                      style={{ background: "linear-gradient(180deg,#f8fbff,#ffffff)" }}
-                    >
+                  <div className="lms-card p-0 overflow-hidden border-0 student-video-shell student-learning-lesson-card">
+                    <div className="student-learning-lesson-head">
                       <div className="min-w-0">
-                        <h2 className="h5 fw-bold mb-0 text-truncate" title={activeVideo.title || ""}>
+                        <p className="student-learning-lesson-kicker mb-1">
+                          Lesson {activeLessonNumber || 1} of {videos.length || 1}
+                        </p>
+                        <h2
+                          className="student-learning-lesson-title"
+                          title={activeVideo.title || ""}
+                        >
                           {activeVideo.title || "Untitled lesson"}
                         </h2>
-                        <p className="mb-0 text-muted small mt-1">
-                          Lesson{" "}
-                          {videos.findIndex(
-                            (video) => String(video.id) === String(activeVideo.id),
-                          ) + 1}{" "}
-                          of {videos.length} · Watch Video
-                        </p>
-                        <p className="small text-muted mb-0 mt-1">
-                          {formatCountLabel(activeVideoViews)} views · Published{" "}
+                        <p className="student-learning-lesson-meta mb-0">
+                          <span className="student-learning-watch-label">
+                            <FiPlay aria-hidden="true" />
+                            Watch Video
+                          </span>
+                          <span>
+                            {formatCountLabel(activeVideoViews)} view
+                            {Number(activeVideoViews) === 1 ? "" : "s"} • Published{" "}
                           {formatPublishedDate(activeVideo?.created_at)}
+                          </span>
                         </p>
                       </div>
+                      <div className="student-learning-lesson-actions">
                       <button
                         type="button"
-                        className="btn btn-outline-secondary btn-sm flex-shrink-0"
-                        onClick={() => setIsPlayerOpen(false)}
-                      >
-                        Back to content
+                          className={`student-learning-icon-btn${
+                            mediaBookmarkedMap[String(activeVideo.id)]
+                              ? " is-active"
+                              : ""
+                          }`}
+                          aria-label="Bookmark lesson"
+                          onClick={() => toggleMediaBookmark(activeVideo.id)}
+                        >
+                          <FiBookmark />
                       </button>
+                        {/* <button
+                          type="button"
+                          className={`student-learning-complete-btn${
+                            completedVideoMap[String(activeVideo.id)]
+                              ? " is-done"
+                              : ""
+                          }`}
+                          onClick={() => {
+                            markVideoCompleted(activeVideo.id);
+                            saveVideoProgress(
+                              activeVideo.id,
+                              Number.MAX_SAFE_INTEGER,
+                              "completed",
+                              Number(activeVideo?.duration_seconds || 0),
+                            );
+                          }}
+                        >
+                          <FiCheck aria-hidden="true" />
+                          {completedVideoMap[String(activeVideo.id)]
+                            ? "Completed"
+                            : "Mark as complete"}
+                        </button> */}
+                    </div>
                     </div>
                     <div className="bg-black student-video-frame position-relative">
                       {resolvePlayableUrl(activeVideo) ? (
@@ -1618,47 +1682,47 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
                           if (isHls) {
                             return (
                               <CourseAdaptiveVideo
-                                key={activeVideo.id}
+                          key={activeVideo.id}
                                 src={playable}
-                                controls
-                                autoPlay
-                                onTimeUpdate={(event) =>
-                                  handleVideoProgress(event, activeVideo.id)
-                                }
-                                onLoadedMetadata={(event) => {
-                                  const player = event?.currentTarget;
-                                  const duration = Number(
-                                    event?.currentTarget?.duration || 0,
-                                  );
-                                  const resumeSeconds = Number(
-                                    resumeSeekRef.current || 0,
-                                  );
-                                  if (resumeSeconds > 0 && duration > 0) {
-                                    player.currentTime = Math.min(
-                                      resumeSeconds,
-                                      Math.max(0, duration - 1),
-                                    );
-                                  }
-                                  resumeSeekRef.current = null;
-                                  if (duration > 0) {
-                                    saveVideoProgress(
-                                      activeVideo.id,
-                                      player.currentTime || 0,
-                                      "in_progress",
-                                      duration,
-                                    );
-                                  }
-                                }}
-                                onEnded={() => {
-                                  markVideoCompleted(activeVideo.id);
-                                  saveVideoProgress(
-                                    activeVideo.id,
-                                    Number.MAX_SAFE_INTEGER,
-                                    "completed",
-                                    Number(activeVideo?.duration_seconds || 0),
-                                  );
-                                  if (autoPlayEnabled) playNextVideo(activeVideo.id);
-                                }}
+                          controls
+                          autoPlay
+                          onTimeUpdate={(event) =>
+                            handleVideoProgress(event, activeVideo.id)
+                          }
+                          onLoadedMetadata={(event) => {
+                            const player = event?.currentTarget;
+                            const duration = Number(
+                              event?.currentTarget?.duration || 0,
+                            );
+                            const resumeSeconds = Number(
+                              resumeSeekRef.current || 0,
+                            );
+                            if (resumeSeconds > 0 && duration > 0) {
+                              player.currentTime = Math.min(
+                                resumeSeconds,
+                                Math.max(0, duration - 1),
+                              );
+                            }
+                            resumeSeekRef.current = null;
+                            if (duration > 0) {
+                              saveVideoProgress(
+                                activeVideo.id,
+                                player.currentTime || 0,
+                                "in_progress",
+                                duration,
+                              );
+                            }
+                          }}
+                          onEnded={() => {
+                            markVideoCompleted(activeVideo.id);
+                            saveVideoProgress(
+                              activeVideo.id,
+                              Number.MAX_SAFE_INTEGER,
+                              "completed",
+                              Number(activeVideo?.duration_seconds || 0),
+                            );
+                            if (autoPlayEnabled) playNextVideo(activeVideo.id);
+                          }}
                                 style={{ width: "100%", maxHeight: "min(70vh, 720px)" }}
                               />
                             );
@@ -1809,7 +1873,7 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
                   </div>
                 </div>
 
-                <div className="col-12 col-xl-4">
+                <div className="col-12 col-xl-4 student-learning-rail">
                   <div className="lms-card p-0 overflow-hidden student-upnext-panel">
                     <div className="d-flex justify-content-between align-items-center px-3 py-3 border-bottom">
                       <div>
@@ -1935,7 +1999,7 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
                                         width: 20,
                                         height: 20,
                                         background: isActive
-                                          ? "#2563eb"
+                                          ? "#5b4df5"
                                           : isCompleted
                                             ? "#16a34a"
                                             : "#9ca3af",
@@ -1965,10 +2029,23 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
                       </div>
                     ))}
                   </div>
+
+                  <aside className="student-learning-quote-card">
+                    <span className="student-learning-quote-mark" aria-hidden="true">
+                      ”
+                    </span>
+                    <p className="student-learning-quote-text">
+                      Small steps every day lead to big results.
+                    </p>
+                    <span className="student-learning-quote-rule" aria-hidden="true" />
+                    <p className="student-learning-quote-footer mb-0">
+                      Keep learning. Keep growing.
+                    </p>
+                  </aside>
                 </div>
               </div>
             ) : (
-              <div className="lms-card p-0 overflow-hidden">
+              <div className="lms-card p-0 overflow-hidden student-learning-content-list">
                 {sectionGroups.length === 0 ? (
                   <div className="p-4 text-muted">
                     No lessons available for this course yet.
@@ -1985,7 +2062,7 @@ export default function StudentCourseDetailPage({ courseIdOverride = null, backP
                         onClick={() => toggleSectionOpen(section.title)}
                       >
                         <div className="d-flex align-items-center gap-2">
-                         <span
+                          <span
                             className="text-muted small d-flex align-items-center justify-content-center"
                             style={{ width: 16 }}
                           >

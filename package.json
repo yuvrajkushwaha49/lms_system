@@ -1,0 +1,8 @@
+{
+  "name": "lms_system",
+  "private": true,
+  "description": "Root scripts for the LMS monorepo (frontend + backend packages live in subfolders)",
+  "scripts": {
+    "ai:context": "node scripts/generate-ai-context.cjs"
+  }
+}

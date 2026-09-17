@@ -218,17 +218,17 @@ export default function CourseManagementPage() {
     setIsSubmitting(true);
     try {
       const courseBody = {
-        title: formData.title.trim(),
-        description: formData.description.trim(),
-        price: numericPrice,
-        delivery_mode: formData.deliveryMode,
+          title: formData.title.trim(),
+          description: formData.description.trim(),
+          price: numericPrice,
+          delivery_mode: formData.deliveryMode,
         recorded_type:
           formData.deliveryMode === 'Recorded'
             ? formData.recordedType || 'Chapter Wise/Topic Wise'
             : null,
-        pricing_type: formData.pricingType,
-        free_for_members: formData.pricingType === 'Free for Members',
-        course_type: formData.courseType,
+          pricing_type: formData.pricingType,
+          free_for_members: formData.pricingType === 'Free for Members',
+          course_type: formData.courseType,
       };
 
       if (isEditMode) {
@@ -337,13 +337,13 @@ export default function CourseManagementPage() {
           setError(
             `Course was created, but attaching the video failed: ${attachErr.message}. Open the course from the list to upload the video.`,
           );
-          setFormData({
-            title: '',
-            description: '',
-            price: '',
-            deliveryMode: 'Recorded',
+      setFormData({
+        title: '',
+        description: '',
+        price: '',
+        deliveryMode: 'Recorded',
             recordedType: defaultRecordedTypeBySidebar,
-            pricingType: 'Paid',
+        pricingType: 'Paid',
             courseType: defaultCourseTypeBySidebar,
           });
           setOmVideoFile(null);
@@ -476,22 +476,22 @@ export default function CourseManagementPage() {
   const filterOnlyCourses = useMemo(() => {
     if (sidebarTypeFilter === 'all') return courses;
     return courses.filter((course) => {
-      const normalizedCourseType = String(course.course_type || '').toLowerCase();
-      const isShortByRecordedType = isShortCourseType(course.recorded_type);
-      const isShortByType = isShortByCourseType(course.course_type) || isShortByRecordedType;
-      if (sidebarTypeFilter === 'short') {
-        return isShortByType;
-      }
+    const normalizedCourseType = String(course.course_type || '').toLowerCase();
+    const isShortByRecordedType = isShortCourseType(course.recorded_type);
+    const isShortByType = isShortByCourseType(course.course_type) || isShortByRecordedType;
+    if (sidebarTypeFilter === 'short') {
+      return isShortByType;
+    }
       if (sidebarTypeFilter === 'owning-manhattan') {
         return isOwningManhattanCourse(course);
-      }
-      if (sidebarTypeFilter === 'chapter') {
-        if (isShortByType) return false;
+    }
+    if (sidebarTypeFilter === 'chapter') {
+      if (isShortByType) return false;
         if (isOwningManhattanCourse(course)) return false;
-        return normalizedCourseType.includes('chapter') || isChapterCourseType(course.recorded_type, course.delivery_mode);
-      }
-      return true;
-    });
+      return normalizedCourseType.includes('chapter') || isChapterCourseType(course.recorded_type, course.delivery_mode);
+    }
+    return true;
+  });
   }, [courses, sidebarTypeFilter]);
 
   const filteredCourses = useMemo(() => {
@@ -684,10 +684,10 @@ export default function CourseManagementPage() {
                     <h1 className="lms-om-admin-title-premium mb-0">
                       Owning <span className="lms-om-admin-title-accent">Manhattan</span>
                     </h1>
-                  </div>
+            </div>
                   <div className="d-flex flex-column align-items-stretch align-items-xl-end gap-3  w-100 w-xl-auto">
-                    <button
-                      type="button"
+              <button
+                type="button"
                       className="btn lms-om-admin-cta-premium rounded-pill px-4 py-2 fw-semibold border-0"
                       onClick={openOwningManhattanCreateModal}
                     >
@@ -872,18 +872,18 @@ export default function CourseManagementPage() {
                       type="button"
                       onClick={openCreateModal}
                       className="btn btn-warning fw-bold rounded-pill px-4 shadow-sm"
-                    >
-                      + Add course
-                    </button>
-                  </div>
-                </div>
-              </div>
+              >
+                + Add course
+              </button>
+            </div>
+          </div>
+        </div>
 
               {error ? (
                 <div className="alert alert-danger py-2 mb-3 d-flex align-items-center justify-content-between gap-2">
                   <span>{error}</span>
                   <button type="button" className="btn-close" aria-label="Close" onClick={() => setError('')} />
-                </div>
+          </div>
               ) : null}
               {feedback ? (
                 <div className="alert alert-success py-2 mb-3 d-flex align-items-center justify-content-between gap-2" role="alert">
@@ -893,20 +893,20 @@ export default function CourseManagementPage() {
               ) : null}
 
               <div className="lms-card p-3 p-md-4 mb-3 rounded-4 border-0 shadow-sm">
-                <div className="row g-3 mb-3">
-                  <div className="col-12 col-md-6">
+          <div className="row g-3 mb-3">
+            <div className="col-12 col-md-6">
                     <div className="rounded-4 border bg-light bg-opacity-50 p-3 h-100">
                       <p className="mb-1 text-uppercase small text-muted fw-semibold">Live</p>
                       <h3 className="h5 mb-3 fw-bold">{liveCoursesCount} <span className="fw-normal text-muted fs-6">courses</span></h3>
-                      <div className="d-flex flex-wrap gap-2">
+                <div className="d-flex flex-wrap gap-2">
                         <span className="badge rounded-pill text-bg-light border">CRUD</span>
                         <span className="badge rounded-pill text-bg-light border">Analytics</span>
                         <span className="badge rounded-pill text-bg-light border">Likes</span>
                         <span className="badge rounded-pill text-bg-light border">Comments</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-6">
+                </div>
+              </div>
+            </div>
+            <div className="col-12 col-md-6">
                     <div className="rounded-4 border bg-light bg-opacity-50 p-3 h-100">
                       <p className="mb-1 text-uppercase small text-muted fw-semibold">Recorded</p>
                       <h3 className="h5 mb-3 fw-bold">{recordedCoursesCount} <span className="fw-normal text-muted fs-6">courses</span></h3>
@@ -933,22 +933,22 @@ export default function CourseManagementPage() {
                         <span className="badge rounded-pill text-bg-light border">Analytics</span>
                         <span className="badge rounded-pill text-bg-light border">Likes</span>
                         <span className="badge rounded-pill text-bg-light border">Comments</span>
-                      </div>
-                    </div>
-                  </div>
                 </div>
+                </div>
+              </div>
+            </div>
                 <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 bg-body-secondary bg-opacity-25 rounded-4 p-3">
-                  <div className="w-100" style={{ maxWidth: 520 }}>
+            <div className="w-100" style={{ maxWidth: 520 }}>
                     <label htmlFor="course-mgmt-search" className="form-label small text-muted mb-1 d-md-none">Search</label>
-                    <input
+              <input
                       id="course-mgmt-search"
                       type="search"
-                      value={searchTerm}
-                      onChange={(event) => setSearchTerm(event.target.value)}
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
                       placeholder="Search by title, course type, pricing, description, price..."
                       className="form-control form-control-lg border-0 shadow-sm"
-                    />
-                  </div>
+              />
+            </div>
                   <div className="text-md-end">
                     <span className="badge rounded-pill bg-white text-secondary border px-3 py-2 fw-medium">
                       Showing <span className="text-dark">{filteredCourses.length}</span>
@@ -959,13 +959,13 @@ export default function CourseManagementPage() {
                       )}
                     </span>
                   </div>
-                </div>
-              </div>
+          </div>
+        </div>
 
               <div className="lms-card p-0 mb-3 overflow-hidden rounded-4 border-0 shadow-sm">
-                <div className="table-responsive">
+          <div className="table-responsive">
                   <table className="table table-hover align-middle mb-0 small lms-course-mgmt-table">
-                    <thead className="table-light">
+              <thead className="table-light">
                       <tr className="text-secondary text-uppercase small">
                         <th className="ps-4 py-3 fw-semibold border-0">Title</th>
                         <th className="py-3 fw-semibold border-0">Mode</th>
@@ -976,32 +976,32 @@ export default function CourseManagementPage() {
                         <th className="py-3 fw-semibold border-0">Price</th>
                         <th className="d-none d-md-table-cell py-3 fw-semibold border-0">Created</th>
                         <th className="text-end pe-4 py-3 fw-semibold border-0">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {isLoadingCourses ? (
+                </tr>
+              </thead>
+              <tbody>
+                {isLoadingCourses ? (
                         <TableSkeleton rows={6} cols={9} />
-                      ) : filteredCourses.length === 0 ? (
-                        <tr>
+                ) : filteredCourses.length === 0 ? (
+                  <tr>
                           <td colSpan={9} className="text-center py-5 px-4 text-muted">
                             <div className="mx-auto" style={{ maxWidth: '28rem' }}>
-                              {sidebarTypeFilter === 'short'
-                                ? 'No short courses found.'
-                                : sidebarTypeFilter === 'chapter'
-                                  ? 'No chapter wise courses found.'
-                                  : 'No courses found.'}
+                      {sidebarTypeFilter === 'short'
+                        ? 'No short courses found.'
+                        : sidebarTypeFilter === 'chapter'
+                          ? 'No chapter wise courses found.'
+                          : 'No courses found.'}
                             </div>
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredCourses.map((course) => (
-                          <tr key={course.id || course.title}>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredCourses.map((course) => (
+                    <tr key={course.id || course.title}>
                             <td className="ps-4 fw-semibold text-dark">{course.title || '-'}</td>
-                            <td>
+                      <td>
                               <span className={`badge rounded-pill ${(course.delivery_mode || 'Recorded') === 'Live' ? 'text-bg-warning' : 'text-bg-secondary'}`}>
-                                {course.delivery_mode || 'Recorded'}
-                              </span>
-                            </td>
+                          {course.delivery_mode || 'Recorded'}
+                        </span>
+                      </td>
                             <td className="d-none d-md-table-cell">
                               {course.course_type === 'OwningManhattan' ? (
                                 <span className="badge rounded-pill text-bg-primary">Owning Manhattan</span>
@@ -1014,16 +1014,16 @@ export default function CourseManagementPage() {
                             </td>
                             <td>
                               <span className={`badge rounded-pill ${((course.pricing_type || '').toLowerCase() === 'free for members' || Number(course.price) === 0) ? 'text-bg-success' : 'text-bg-danger'}`}>
-                                {course.pricing_type || (Number(course.price) === 0 ? 'Free for Members' : 'Paid')}
-                              </span>
-                            </td>
+                          {course.pricing_type || (Number(course.price) === 0 ? 'Free for Members' : 'Paid')}
+                        </span>
+                      </td>
                             <td className="text-muted text-break" style={{ maxWidth: 240 }}>{course.description || '—'}</td>
                             <td><span className="badge rounded-pill text-bg-info">{Number(course.price) === 0 ? 'Free' : formatPrice(course.price)}</span></td>
                             <td className="d-none d-md-table-cell text-muted">{formatDate(course.created_at)}</td>
-                            <td className="text-end pe-4">
+                      <td className="text-end pe-4">
                               <div className="d-inline-flex justify-content-end gap-1">
-                                <button
-                                  type="button"
+                        <button
+                          type="button"
                                   className="btn btn-outline-primary btn-sm rounded-circle d-inline-flex align-items-center justify-content-center p-0"
                                   style={{ width: 32, height: 32 }}
                                   disabled={viewLoadingCourseId === String(course.id)}
@@ -1036,7 +1036,7 @@ export default function CourseManagementPage() {
                                   ) : (
                                     <FiEye size={15} aria-hidden />
                                   )}
-                                </button>
+                        </button>
                                 <button
                                   type="button"
                                   className="btn btn-outline-secondary btn-sm rounded-circle d-inline-flex align-items-center justify-content-center p-0"
@@ -1058,14 +1058,14 @@ export default function CourseManagementPage() {
                                   <FiTrash2 size={14} aria-hidden />
                                 </button>
                               </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
             </div>
           </>
         )}
@@ -1229,7 +1229,7 @@ export default function CourseManagementPage() {
                           />
                           <small className="text-muted">Uploaded after the catalog row is created; multi-quality encoding runs in the background.</small>
                           {omVideoFile ? <div className="form-text">{omVideoFile.name}</div> : null}
-                        </div>
+                    </div>
                         <div className="mb-0">
                           <label className="form-label fw-semibold">
                             Upload thumbnail <span className="text-danger">*</span>

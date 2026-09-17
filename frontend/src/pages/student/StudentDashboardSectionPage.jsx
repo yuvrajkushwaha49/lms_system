@@ -5,6 +5,7 @@ import { SidebarLinksSkeleton } from "../../components/skeletons/LoadingSkeleton
 
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import logo from "../../assets/logo.png";
+import smallLogo from "../../assets/small_logo.png";
 import {
   FiArrowUpRight,
   FiAward,
@@ -12,15 +13,16 @@ import {
   FiBookmark,
   FiCalendar,
   FiChevronDown,
+  FiChevronLeft,
   FiChevronRight,
   FiGrid,
   FiHome,
   FiLayers,
   FiLogOut,
-  FiMenu,
   FiMessageCircle,
   FiSearch,
   FiShoppingBag,
+  FiSun,
   FiUser,
   FiUsers,
 } from "react-icons/fi";
@@ -393,11 +395,12 @@ export default function StudentDashboardSectionPage({
             ? "home"
             : null;
   const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const userInitial =
-    String(user?.name || "S")
+  const userDisplayName =
+    String(user?.name || "Student")
       .trim()
-      .charAt(0)
-      .toUpperCase() || "S";
+      .split(/\s+/)[0] || "Student";
+  const userInitial =
+    userDisplayName.charAt(0).toUpperCase() || "S";
 
   useEffect(() => {
     if (isStarterRouteActive) {
@@ -500,11 +503,15 @@ export default function StudentDashboardSectionPage({
       <div className="d-flex min-vh-100">
         <aside
           ref={sidebarRef}
-          className={`d-none d-lg-flex flex-column text-white lms-bg-purple lms-sidebar ${collapsed ? "lms-sidebar-collapsed" : ""}`}
+          className={`d-none d-lg-flex flex-column lms-sidebar ${collapsed ? "lms-sidebar-collapsed" : ""}`}
         >
           <div className="lms-sidebar-top">
             <div className={`lms-sidebar-brand ${collapsed ? "is-collapsed" : ""}`}>
-              <img src={logo} alt="Workians" className="lms-sidebar-logo" />
+              <img
+                src={collapsed ? smallLogo : logo}
+                alt="Workians"
+                className={`lms-sidebar-logo${collapsed ? " is-collapsed" : ""}`}
+              />
             </div>
             <button
               type="button"
@@ -514,7 +521,7 @@ export default function StudentDashboardSectionPage({
               aria-expanded={!collapsed}
               aria-label={collapsed ? "Expand sidebar" : "Minimize sidebar"}
             >
-              <FiMenu />
+              {collapsed ? <FiChevronRight /> : <FiChevronLeft />}
             </button>
           </div>
 
@@ -531,7 +538,7 @@ export default function StudentDashboardSectionPage({
                 `lms-nav-link student-sidebar-feed-link ${collapsed ? "lms-nav-link-collapsed" : ""} ${linkIsActive("/dashboard/feed") ? "active" : ""}`
               }
             >
-              <SidebarLinkLabel icon={FiLayers} label="Feed" short="Feed" collapsed={collapsed} />
+              <SidebarLinkLabel icon={FiHome} label="Feed" short="Feed" collapsed={collapsed} />
             </NavLink>
             )}
 
@@ -783,7 +790,11 @@ export default function StudentDashboardSectionPage({
                       to={item.path}
                       title={collapsed ? item.label : undefined}
                       className={() =>
-                        `student-starter-panel-link ${collapsed ? "is-collapsed-rail" : ""} ${linkIsActive(item.path) ? "active" : ""}`
+                        `student-starter-panel-link ${
+                          item.key === "sell" || item.path === "/dashboard/student-community"
+                            ? "student-starter-panel-link--community-cta"
+                            : ""
+                        } ${collapsed ? "is-collapsed-rail" : ""} ${linkIsActive(item.path) ? "active" : ""}`
                       }
                     >
                       <span className="student-starter-panel-icon" aria-hidden="true">
@@ -932,15 +943,13 @@ export default function StudentDashboardSectionPage({
 
 
 
-          </div>
-
           {!collapsed && (
             <div className="lms-sidebar-card">
-              <span className="lms-sidebar-card-kicker">Membership Flow</span>
-              <strong className="lms-sidebar-card-title">Start, learn, and track wins</strong>
-              <p className="lms-sidebar-card-copy mb-0">
-                Jump into lessons, workshops, and saved resources from one clearer sidebar.
-              </p>
+              <p className="lms-sidebar-card-copy">A community for bigger thinkers.</p>
+              <button type="button" className="lms-sidebar-card-cta">
+                Let&apos;s Grow
+                <FiChevronRight aria-hidden="true" />
+              </button>
             </div>
           )}
 
@@ -957,61 +966,57 @@ export default function StudentDashboardSectionPage({
             </button>
           </div>
           )}
+          </div>
         </aside>
 
         <div className={`flexss-fs p-3 p-sm-4 position-relative${collapsed ? " is-sidebar-collapsed" : ""}`}>
           <div className="student-panel-top-header mb-4">
-            <div className="student-panel-top-nav">
-              {navVisibilityReady
-                ? visibleTopHeaderLinks.map((item) => (
-                    <button
-                      key={item.key}
-                      type="button"
-                      className={`student-top-nav-link ${activeTopHeaderKey === item.key ? "active" : ""}`}
-                      onClick={() => navigate(item.path)}
-                    >
-                      {item.label}
-                    </button>
-                  ))
-                : null}
-            </div>
+            <label className="student-search-chip">
+              <FiSearch className="student-search-icon" aria-hidden="true" />
+              <input
+                type="search"
+                value={headerSearch}
+                onChange={handleHeaderSearchChange}
+                placeholder="Search people, posts, courses..."
+                className="student-search-input"
+                aria-label="Search people, posts, courses"
+              />
+            </label>
             <div className="student-panel-top-actions">
-              <div className="student-search-chip">
-                <input
-                  type="search"
-                  value={headerSearch}
-                  onChange={handleHeaderSearchChange}
-                  placeholder="Search..."
-                  className="student-search-input"
-                  aria-label="Search"
-                />
-              </div>
               <button
                 type="button"
                 className="student-icon-btn"
+                aria-label="Toggle theme"
+              >
+                <FiSun />
+              </button>
+              <button
+                type="button"
+                className="student-icon-btn student-icon-btn--notify"
                 aria-label="Notifications"
               >
                 <FiBell />
+                <span className="student-notify-dot" aria-hidden="true" />
               </button>
-
               <button
                 type="button"
                 className="student-icon-btn"
                 aria-label="Messages"
                 onClick={() => {
                   setShowProfileMenu(false);
+                  setShowBookmarkPanel(false);
                   setShowMessagePanel((prev) => !prev);
                 }}
               >
                 <FiMessageCircle />
               </button>
-
               <button
                 type="button"
                 className="student-icon-btn"
                 aria-label="Bookmarks"
                 onClick={() => {
                   setShowProfileMenu(false);
+                  setShowMessagePanel(false);
                   setShowBookmarkPanel((prev) => !prev);
                 }}
               >
@@ -1021,13 +1026,19 @@ export default function StudentDashboardSectionPage({
               <div className="student-profile-menu-wrap" ref={profileMenuRef}>
                 <button
                   type="button"
-                  className="student-avatar-btn"
+                  className="student-profile-trigger"
                   aria-label="Profile"
                   aria-expanded={showProfileMenu}
                   aria-haspopup="menu"
-                  onClick={() => setShowProfileMenu((prev) => !prev)}
+                  onClick={() => {
+                    setShowMessagePanel(false);
+                    setShowBookmarkPanel(false);
+                    setShowProfileMenu((prev) => !prev);
+                  }}
                 >
-                  {userInitial ? userInitial : <FiUser />}
+                  <span className="student-avatar-btn" aria-hidden="true">
+                    {userInitial ? userInitial : <FiUser />}
+                  </span>
                 </button>
                 {showProfileMenu && (
                   <div className="student-profile-menu" role="menu">
